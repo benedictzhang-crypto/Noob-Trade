@@ -1486,18 +1486,11 @@ async function submitSignIn() {
     }
 
     csrfToken.value = payload.csrfToken || csrfToken.value
-
-    // Reload once and hydrate from the server-side session so stale page state
-    // cannot trap the user on the sign-in screen after a successful login.
-    if (typeof window !== 'undefined') {
-      window.location.reload()
-      return
-    }
-
     applyAuthenticatedState(
       payload.user,
       payload.message || `Welcome back, ${payload.user.fullName}.`
     )
+    restoreAuthenticatedSession().catch(() => {})
   } catch (error) {
     authMessage.value = error.message || 'Could not sign you in right now.'
   }
