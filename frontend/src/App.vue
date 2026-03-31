@@ -945,9 +945,14 @@ function getTrackedPrice(symbol) {
     return Number(stockResponse.value.stock.currentPrice)
   }
 
-  const watchlistRow = watchlistRows.find((row) => row.symbol === symbol)
-  if (watchlistRow) {
-    return Number(watchlistRow.price.replace('$', ''))
+  const exploreRow = allExploreRows.value.find((row) => row.symbol === symbol)
+  if (exploreRow) {
+    return Number(String(exploreRow.price || '').replace('$', '').replace(',', ''))
+  }
+
+  const starredRow = dashboardWatchlistRows.value.find((row) => row.symbol === symbol)
+  if (starredRow) {
+    return Number(String(starredRow.price || '').replace('$', '').replace(',', ''))
   }
 
   return 100
