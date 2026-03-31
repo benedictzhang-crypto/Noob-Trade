@@ -334,22 +334,5 @@ function getCandleWidth(count) {
         Historical candles are not available for this matched window yet.
       </div>
     </div>
-
-    <div class="section-header">High-Fit Historical Paths</div>
-    <div class="matches-list">
-      <div
-        v-for="path in highFitPaths"
-        :key="path.label"
-        class="path-placeholder"
-      >
-        <div class="path-placeholder-header">
-          <span>{{ path.label }}</span>
-          <strong>{{ path.fitScore }}%</strong>
-        </div>
-        <div class="path-placeholder-box">
-          {{ path.status }}
-        </div>
-      </div>
-    </div>
   </div>
 </template>

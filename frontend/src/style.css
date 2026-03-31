@@ -760,34 +760,6 @@ select {
   color: #7c5a2a;
 }
 
-.matches-list {
-  padding: 8px 0 12px;
-}
-
-.path-placeholder {
-  padding: 12px 14px;
-  border-top: 1px solid rgba(24, 24, 27, 0.06);
-}
-
-.path-placeholder-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.path-placeholder-box {
-  min-height: 74px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed rgba(255, 138, 0, 0.25);
-  border-radius: 14px;
-  color: var(--text-soft);
-  font-size: 0.88rem;
-  background: var(--surface-soft);
-}
 
 .paper-grid {
   display: grid;
