@@ -188,8 +188,8 @@ const moreFeatures = [
 ]
 
 const feedbackChannels = [
-  { label: 'Feedback Email', value: 'benedictzhang01@gmail.com' },
-  { label: 'Research Requests', value: 'benedictzhang01@gmail.com' },
+  { label: 'Feedback Email', value: 'zzzzhly@126.com', href: 'mailto:zzzzhly@126.com' },
+  { label: 'Research Requests', value: 'zzzzhly@126.com', href: 'mailto:zzzzhly@126.com' },
   {
     label: 'Product Notes',
     value: '@NoobTrade123 on X',
