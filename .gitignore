@@ -1,0 +1,47 @@
+# Python
+backend/venv/
+backend/.venv/
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+backend/__pycache__/
+backend/models/__pycache__/
+backend/routes/__pycache__/
+backend/services/__pycache__/
+backend/scripts/__pycache__/
+backend/noobtrade_local.db
+*.pyc
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
+frontend/.Rhistory
+
+# macOS
+.DS_Store
+.runtime/
+0
+
+# Launcher
+.launcher_runtime/
+build/
+dist/
+launcher/build/
+launcher/dist/
+launcher/__pycache__/
+launcher/services/__pycache__/
+launcher/assets/noobtrade.ico
+launcher/assets/noobtrade.icns
+launcher/assets/noobtrade_icon.png
+launcher/assets/noobtrade.iconset/
+*.spec.tmp
+
+# Capacitor / iOS
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App.xcworkspace/
+ios/App/DerivedData/

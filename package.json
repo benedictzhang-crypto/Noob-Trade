@@ -1,0 +1,24 @@
+{
+  "name": "noobtrade-mobile-shell",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:local": "node ./scripts/dev/start-local.mjs",
+    "mobile:build:web": "npm --prefix frontend run build",
+    "mobile:doctor": "node ./scripts/mobile/doctor.mjs",
+    "mobile:add:ios": "node ./scripts/mobile/ensure-ios-shell.mjs",
+    "mobile:sync:ios": "npm run mobile:build:web && npm run mobile:add:ios && npx cap sync ios",
+    "mobile:copy:ios": "npm run mobile:build:web && npx cap copy ios",
+    "mobile:open:ios": "npx cap open ios",
+    "mobile:prepare:ios": "npm run mobile:doctor && npm run mobile:sync:ios",
+    "mobile:run:ios": "npm run mobile:prepare:ios && npx cap run ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.3.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.3.0",
+    "@capacitor/ios": "^7.3.0"
+  }
+}
