@@ -142,6 +142,13 @@ def recover_sqlite_database(app):
     if sqlite_path is None:
         return False
 
+    if not app.config.get("SQLITE_DESTRUCTIVE_RECOVERY", False):
+        app.logger.warning(
+            "Skipping destructive SQLite recovery for %s because SQLITE_DESTRUCTIVE_RECOVERY is disabled.",
+            sqlite_path,
+        )
+        return False
+
     app.logger.warning("Attempting SQLite recovery for %s", sqlite_path)
 
     try:
@@ -150,7 +157,9 @@ def recover_sqlite_database(app):
             db.engine.dispose()
 
         if sqlite_path.exists():
-            sqlite_path.unlink()
+            backup_path = sqlite_path.with_suffix(f".backup-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}{sqlite_path.suffix}")
+            sqlite_path.replace(backup_path)
+            app.logger.warning("Moved SQLite database to backup path %s before recovery.", backup_path)
 
         initialize_database(app)
         app.logger.warning("SQLite recovery succeeded for %s", sqlite_path)
