@@ -10,7 +10,6 @@ backend/models/__pycache__/
 backend/routes/__pycache__/
 backend/services/__pycache__/
 backend/scripts/__pycache__/
-backend/noobtrade_local.db
 *.pyc
 
 # Node
