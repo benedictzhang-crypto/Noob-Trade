@@ -34,8 +34,8 @@ def main():
     )
     parser.add_argument(
         "--symbols",
-        default="AAPL,TSLA,NVDA,SPY",
-        help="Comma-separated stock symbols to warm. Default: AAPL,TSLA,NVDA,SPY",
+        default="AAPL,NVDA,MSFT,AMZN,GOOGL,GOOG,META,AVGO,TSLA,BRK.B",
+        help="Comma-separated stock symbols to warm. Default: AAPL,NVDA,MSFT,AMZN,GOOGL,GOOG,META,AVGO,TSLA,BRK.B",
     )
     parser.add_argument(
         "--timeframes",

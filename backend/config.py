@@ -56,7 +56,7 @@ class Config:
     DEFAULT_LOOKBACK = 30
     DEFAULT_INTERVAL = "daily"
     DEFAULT_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
-    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "TSLA", "NVDA", "SPY"]
+    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B"]
     MARKET_DATA_BASE_URL = os.getenv(
         "MARKET_DATA_BASE_URL",
         "https://marketdata.colab.duke.edu/api/v1"

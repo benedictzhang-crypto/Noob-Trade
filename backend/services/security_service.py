@@ -1,5 +1,5 @@
 from argon2 import PasswordHasher
-from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
+from argon2.exceptions import InvalidHash, VerificationError, VerifyMismatchError
 from werkzeug.security import check_password_hash
 
 
@@ -18,7 +18,7 @@ def verify_secret(stored_hash, candidate_secret):
         return _PASSWORD_HASHER.verify(stored_hash, candidate_secret)
     except VerifyMismatchError:
         return False
-    except (InvalidHashError, VerificationError):
+    except (InvalidHash, VerificationError):
         # Backward compatibility for previously stored Werkzeug hashes.
         return check_password_hash(stored_hash, candidate_secret)
 
@@ -29,5 +29,5 @@ def needs_rehash(stored_hash):
 
     try:
         return _PASSWORD_HASHER.check_needs_rehash(stored_hash)
-    except InvalidHashError:
+    except InvalidHash:
         return True
