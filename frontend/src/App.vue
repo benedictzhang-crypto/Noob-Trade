@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import ChartPanel from './components/ChartPanel.vue'
 import IndicatorSelector from './components/IndicatorSelector.vue'
@@ -18,6 +18,7 @@ const symbolInput = ref('AAPL')
 const activeSymbol = ref('AAPL')
 const selectedChartInterval = ref('daily')
 const currentExploreTab = ref('Watchlist')
+const exploreViewMode = ref('ranked')
 const exploreSearchQuery = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -35,6 +36,7 @@ const replayPattern = ref(null)
 const replayInterval = ref('daily')
 const csrfToken = ref('')
 const analysisCache = ref({})
+const portfolioSparklineSeries = ref({})
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
@@ -359,6 +361,24 @@ const top50Symbols = [
   'INTU', 'QCOM', 'CAT', 'TXN', 'AXP', 'AMAT', 'BKNG', 'UBER', 'GS', 'SPY'
 ]
 
+const fullBoardSeedMeta = {
+  AAPL: { name: 'Apple Inc.', category: 'Large Cap', price: '$184.25', notional: '$2.87T', change: '+1.28%', tone: 'positive' },
+  MSFT: { name: 'Microsoft Corporation', category: 'Software', price: '$426.14', notional: '$3.16T', change: '+0.84%', tone: 'positive' },
+  NVDA: { name: 'NVIDIA Corporation', category: 'AI Leaders', price: '$911.70', notional: '$2.24T', change: '+2.61%', tone: 'positive' },
+  AMZN: { name: 'Amazon.com, Inc.', category: 'Consumer Tech', price: '$188.44', notional: '$1.96T', change: '+0.58%', tone: 'positive' },
+  GOOGL: { name: 'Alphabet Inc. Class A', category: 'Internet', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  META: { name: 'Meta Platforms, Inc.', category: 'Internet', price: '$521.48', notional: '$1.33T', change: '+2.82%', tone: 'positive' },
+  'BRK.B': { name: 'Berkshire Hathaway Inc. Class B', category: 'Financials', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  LLY: { name: 'Eli Lilly and Company', category: 'Healthcare', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  AVGO: { name: 'Broadcom Inc.', category: 'Semis', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  JPM: { name: 'JPMorgan Chase & Co.', category: 'Financials', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  GOOG: { name: 'Alphabet Inc. Class C', category: 'Internet', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  TSLA: { name: 'Tesla Inc.', category: 'Momentum', price: '$380.30', notional: '$1.21T', change: '-1.07%', tone: 'negative' },
+  NFLX: { name: 'Netflix', category: 'Streaming', price: '$643.15', notional: '$279.6B', change: '+2.24%', tone: 'positive' },
+  AMD: { name: 'AMD', category: 'Semis', price: '$197.43', notional: '$118.7M', change: '+1.09%', tone: 'positive' },
+  SPY: { name: 'SPDR S&P 500 ETF', category: 'ETF', price: '$520.44', notional: '$478.2M', change: '+0.38%', tone: 'positive' },
+}
+
 const newsHeadlineTemplates = [
   'Institutional flows keep attention on {symbol} as rotation continues across large-cap leadership.',
   '{symbol} stays on the active watchlist as traders monitor continuation quality into the next session.',
@@ -427,11 +447,47 @@ const allExploreRows = computed(() => {
 
   return [...merged.values()]
 })
+const fullMarketBoardRows = computed(() => {
+  const mergedLookup = new Map(allExploreRows.value.map((row) => [row.symbol, row]))
+
+  return top50Symbols.map((symbol) => {
+    const mergedRow = mergedLookup.get(symbol)
+    const seededRow = fullBoardSeedMeta[symbol]
+
+    if (mergedRow) {
+      return mergedRow
+    }
+
+    if (seededRow) {
+      return {
+        symbol,
+        ...seededRow
+      }
+    }
+
+    return {
+      symbol,
+      name: symbol,
+      category: 'S&P 500',
+      price: '--',
+      notional: '--',
+      change: '--',
+      tone: 'neutral'
+    }
+  })
+})
+const visibleExploreRows = computed(() => {
+  if (exploreViewMode.value === 'full') {
+    return fullMarketBoardRows.value
+  }
+
+  return currentExploreRows.value
+})
 const filteredExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
 
   if (!query) {
-    return currentExploreRows.value
+    return visibleExploreRows.value
   }
 
   return allExploreRows.value.filter((row) => {
@@ -440,6 +496,9 @@ const filteredExploreRows = computed(() => {
     const category = String(row.category || '').toUpperCase()
     return symbol.includes(query) || name.includes(query) || category.includes(query)
   })
+})
+const portfolioSymbols = computed(() => {
+  return [...new Set(holdings.value.map((holding) => String(holding.symbol || '').trim().toUpperCase()).filter(Boolean))]
 })
 const starredLookup = computed(() => new Set(starredSymbols.value))
 const dashboardWatchlistRows = computed(() => {
@@ -958,6 +1017,103 @@ function getTrackedPrice(symbol) {
   return 100
 }
 
+function buildSparklinePoints(values) {
+  if (!Array.isArray(values) || values.length < 2) {
+    return ''
+  }
+
+  const numericValues = values.map((value) => Number(value) || 0)
+  const min = Math.min(...numericValues)
+  const max = Math.max(...numericValues)
+  const range = max - min || 1
+
+  return numericValues
+    .map((value, index) => {
+      const x = (index / Math.max(numericValues.length - 1, 1)) * 100
+      const y = 100 - (((value - min) / range) * 100)
+      return `${x.toFixed(2)},${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
+function getPortfolioSparkline(symbol) {
+  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
+  return portfolioSparklineSeries.value[cleanedSymbol] || null
+}
+
+async function loadPortfolioSparkline(symbol) {
+  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
+
+  if (!cleanedSymbol || portfolioSparklineSeries.value[cleanedSymbol]?.state === 'ready') {
+    return
+  }
+
+  if (stockResponse.value?.dataSource === 'live' && stockResponse.value?.stock?.symbol === cleanedSymbol) {
+    const currentSeries = stockResponse.value?.chartData?.series?.daily || []
+    const currentValues = currentSeries.slice(-5).map((item) => Number(item.close)).filter((value) => Number.isFinite(value))
+
+    if (currentValues.length >= 2) {
+      portfolioSparklineSeries.value = {
+        ...portfolioSparklineSeries.value,
+        [cleanedSymbol]: {
+          state: 'ready',
+          values: currentValues,
+          points: buildSparklinePoints(currentValues),
+        }
+      }
+      return
+    }
+  }
+
+  portfolioSparklineSeries.value = {
+    ...portfolioSparklineSeries.value,
+    [cleanedSymbol]: {
+      ...(portfolioSparklineSeries.value[cleanedSymbol] || {}),
+      state: 'loading',
+    }
+  }
+
+  try {
+    const query = new URLSearchParams({
+      indicators: getSelectedIndicators().join(','),
+      interval: 'daily',
+      prefetch: '1',
+    })
+    const response = await fetch(`${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`)
+
+    if (!response.ok) {
+      throw new Error('Could not load sparkline data.')
+    }
+
+    const payload = await response.json()
+    const dailySeries = payload?.chartData?.series?.daily || []
+    const values = dailySeries.slice(-5).map((item) => Number(item.close)).filter((value) => Number.isFinite(value))
+
+    portfolioSparklineSeries.value = {
+      ...portfolioSparklineSeries.value,
+      [cleanedSymbol]: {
+        state: payload?.dataSource === 'live' && values.length >= 2 ? 'ready' : 'unavailable',
+        values,
+        points: payload?.dataSource === 'live' && values.length >= 2 ? buildSparklinePoints(values) : '',
+      }
+    }
+  } catch {
+    portfolioSparklineSeries.value = {
+      ...portfolioSparklineSeries.value,
+      [cleanedSymbol]: {
+        state: 'unavailable',
+        values: [],
+        points: '',
+      }
+    }
+  }
+}
+
+async function syncPortfolioSparklines(symbols) {
+  const tasks = symbols.map((symbol) => loadPortfolioSparkline(symbol))
+  await Promise.all(tasks)
+}
+
 function getSelectedIndicators() {
   return indicators.value
     .filter((indicator) => indicator.active)
@@ -965,12 +1121,18 @@ function getSelectedIndicators() {
 }
 
 function toggleIndicator(indicatorName) {
+  const previousScrollY = window.scrollY
+
   indicators.value = indicators.value.map((indicator) => {
     if (indicator.name === indicatorName) {
       return { ...indicator, active: !indicator.active }
     }
 
     return indicator
+  })
+
+  nextTick(() => {
+    window.scrollTo({ top: previousScrollY, behavior: 'auto' })
   })
 }
 
@@ -1298,6 +1460,11 @@ function buildGoogleNewsLink(symbol, title) {
   return `https://news.google.com/search?q=${encodeURIComponent(query)}`
 }
 
+function formatAdminUserCode(userId) {
+  const numericId = Number(userId || 0)
+  return `#${String(Math.max(numericId, 0)).padStart(6, '0')}`
+}
+
 function isStarredSymbol(symbol) {
   return starredLookup.value.has(symbol)
 }
@@ -1339,6 +1506,48 @@ watch(
         primeAnalysisCache(row.symbol)
       })
     }, 250)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [isAuthenticated.value, portfolioSymbols.value.join('|')],
+  ([authenticated]) => {
+    if (!authenticated || !portfolioSymbols.value.length) {
+      return
+    }
+
+    syncPortfolioSparklines(portfolioSymbols.value)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [stockResponse.value?.dataSource, stockResponse.value?.stock?.symbol, stockResponse.value?.chartData?.series?.daily?.length || 0],
+  () => {
+    const symbol = stockResponse.value?.stock?.symbol
+
+    if (!symbol || stockResponse.value?.dataSource !== 'live') {
+      return
+    }
+
+    const values = (stockResponse.value?.chartData?.series?.daily || [])
+      .slice(-5)
+      .map((item) => Number(item.close))
+      .filter((value) => Number.isFinite(value))
+
+    if (values.length < 2) {
+      return
+    }
+
+    portfolioSparklineSeries.value = {
+      ...portfolioSparklineSeries.value,
+      [symbol]: {
+        state: 'ready',
+        values,
+        points: buildSparklinePoints(values),
+      }
+    }
   },
   { immediate: true }
 )
@@ -2212,7 +2421,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="dashboard-grid">
         <article class="table-surface dashboard-card">
           <div class="table-header">
-            <h2>Starred Stocks</h2>
+            <h2>Self-Selected Stocks</h2>
             <span class="section-chip">{{ starredSymbols.length }} saved</span>
           </div>
           <div v-if="dashboardWatchlistRows.length" class="data-table">
@@ -2220,37 +2429,48 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Symbol</span>
               <span>Price</span>
               <span>1D</span>
-              <span>Tag</span>
+              <span>Star</span>
             </div>
             <div v-for="row in dashboardWatchlistRows" :key="row.symbol" class="data-row dashboard-watchlist-row">
               <button class="watchlist-link explore-symbol-link" @click="openAnalysis(row.symbol)">{{ row.symbol }}</button>
               <span>{{ row.price }}</span>
               <strong :class="row.tone">{{ row.change }}</strong>
-              <span>{{ row.note }}</span>
+              <button
+                type="button"
+                class="star-toggle"
+                :class="{ active: isStarredSymbol(row.symbol) }"
+                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred stocks` : `Star ${row.symbol}`"
+                @click="toggleStarredSymbol(row.symbol)"
+              >
+                {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
+              </button>
             </div>
           </div>
           <div v-else class="empty-state empty-state--compact">
-            Start starring stocks in Explore and they will appear here on your dashboard.
+            Star stocks in Explore and they will appear here as your self-selected list.
           </div>
         </article>
 
         <article class="table-surface dashboard-card">
           <div class="table-header">
-            <h2>Self-Selected Stocks</h2>
+            <h2>Favorites Flow</h2>
             <button class="chip active" @click="navigateTo('Explore')">Open Explore</button>
           </div>
-          <div class="data-table">
-            <div class="data-row data-head dashboard-watchlist-head">
-              <span>Symbol</span>
-              <span>Price</span>
-              <span>1D</span>
-              <span>Note</span>
+          <div class="dashboard-card-grid">
+            <div class="dashboard-mini-card">
+              <span>Saved stars</span>
+              <strong>{{ starredSymbols.length }}</strong>
+              <small>Your favorite names stay pinned to the dashboard.</small>
             </div>
-            <div v-for="row in dashboardWatchlistRows" :key="`detail-${row.symbol}`" class="data-row dashboard-watchlist-row">
-              <span>{{ row.symbol }}</span>
-              <span>{{ row.price }}</span>
-              <strong :class="row.tone">{{ row.change }}</strong>
-              <button class="watchlist-link" @click="openAnalysis(row.symbol)">{{ row.note }}</button>
+            <div class="dashboard-mini-card">
+              <span>Current focus</span>
+              <strong>{{ activeSymbol }}</strong>
+              <small>Search in Trade or Explore, then star the names you want to keep visible.</small>
+            </div>
+            <div class="dashboard-mini-card">
+              <span>Best next step</span>
+              <strong>Star from Explore</strong>
+              <small>Use the right-side star icon to add or remove symbols instantly.</small>
             </div>
           </div>
         </article>
@@ -2389,9 +2609,11 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="hero-surface compact explore-hero">
         <div>
           <p class="eyebrow">Explore</p>
-          <h1 class="page-title">Ranked market board for scanning all stocks.</h1>
+          <h1 class="page-title">{{ exploreViewMode === 'full' ? 'Full market board for scrolling the entire list.' : 'Ranked market board for scanning all stocks.' }}</h1>
           <p class="page-subtitle">
-            This is the broad market discovery page: rankings, movers, gainers, and volume leaders in one place before you drill into Trade.
+            {{ exploreViewMode === 'full'
+              ? 'This full-board mode is built for scrolling through the complete market list in one long page before jumping into Trade.'
+              : 'This is the broad market discovery page: rankings, movers, gainers, and volume leaders in one place before you drill into Trade.' }}
           </p>
         </div>
       </section>
@@ -2411,18 +2633,25 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             :key="tab"
             class="chip"
             :class="{ active: currentExploreTab === tab }"
-            @click="currentExploreTab = tab"
+            @click="exploreViewMode = 'ranked'; currentExploreTab = tab"
           >
             {{ tab }}
           </button>
         </div>
-        <button class="topbar-button secondary" @click="navigateTo('Markets')">Open Markets</button>
+        <div class="explore-toolbar-actions">
+          <button
+            class="topbar-button secondary"
+            @click="exploreViewMode = exploreViewMode === 'full' ? 'ranked' : 'full'"
+          >
+            {{ exploreViewMode === 'full' ? 'Back To Ranked View' : 'Open Full Market Board' }}
+          </button>
+        </div>
       </section>
 
-      <section class="explore-layout">
+      <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' }">
         <article class="table-surface">
           <div class="table-header">
-            <h2>{{ exploreSearchQuery ? 'Search Results' : currentExploreTab }}</h2>
+            <h2>{{ exploreSearchQuery ? 'Search Results' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</h2>
             <span class="section-chip">Ranked</span>
           </div>
 
@@ -2455,17 +2684,19 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>{{ row.notional }}</span>
               <strong :class="row.tone">{{ row.change }}</strong>
               <button
-                class="chip"
+                type="button"
+                class="star-toggle"
                 :class="{ active: isStarredSymbol(row.symbol) }"
+                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred stocks` : `Star ${row.symbol}`"
                 @click="toggleStarredSymbol(row.symbol)"
               >
-                {{ isStarredSymbol(row.symbol) ? 'Starred' : 'Star' }}
+                {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
               </button>
             </div>
           </div>
         </article>
 
-        <article class="table-surface explore-sidecard">
+        <article v-if="exploreViewMode !== 'full'" class="table-surface explore-sidecard">
           <div class="table-header">
             <h2>Board Context</h2>
             <span class="section-chip">Snapshot</span>
@@ -2483,8 +2714,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </div>
             <div class="dashboard-mini-card">
               <span>Best next step</span>
-              <strong>Search then star</strong>
-              <small>Use Explore to find names, then jump into Trade when one lines up.</small>
+              <strong>Open full board</strong>
+              <small>Use the full-board button when you want a long scrollable list instead of a short ranked panel.</small>
             </div>
           </div>
         </article>
@@ -2587,6 +2818,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Stock</span>
               <span>Price</span>
               <span>Position Value</span>
+              <span>Trend</span>
               <span>Adjust</span>
             </div>
             <div v-for="holding in holdingsWithMetrics" :key="`${holding.accountName}-${holding.symbol}-${holding.addedMonth}`" class="data-row portfolio-holdings-row">
@@ -2598,6 +2830,26 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <div class="portfolio-value-cell">
                 <strong>{{ formatCurrency(holding.marketValue) }}</strong>
                 <small :class="holding.pnl >= 0 ? 'positive' : 'negative'">{{ formatSignedCurrency(holding.pnl) }}</small>
+              </div>
+              <div class="portfolio-trend-cell">
+                <div v-if="getPortfolioSparkline(holding.symbol)?.state === 'ready'" class="portfolio-sparkline-card">
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="portfolio-sparkline-svg" aria-hidden="true">
+                    <line class="portfolio-sparkline-grid" x1="0" y1="0" x2="0" y2="100" />
+                    <line class="portfolio-sparkline-grid" x1="0" y1="100" x2="100" y2="100" />
+                    <polyline
+                      class="portfolio-sparkline-line"
+                      fill="none"
+                      :points="getPortfolioSparkline(holding.symbol)?.points"
+                    />
+                  </svg>
+                  <small>Live 5D</small>
+                </div>
+                <div v-else-if="getPortfolioSparkline(holding.symbol)?.state === 'loading'" class="portfolio-sparkline-card portfolio-sparkline-card--muted">
+                  <small>Loading live...</small>
+                </div>
+                <div v-else class="portfolio-sparkline-card portfolio-sparkline-card--muted">
+                  <small>Live API required</small>
+                </div>
               </div>
               <div class="portfolio-adjust-cell">
                 <input
@@ -2885,7 +3137,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             :key="user.id"
             class="data-row admin-users-row"
           >
-            <span>#{{ user.id }}</span>
+            <span>{{ formatAdminUserCode(user.id) }}</span>
             <span>{{ user.fullName }}</span>
             <span>{{ user.email }}</span>
             <span>{{ user.role }}</span>
@@ -2975,7 +3227,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Roadmap</p>
           <h2>What comes next</h2>
           <p>
-            Live indicator values, richer historical path previews, real news integrations, and deeper paper trading workflows are the next natural upgrades.
+            The next step is turning Noob Trade into a polished mobile product ready for global release on the Apple App Store and Google Play, with a cleaner onboarding flow, stronger production infrastructure, and a launch-ready experience for first-time traders.
           </p>
         </article>
       </section>

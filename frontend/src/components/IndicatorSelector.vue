@@ -21,8 +21,10 @@ const emit = defineEmits(['toggle-indicator', 'run-analysis'])
         <button
           v-for="indicator in indicators"
           :key="indicator.name"
+          type="button"
           class="indicator-row"
           :class="{ active: indicator.active }"
+          @mousedown.prevent
           @click="emit('toggle-indicator', indicator.name)"
         >
           <span class="check-box">{{ indicator.active ? '✓' : '' }}</span>

@@ -12,6 +12,7 @@ class DukeMarketApiService:
     """Small client for the external market data API."""
 
     _provider_disabled_until = None
+    _provider_failure_count = 0
     SYMBOL_ALIASES = {
         "BRK.B": "BRK-B",
         "BRK/A": "BRK-A",
@@ -21,10 +22,11 @@ class DukeMarketApiService:
         "BF/B": "BF-B",
     }
 
-    def __init__(self, base_url, token, timeout=3):
+    def __init__(self, base_url, token, timeout=1.5, cooldown_seconds=10):
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.timeout = timeout
+        self.cooldown_seconds = cooldown_seconds
 
     def is_configured(self):
         return bool(self.token)
@@ -48,8 +50,13 @@ class DukeMarketApiService:
             params={"limit": limit},
         )
 
-    def mark_unavailable(self, cooldown_seconds=120):
-        self.__class__._provider_disabled_until = datetime.utcnow() + timedelta(seconds=cooldown_seconds)
+    def mark_unavailable(self, cooldown_seconds=None):
+        cooldown = self.cooldown_seconds if cooldown_seconds is None else cooldown_seconds
+        self.__class__._provider_disabled_until = datetime.utcnow() + timedelta(seconds=cooldown)
+
+    def mark_available(self):
+        self.__class__._provider_disabled_until = None
+        self.__class__._provider_failure_count = 0
 
     def _normalize_symbol(self, symbol):
         normalized = str(symbol).strip().upper()
@@ -68,10 +75,13 @@ class DukeMarketApiService:
                 timeout=self.timeout
             )
             response.raise_for_status()
+            self.mark_available()
             return response.json()
         except requests.exceptions.RequestException as error:
             if isinstance(error, requests.exceptions.HTTPError) and error.response is not None and error.response.status_code < 500:
                 raise
 
-            self.mark_unavailable()
+            self.__class__._provider_failure_count += 1
+            if self.__class__._provider_failure_count >= 2:
+                self.mark_unavailable()
             raise DukeMarketApiUnavailable(str(error)) from error

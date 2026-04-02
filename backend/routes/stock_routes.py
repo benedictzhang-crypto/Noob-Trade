@@ -60,6 +60,7 @@ def get_stock(symbol):
     )
     raw_indicators = request.args.get("indicators", default="")
     prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
+    persist_analysis = request.args.get("persist", default=0, type=int) == 1
 
     market_data_service = MarketDataService(current_app.config)
     persistence_service = PersistenceService()
@@ -72,7 +73,9 @@ def get_stock(symbol):
         default_indicators=current_app.config["DEFAULT_INDICATORS"]
     )
 
-    if not prefetch_only:
+    should_persist = current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis
+
+    if not prefetch_only and should_persist:
         try:
             response_data = persistence_service.save_analysis_run(response_data)
         except Exception as error:

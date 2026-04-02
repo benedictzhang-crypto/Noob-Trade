@@ -50,7 +50,9 @@ class MarketDataService:
         self.persistence_service = PersistenceService()
         self.market_api = DukeMarketApiService(
             base_url=config["MARKET_DATA_BASE_URL"],
-            token=config["MARKET_DATA_TOKEN"]
+            token=config["MARKET_DATA_TOKEN"],
+            timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
+            cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
 
     def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators):
@@ -120,6 +122,9 @@ class MarketDataService:
         for focus_symbol in focus_universe:
             try:
                 payload = self.market_api.get_stock_news(focus_symbol, limit=limit)
+            except DukeMarketApiUnavailable:
+                logger.warning("Live news provider is temporarily unavailable; using fallback headlines.", exc_info=True)
+                break
             except Exception:
                 logger.warning("Live news fetch failed for %s", focus_symbol, exc_info=True)
                 continue

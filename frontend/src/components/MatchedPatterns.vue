@@ -18,6 +18,13 @@ const visibleCount = ref(5)
 
 const visiblePatterns = computed(() => props.matchedPatterns.slice(0, visibleCount.value))
 const hasMorePatterns = computed(() => props.matchedPatterns.length > visibleCount.value)
+const visibleSummary = computed(() => {
+  if (!props.matchedPatterns.length) {
+    return ''
+  }
+
+  return `Showing ${visiblePatterns.value.length} of ${props.matchedPatterns.length}`
+})
 
 watch(
   () => props.matchedPatterns,
@@ -250,15 +257,18 @@ function getCandleWidth(count) {
         </div>
       </article>
 
-      <button
-        v-if="hasMorePatterns"
-        type="button"
-        class="match-load-more"
-        @click="loadMorePatterns"
-      >
-        <span>Load more</span>
-        <span class="match-load-more__arrow" aria-hidden="true">↓</span>
-      </button>
+      <div v-if="hasMorePatterns || matchedPatterns.length > 5" class="match-load-more-row">
+        <span class="match-load-more__status">{{ visibleSummary }}</span>
+        <button
+          v-if="hasMorePatterns"
+          type="button"
+          class="match-load-more"
+          @click="loadMorePatterns"
+        >
+          <span>Load more</span>
+          <span class="match-load-more__arrow" aria-hidden="true">↓</span>
+        </button>
+      </div>
     </div>
     <div v-else class="empty-state">
       Historical pattern matches will appear here once more comparable windows are stored.

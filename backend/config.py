@@ -62,7 +62,10 @@ class Config:
         "https://marketdata.colab.duke.edu/api/v1"
     )
     MARKET_DATA_TOKEN = os.getenv("MARKET_DATA_TOKEN", "")
+    MARKET_DATA_TIMEOUT_SECONDS = float(os.getenv("MARKET_DATA_TIMEOUT_SECONDS", "1.5"))
+    MARKET_DATA_COOLDOWN_SECONDS = int(os.getenv("MARKET_DATA_COOLDOWN_SECONDS", "10"))
     USE_MOCK_FALLBACK = os.getenv("USE_MOCK_FALLBACK", "true").lower() == "true"
+    PERSIST_ANALYSIS_RUNS = os.getenv("PERSIST_ANALYSIS_RUNS", "false").lower() == "true"
     ADMIN_ACCOUNTS = _parse_admin_accounts.__func__()
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "zzzzhly@126.com")
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Happy20252026")
