@@ -251,9 +251,9 @@ class MarketDataService:
             }
         }
 
-    def _build_live_response(self, symbol, interval, lookback_window, indicators):
+    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None):
         overview_payload = self.market_api.get_company_overview(symbol)
-        prices_payload = self.market_api.get_daily_prices(symbol, limit=max(lookback_window, 3200))
+        prices_payload = self.market_api.get_daily_prices(symbol, limit=price_limit or max(lookback_window, 3200))
 
         overview = self._extract_first_record(overview_payload)
         prices = prices_payload.get("data", [])

@@ -65,6 +65,54 @@ python app.py
 
 The backend will run at `http://localhost:5000`.
 
+## Local PostgreSQL Path
+
+If you want to move beyond local SQLite without changing the quant logic, use PostgreSQL locally.
+
+1. install PostgreSQL on your machine
+2. create a database named `noobtrade`
+3. set:
+
+```bash
+export DATABASE_URL="postgresql+psycopg://localhost/noobtrade"
+```
+
+4. sync the current SQLite seed into PostgreSQL:
+
+```bash
+cd backend
+python scripts/sync_sqlite_to_postgres.py
+```
+
+Current note:
+
+- the tracked local seed currently contains the top 10 symbol universe in `symbols`
+- if more `daily_prices`, `daily_indicators`, or `pattern_windows` are added to SQLite later, the same sync script will carry them into PostgreSQL
+
+## Incremental Data Updates
+
+Once the initial symbol universe is in place, you do not need to rebuild the full database every month.
+
+Use the incremental sync script to pull only a recent rolling history window, then upsert the latest prices, indicators, and pattern windows into the configured database:
+
+```bash
+cd backend
+python scripts/incremental_sync_cache.py --symbols AAPL,NVDA,MSFT,AMZN,GOOGL,GOOG,META,AVGO,TSLA,BRK.B --history-limit 1400
+```
+
+What this does:
+
+- fetches a recent rolling history window instead of the full 10-year history
+- upserts new rows instead of replacing the whole database
+- rebuilds indicators and pattern windows only from the recent window
+- lets future collaborators continue 11-50 using the same workflow
+
+Recommended workflow:
+
+1. initial load for the top 10 / top 50 universe
+2. monthly or weekly incremental sync using `incremental_sync_cache.py`
+3. keep the app code stable while only updating the data layer
+
 ## Notes
 
 - The frontend currently shows a simple dashboard layout.
