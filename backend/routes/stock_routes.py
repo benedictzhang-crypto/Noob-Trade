@@ -73,6 +73,12 @@ def get_stock(symbol):
         default_indicators=current_app.config["DEFAULT_INDICATORS"]
     )
 
+    if response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
+        try:
+            response_data = persistence_service.apply_cached_match_preview(response_data)
+        except Exception as error:
+            current_app.logger.warning("Could not apply indicator-aware cached preview: %s", error)
+
     should_persist = current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis
 
     if not prefetch_only and should_persist:

@@ -193,9 +193,10 @@ class MarketDataService:
             symbol=symbol,
             interval=interval,
             lookback_window=lookback_window,
-            interval_series=live_interval_series,
+            daily_candles=full_recent_candles,
             current_price=current_price,
             last_date=full_recent_candles[-1]["date"] if full_recent_candles else None,
+            indicators=indicators,
         )
 
         return {
@@ -274,9 +275,10 @@ class MarketDataService:
             symbol=symbol.upper(),
             interval=interval,
             lookback_window=lookback_window,
-            interval_series=interval_series,
+            daily_candles=full_daily_candles,
             current_price=current_price,
             last_date=full_daily_candles[-1]["date"] if full_daily_candles else None,
+            indicators=indicators,
         )
         probability_of_increase = live_match_summary["probabilityOfIncrease"] or self._estimate_probability(returns)
         average_return = live_match_summary["avgReturn"]
@@ -453,13 +455,18 @@ class MarketDataService:
 
         return f"{max(minutes, 1)} min ago"
 
-    def _build_live_match_summary(self, symbol, interval, lookback_window, interval_series, current_price, last_date):
-        candles = list(interval_series.get(interval) or [])
+    def _build_live_match_summary(self, symbol, interval, lookback_window, daily_candles, current_price, last_date, indicators):
+        prepared_candles = self.persistence_service._prepare_candles(daily_candles)
+        candles = self.persistence_service._group_prepared_candles(
+            prepared_candles,
+            self.persistence_service.TIMEFRAME_GROUP_SIZES.get(interval, 1),
+        )
 
         if len(candles) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
             return self._empty_live_match_summary(interval, last_date, current_price)
 
-        current_window = candles[-lookback_window:]
+        current_window_candles = candles[-lookback_window:]
+        current_window = self._build_live_window_record(current_window_candles, interval, lookback_window)
         candidates = []
 
         for end_index in range(lookback_window - 1, len(candles) - self.LIVE_FORWARD_DAYS):
@@ -470,11 +477,20 @@ class MarketDataService:
             if not self._is_usable_future_stats(future_stats):
                 continue
 
+            candidate_record = self._build_live_window_record(candidate_window, interval, lookback_window)
+            score = self.persistence_service.quant_scoring_service.score_match(
+                current_window,
+                candidate_record,
+                indicators,
+            )
+
             candidates.append(
                 {
                     "candidate_window": candidate_window,
                     "future_window": future_window,
-                    "distance": self._window_distance(current_window, candidate_window),
+                    "candidate_record": candidate_record,
+                    "score": score,
+                    "distance": self._window_distance(current_window_candles, candidate_window),
                     "future_stats": future_stats,
                 }
             )
@@ -482,22 +498,29 @@ class MarketDataService:
         if not candidates:
             return self._empty_live_match_summary(interval, last_date, current_price)
 
-        selected_candidates = sorted(candidates, key=lambda item: item["distance"])[:self.LIVE_MATCH_TARGET]
-        max_distance = max(item["distance"] for item in selected_candidates) or 1.0
+        selected_candidates = sorted(
+            candidates,
+            key=lambda item: (
+                -(item["score"].get("selected_score_percent") or 0),
+                item["distance"],
+            ),
+        )[:self.LIVE_MATCH_TARGET]
         matched_patterns = []
 
         for index, item in enumerate(selected_candidates, start=1):
             candidate_window = item["candidate_window"]
+            candidate_record = item["candidate_record"]
             future_stats = item["future_stats"]
-            match_score = self._distance_to_match_score(item["distance"], max_distance, index, len(selected_candidates))
-            return_pct = self._window_return_pct_from_candles(candidate_window)
-            max_drawdown = self._window_max_drawdown_from_candles(candidate_window)
+            score = item["score"]
+            match_score = round(score.get("selected_score_percent") or 0, 2)
+            return_pct = self._to_float(candidate_record.return_pct)
+            max_drawdown = self._to_float(candidate_record.max_drawdown)
 
             matched_patterns.append(
                 {
                     "patternName": self._build_live_pattern_label(interval, lookback_window, index),
                     "matchScore": match_score,
-                    "date": candidate_window[-1]["date"],
+                    "date": candidate_record.end_date.isoformat(),
                     "symbol": symbol,
                     "timeframe": interval,
                     "windowSize": lookback_window,
@@ -507,7 +530,7 @@ class MarketDataService:
                     "futureDrawdown5d": future_stats["maxDownPct"],
                     "futureStats5d": future_stats,
                     "quantSelectedPercent": match_score,
-                    "historicalCandles": candidate_window,
+                    "historicalCandles": self._serialize_grouped_candles(candidate_window),
                 }
             )
 
@@ -584,6 +607,37 @@ class MarketDataService:
             "targetPrice": round(future_high, 4),
             "riskPrice": round(future_low, 4),
         }
+
+    def _build_live_window_record(self, candles, interval, lookback_window):
+        summary = self.persistence_service._build_window_summary(candles)
+        return SimpleNamespace(
+            feature_vector=summary["feature_vector"],
+            return_pct=summary["return_pct"],
+            avg_return=summary["avg_return"],
+            max_drawdown=summary["max_drawdown"],
+            timeframe=interval,
+            window_size=lookback_window,
+            end_date=candles[-1]["trade_date"],
+            id=None,
+        )
+
+    def _serialize_grouped_candles(self, candles):
+        serialized = []
+
+        for candle in candles:
+            trade_date = candle.get("trade_date")
+            serialized.append(
+                {
+                    "date": trade_date.isoformat() if hasattr(trade_date, "isoformat") else str(trade_date),
+                    "open": self._to_float(candle.get("open")),
+                    "high": self._to_float(candle.get("high")),
+                    "low": self._to_float(candle.get("low")),
+                    "close": self._to_float(candle.get("close")),
+                    "volume": self._to_int(candle.get("volume", 0)),
+                }
+            )
+
+        return serialized
 
     def _is_usable_future_stats(self, future_stats):
         max_up_pct = future_stats.get("maxUpPct")

@@ -104,6 +104,25 @@ class PersistenceService:
             db.session.rollback()
             raise
 
+    def apply_cached_match_preview(self, response_data):
+        """Apply indicator-aware historical matches without persisting a new analysis run."""
+        current_window = self._hydrate_current_window(response_data.get("_currentWindow"))
+
+        if current_window is None:
+            return response_data
+
+        matched_patterns = self._create_pattern_matches(
+            analysis_run_id=None,
+            current_window=current_window,
+            selected_indicators=response_data.get("request", {}).get("indicators", []),
+            persist_matches=False,
+        )
+
+        if matched_patterns:
+            self._apply_match_results_to_response(response_data, matched_patterns)
+
+        return response_data
+
     def _hydrate_current_window(self, current_window_payload):
         if not current_window_payload:
             return None
@@ -357,7 +376,7 @@ class PersistenceService:
             window_size=lookback_window,
         ).order_by(PatternWindow.end_date.desc()).first()
     
-    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators):
+    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True):
         if current_window is None:
             return []
     
@@ -394,17 +413,18 @@ class PersistenceService:
         for rank_no, (matched_window, score) in enumerate(top_matches, start=1):
             historical_candles = self._build_match_candles(matched_window)
             match_future_stats_5d = score.get("future_stats_5d") or self._empty_forward_stat()
-            pattern_match = PatternMatch(
-                analysis_run_id=analysis_run_id,
-                matched_window_id=matched_window.id,
-                rank_no=rank_no,
-                similarity_score=score["score_percent"],
-                pattern_label=self._build_pattern_label(matched_window),
-                forward_return_5d=None,
-                forward_return_10d=None,
-                forward_return_20d=None,
-            )
-            db.session.add(pattern_match)
+            if persist_matches and analysis_run_id is not None:
+                pattern_match = PatternMatch(
+                    analysis_run_id=analysis_run_id,
+                    matched_window_id=matched_window.id,
+                    rank_no=rank_no,
+                    similarity_score=score["score_percent"],
+                    pattern_label=self._build_pattern_label(matched_window),
+                    forward_return_5d=None,
+                    forward_return_10d=None,
+                    forward_return_20d=None,
+                )
+                db.session.add(pattern_match)
     
             response_matches.append(
                 {
