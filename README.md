@@ -86,7 +86,7 @@ python scripts/sync_sqlite_to_postgres.py
 
 Current note:
 
-- the tracked local seed currently contains the top 10 symbol universe in `symbols`
+- the tracked local seed currently contains the top 50 symbol universe in `symbols`
 - if more `daily_prices`, `daily_indicators`, or `pattern_windows` are added to SQLite later, the same sync script will carry them into PostgreSQL
 
 ## Incremental Data Updates
@@ -109,7 +109,7 @@ What this does:
 
 Recommended workflow:
 
-1. initial load for the top 10 / top 50 universe
+1. initial load for the top 50 universe
 2. monthly or weekly incremental sync using `incremental_sync_cache.py`
 3. keep the app code stable while only updating the data layer
 

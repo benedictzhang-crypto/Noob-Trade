@@ -43,5 +43,5 @@ python backend/scripts/build_seed_db.py
 ```
 
 That script creates a fresh SQLite database at `backend/noobtrade_local.db`,
-initializes the schema, seeds the tracked S&P 500 top-10 symbol metadata, and
+initializes the schema, seeds the tracked top-50 symbol metadata, and
 verifies the file with `PRAGMA integrity_check`.
