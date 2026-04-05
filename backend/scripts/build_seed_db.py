@@ -6,6 +6,9 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
+SEED_HISTORY_LIMIT = 700
+SEED_TIMEFRAMES = ("daily",)
+SEED_WINDOW_SIZES = (30,)
 
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
@@ -371,6 +374,12 @@ def _integrity_check(database_path):
         return result[0] if result else "unknown"
 
 
+def _table_count(database_path, table_name):
+    with sqlite3.connect(database_path) as connection:
+        result = connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()
+        return int(result[0]) if result else 0
+
+
 def main():
     final_db_path = BACKEND_DIR / "noobtrade_local.db"
     temp_db_path = BACKEND_DIR / "noobtrade_local.seed-build.db"
@@ -386,11 +395,45 @@ def main():
     from app import app
     from extensions import db
     from models.market_data import Symbol
+    from services.precompute_service import PrecomputeService
 
     with app.app_context():
+        precompute_service = PrecomputeService(app.config)
+        timeframes = SEED_TIMEFRAMES
+        window_sizes = SEED_WINDOW_SIZES
+
+        for index, item in enumerate(SEED_SYMBOLS, start=1):
+            response_data = precompute_service._build_cache_seed_response(item["symbol"], window_sizes)
+            daily_history = list(response_data.get("chartData", {}).get("history", {}).get("daily", []))
+            if daily_history:
+                response_data["chartData"]["history"]["daily"] = daily_history[-SEED_HISTORY_LIMIT:]
+            response_data["stock"].update(
+                {
+                    "symbol": item["symbol"],
+                    "companyName": item["company_name"],
+                    "sector": item["sector"],
+                    "industry": item["industry"],
+                    "exchange": item["exchange"],
+                }
+            )
+            precompute_service.persistence_service.warm_symbol_cache(
+                response_data,
+                timeframes=timeframes,
+                window_sizes=window_sizes,
+            )
+            print(
+                {
+                    "status": "seeded",
+                    "index": index,
+                    "total": len(SEED_SYMBOLS),
+                    "symbol": item["symbol"],
+                    "history_limit": SEED_HISTORY_LIMIT,
+                },
+                flush=True,
+            )
+
         for item in SEED_SYMBOLS:
             record = Symbol.query.filter_by(symbol=item["symbol"]).first()
-
             if record is None:
                 record = Symbol(symbol=item["symbol"])
                 db.session.add(record)
@@ -414,6 +457,12 @@ def main():
         {
             "database": str(final_db_path),
             "symbol_count": len(SEED_SYMBOLS),
+            "history_limit": SEED_HISTORY_LIMIT,
+            "timeframes": list(SEED_TIMEFRAMES),
+            "window_sizes": list(SEED_WINDOW_SIZES),
+            "daily_price_count": _table_count(final_db_path, "daily_prices"),
+            "daily_indicator_count": _table_count(final_db_path, "daily_indicators"),
+            "pattern_window_count": _table_count(final_db_path, "pattern_windows"),
             "symbols": [item["symbol"] for item in SEED_SYMBOLS],
             "integrity_check": _integrity_check(final_db_path),
         }
