@@ -46,7 +46,7 @@ class Config:
             return configured_url
 
         backend_dir = Path(__file__).resolve().parent
-        sqlite_path = backend_dir / "noobtrade_app.db"
+        sqlite_path = backend_dir / "noobtrade_user.db"
         return f"sqlite:///{sqlite_path}"
 
     DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true"

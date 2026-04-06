@@ -2728,6 +2728,10 @@ select {
   gap: 12px;
 }
 
+.myself-grid {
+  align-items: start;
+}
+
 .dashboard-mini-card {
   padding: 16px;
 }
@@ -2762,6 +2766,17 @@ select {
   border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.7);
+}
+
+.myself-detail-list .task-row small {
+  font-size: 0.96rem;
+  color: var(--text-main);
+}
+
+.myself-actions {
+  padding: 18px 0 0;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .watchlist-link {

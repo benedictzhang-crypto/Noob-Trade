@@ -3,8 +3,8 @@ backend/venv/
 backend/.venv/
 backend/.env
 backend/.env.*
-backend/noobtrade_app.db
-backend/noobtrade_app.db-*
+backend/noobtrade_user.db
+backend/noobtrade_user.db-*
 backend/*.backup-*.db
 backend/noobtrade_local.pre-*.db
 frontend/.env

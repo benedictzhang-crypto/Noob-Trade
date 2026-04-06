@@ -10,7 +10,7 @@ import SearchBar from './components/SearchBar.vue'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password']
-const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'More']
+const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
 
 const activePage = ref('Home')
 const isAuthenticated = ref(false)
@@ -72,8 +72,7 @@ const verificationForm = ref({
 const registrationForm = ref({
   fullName: '',
   email: '',
-  password: '',
-  riskProfile: 'Balanced'
+  password: ''
 })
 const resetPasswordForm = ref({
   email: '',
@@ -443,6 +442,7 @@ const marketFocusLabel = computed(() => {
   return 'Hot Market'
 })
 const currentUserName = computed(() => currentUser.value?.fullName || 'Guest')
+const currentUserCode = computed(() => formatAdminUserCode(currentUser.value?.id))
 const currentExploreRows = computed(() => exploreRankings[currentExploreTab.value] || exploreRankings.Watchlist)
 const allExploreRows = computed(() => {
   const merged = new Map()
@@ -1803,8 +1803,7 @@ async function submitRegistration() {
       body: JSON.stringify({
         fullName: registrationForm.value.fullName,
         email: registrationForm.value.email,
-        password: registrationForm.value.password,
-        riskProfile: registrationForm.value.riskProfile
+        password: registrationForm.value.password
       })
     })
     const payload = await parseJsonResponse(
@@ -2257,14 +2256,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <label class="auth-field">
                 <span>Password</span>
                 <input v-model="registrationForm.password" type="password" placeholder="Create a password" />
-              </label>
-              <label class="auth-field">
-                <span>Risk Profile</span>
-                <select v-model="registrationForm.riskProfile">
-                  <option>Balanced</option>
-                  <option>Conservative</option>
-                  <option>Aggressive</option>
-                </select>
               </label>
             </div>
 
@@ -3105,6 +3096,66 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Probability</span>
               <strong>{{ stockResponse.patternAnalysis.probabilityOfIncrease }}%</strong>
             </div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <main v-else-if="activePage === 'Myself'" class="product-page">
+      <section class="hero-surface compact">
+        <div>
+          <p class="eyebrow">Myself</p>
+          <h1 class="page-title">Your account at a glance</h1>
+          <p class="page-subtitle">
+            Review your personal account ID, registered email, and basic account status in one place.
+          </p>
+        </div>
+      </section>
+
+      <section class="dashboard-grid myself-grid">
+        <article class="table-surface dashboard-card">
+          <div class="table-header">
+            <h2>Account Details</h2>
+            <span class="section-chip">{{ currentUser?.isAdmin ? 'Admin' : 'User' }}</span>
+          </div>
+          <div class="task-list myself-detail-list">
+            <div class="task-row">
+              <strong>Account ID</strong>
+              <small>{{ currentUserCode }}</small>
+            </div>
+            <div class="task-row">
+              <strong>Full Name</strong>
+              <small>{{ currentUser?.fullName || currentUserName }}</small>
+            </div>
+            <div class="task-row">
+              <strong>Email</strong>
+              <small>{{ currentUser?.email || 'Not available' }}</small>
+            </div>
+            <div class="task-row">
+              <strong>Membership</strong>
+              <small>{{ currentUser?.membership || 'Regular User' }}</small>
+            </div>
+            <div class="task-row">
+              <strong>Joined</strong>
+              <small>{{ currentUser?.joinedAt || 'Recent' }}</small>
+            </div>
+          </div>
+        </article>
+
+        <article class="table-surface dashboard-card">
+          <div class="table-header">
+            <h2>Settings</h2>
+            <span class="section-chip">Session</span>
+          </div>
+          <div class="dashboard-card-grid">
+            <div class="dashboard-mini-card">
+              <span>Current login</span>
+              <strong>{{ currentUser?.emailVerified ? 'Verified' : 'Pending verification' }}</strong>
+              <small>Your account stays stored locally even when the shared market seed database is updated.</small>
+            </div>
+          </div>
+          <div class="myself-actions">
+            <button class="topbar-button" @click="signOut">Logout</button>
           </div>
         </article>
       </section>
