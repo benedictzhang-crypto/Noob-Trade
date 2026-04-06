@@ -3,6 +3,7 @@ from models.db_compat import COMPAT_BIGINT
 
 
 class User(db.Model):
+    __bind_key__ = "app"
     __tablename__ = "users"
 
     id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
@@ -18,6 +19,7 @@ class User(db.Model):
 
 
 class LoginVerificationCode(db.Model):
+    __bind_key__ = "app"
     __tablename__ = "login_verification_codes"
 
     id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
@@ -35,6 +37,7 @@ class LoginVerificationCode(db.Model):
 
 
 class LoginActivity(db.Model):
+    __bind_key__ = "app"
     __tablename__ = "login_activities"
 
     id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)

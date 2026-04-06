@@ -3,6 +3,10 @@ backend/venv/
 backend/.venv/
 backend/.env
 backend/.env.*
+backend/noobtrade_app.db
+backend/noobtrade_app.db-*
+backend/*.backup-*.db
+backend/noobtrade_local.pre-*.db
 frontend/.env
 frontend/.env.*
 backend/__pycache__/

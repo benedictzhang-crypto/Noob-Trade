@@ -39,6 +39,16 @@ class Config:
         sqlite_path = backend_dir / "noobtrade_local.db"
         return f"sqlite:///{sqlite_path}"
 
+    @staticmethod
+    def _default_app_database_uri():
+        configured_url = os.getenv("APP_DATABASE_URL")
+        if configured_url:
+            return configured_url
+
+        backend_dir = Path(__file__).resolve().parent
+        sqlite_path = backend_dir / "noobtrade_app.db"
+        return f"sqlite:///{sqlite_path}"
+
     DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     ENVIRONMENT = os.getenv("APP_ENV", "development").strip().lower() or "development"
     USE_RELOADER = os.getenv("FLASK_USE_RELOADER", "false").lower() == "true"
@@ -90,6 +100,9 @@ class Config:
     INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://instagram.com/noobtrade")
     DISCORD_URL = os.getenv("DISCORD_URL", "https://discord.gg/noobtrade")
     SQLALCHEMY_DATABASE_URI = _default_database_uri.__func__()
+    SQLALCHEMY_BINDS = {
+        "app": _default_app_database_uri.__func__(),
+    }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {

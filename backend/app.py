@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+import sqlite3
 
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
@@ -12,7 +13,7 @@ load_dotenv()
 from config import Config
 from extensions import db
 from models import analysis, auth, market_data, trading
-from models.auth import User
+from models.auth import LoginActivity, LoginVerificationCode, User
 from routes.auth_routes import auth_blueprint, auth_legacy_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
@@ -37,9 +38,40 @@ def _sqlite_database_path(app):
     return Path(database_uri.removeprefix("sqlite:///"))
 
 
+def _auth_database_uri(app):
+    binds = app.config.get("SQLALCHEMY_BINDS") or {}
+    auth_uri = binds.get("app", "")
+
+    if isinstance(auth_uri, dict):
+        return auth_uri.get("url", "")
+
+    return auth_uri or ""
+
+
+def _auth_sqlite_database_path(app):
+    auth_uri = _auth_database_uri(app)
+    if not auth_uri.startswith("sqlite:///"):
+        return None
+
+    return Path(auth_uri.removeprefix("sqlite:///"))
+
+
+def _parse_sqlite_datetime(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+
+    normalized = str(value).replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
 def ensure_auth_schema(app):
     with app.app_context():
-        inspector = inspect(db.engine)
+        inspector = inspect(db.engines["app"])
         table_names = set(inspector.get_table_names())
 
         if "users" not in table_names or "login_verification_codes" not in table_names or "login_activities" not in table_names:
@@ -48,13 +80,120 @@ def ensure_auth_schema(app):
 
         user_columns = {column["name"] for column in inspector.get_columns("users")}
 
-        if "role" not in user_columns:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"))
-        if "email_verified" not in user_columns:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0"))
-        if "verified_at" not in user_columns:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN verified_at DATETIME"))
-        db.session.commit()
+        with db.engines["app"].begin() as connection:
+            if "role" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"))
+            if "email_verified" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0"))
+            if "verified_at" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN verified_at DATETIME"))
+
+
+def migrate_auth_data_to_app_db(app):
+    source_path = _sqlite_database_path(app)
+    target_path = _auth_sqlite_database_path(app)
+
+    if source_path is None or target_path is None or source_path == target_path or not source_path.exists():
+        return
+
+    with app.app_context():
+        if User.query.count() > 0:
+            return
+
+    source_connection = sqlite3.connect(source_path)
+    source_connection.row_factory = sqlite3.Row
+
+    try:
+        cursor = source_connection.cursor()
+        existing_tables = {
+            row["name"]
+            for row in cursor.execute("SELECT name FROM sqlite_master WHERE type = 'table'").fetchall()
+        }
+        if "users" not in existing_tables:
+            return
+
+        users = cursor.execute(
+            """
+            SELECT id, full_name, email, password_hash, risk_profile, membership, role,
+                   email_verified, verified_at, created_at
+            FROM users
+            ORDER BY id ASC
+            """
+        ).fetchall()
+
+        verification_codes = []
+        if "login_verification_codes" in existing_tables:
+            verification_codes = cursor.execute(
+                """
+                SELECT id, user_id, email, code_hash, purpose, expires_at, used_at, created_at
+                FROM login_verification_codes
+                ORDER BY id ASC
+                """
+            ).fetchall()
+
+        login_activities = []
+        if "login_activities" in existing_tables:
+            login_activities = cursor.execute(
+                """
+                SELECT id, user_id, email, ip_address, user_agent, device_label, location_label,
+                       is_new_device, is_new_location, created_at
+                FROM login_activities
+                ORDER BY id ASC
+                """
+            ).fetchall()
+
+        if not users:
+            return
+
+        with app.app_context():
+            for row in users:
+                db.session.add(User(
+                    id=row["id"],
+                    full_name=row["full_name"],
+                    email=row["email"],
+                    password_hash=row["password_hash"],
+                    risk_profile=row["risk_profile"] or "Balanced",
+                    membership=row["membership"] or "Regular User",
+                    role=row["role"] or "user",
+                    email_verified=bool(row["email_verified"]),
+                    verified_at=_parse_sqlite_datetime(row["verified_at"]),
+                    created_at=_parse_sqlite_datetime(row["created_at"]),
+                ))
+
+            for row in verification_codes:
+                db.session.add(LoginVerificationCode(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    email=row["email"],
+                    code_hash=row["code_hash"],
+                    purpose=row["purpose"] or "admin_login",
+                    expires_at=_parse_sqlite_datetime(row["expires_at"]),
+                    used_at=_parse_sqlite_datetime(row["used_at"]),
+                    created_at=_parse_sqlite_datetime(row["created_at"]),
+                ))
+
+            for row in login_activities:
+                db.session.add(LoginActivity(
+                    id=row["id"],
+                    user_id=row["user_id"],
+                    email=row["email"],
+                    ip_address=row["ip_address"],
+                    user_agent=row["user_agent"],
+                    device_label=row["device_label"],
+                    location_label=row["location_label"],
+                    is_new_device=bool(row["is_new_device"]),
+                    is_new_location=bool(row["is_new_location"]),
+                    created_at=_parse_sqlite_datetime(row["created_at"]),
+                ))
+
+            db.session.commit()
+            app.logger.info(
+                "Migrated %s users from shared market SQLite to local app SQLite at %s.",
+                len(users),
+                target_path,
+            )
+    finally:
+        source_connection.close()
 
 
 def ensure_admin_user(app):
@@ -134,6 +273,7 @@ def initialize_database(app):
         db.create_all()
 
     ensure_auth_schema(app)
+    migrate_auth_data_to_app_db(app)
     ensure_admin_user(app)
 
 
