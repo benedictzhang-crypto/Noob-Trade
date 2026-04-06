@@ -11,6 +11,13 @@ defineProps({
 })
 
 const emit = defineEmits(['toggle-indicator', 'run-analysis'])
+
+function handleToggle(event, indicatorName) {
+  emit('toggle-indicator', indicatorName)
+  requestAnimationFrame(() => {
+    event.currentTarget?.blur?.()
+  })
+}
 </script>
 
 <template>
@@ -25,7 +32,8 @@ const emit = defineEmits(['toggle-indicator', 'run-analysis'])
           class="indicator-row"
           :class="{ active: indicator.active }"
           @mousedown.prevent
-          @click="emit('toggle-indicator', indicator.name)"
+          @pointerdown.prevent
+          @click="handleToggle($event, indicator.name)"
         >
           <span class="check-box">{{ indicator.active ? '✓' : '' }}</span>
           <span class="indicator-name">{{ indicator.name }}</span>

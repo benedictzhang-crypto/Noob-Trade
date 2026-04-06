@@ -153,7 +153,6 @@ select {
 .buy-button:hover,
 .topbar-link:hover,
 .interval-button:hover,
-.indicator-row:hover,
 .watch-item:hover,
 .chip:hover {
   transform: translateY(-1px);
@@ -699,6 +698,7 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  overflow-anchor: none;
 }
 
 .indicator-row {
@@ -715,6 +715,7 @@ select {
   cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .indicator-row.active {

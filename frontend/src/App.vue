@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import ChartPanel from './components/ChartPanel.vue'
 import IndicatorSelector from './components/IndicatorSelector.vue'
@@ -424,6 +424,14 @@ const visiblePages = computed(() => {
   return authenticatedPages
 })
 const selectedIndicators = computed(() => indicators.value.filter((indicator) => indicator.active))
+const appliedIndicatorSet = computed(() => new Set(
+  stockResponse.value?.request?.indicators
+  || stockResponse.value?.patternAnalysis?.selectedIndicators
+  || []
+))
+const appliedIndicators = computed(() => indicators.value
+  .filter((indicator) => appliedIndicatorSet.value.has(indicator.name))
+  .map((indicator) => ({ ...indicator, active: true })))
 const newsFeed = computed(() => marketNewsFeed.value.length ? marketNewsFeed.value : buildHourlyNewsFeed(activeSymbol.value, feedRefreshKey.value))
 const scrollingNewsFeed = computed(() => [...newsFeed.value, ...newsFeed.value])
 const socialFeed = computed(() => buildHourlySocialFeed(activeSymbol.value, feedRefreshKey.value))
@@ -1121,18 +1129,12 @@ function getSelectedIndicators() {
 }
 
 function toggleIndicator(indicatorName) {
-  const previousScrollY = window.scrollY
-
   indicators.value = indicators.value.map((indicator) => {
     if (indicator.name === indicatorName) {
       return { ...indicator, active: !indicator.active }
     }
 
     return indicator
-  })
-
-  nextTick(() => {
-    window.scrollTo({ top: previousScrollY, behavior: 'auto' })
   })
 }
 
@@ -1384,6 +1386,11 @@ async function runSearch() {
     activeSymbol.value = data.stock.symbol
     symbolInput.value = data.stock.symbol
     activePage.value = 'Trade'
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
   } catch (error) {
     errorMessage.value =
       'We could not load stock data. Please make sure the Flask backend is running and try again.'
@@ -2561,7 +2568,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
 
         <ChartPanel
-          :active-indicators="selectedIndicators"
+          :active-indicators="appliedIndicators"
           :active-symbol="activeSymbol"
           :chart-data="stockResponse.chartData"
           :chart-intervals="chartIntervals"
@@ -3268,7 +3275,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
 
         <ChartPanel
-          :active-indicators="selectedIndicators"
+          :active-indicators="appliedIndicators"
           :active-symbol="replayPattern.symbol"
           :chart-data="replayChartData"
           :chart-intervals="[replayPattern.timeframe]"
