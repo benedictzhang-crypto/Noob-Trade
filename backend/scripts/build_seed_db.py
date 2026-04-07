@@ -1,11 +1,13 @@
 import os
 import sqlite3
 import sys
+from copy import deepcopy
 from pathlib import Path
 
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BACKEND_DIR.parent
+FULL_DAILY_PRICE_HISTORY_LIMIT = 2519
 SEED_HISTORY_LIMIT = 700
 SEED_TIMEFRAMES = ("daily",)
 SEED_WINDOW_SIZES = (30,)
@@ -383,13 +385,19 @@ def _table_count(database_path, table_name):
 def main():
     final_db_path = BACKEND_DIR / "noobtrade_local.db"
     temp_db_path = BACKEND_DIR / "noobtrade_local.seed-build.db"
+    market_data_token = os.getenv("MARKET_DATA_TOKEN", "").strip()
 
     if temp_db_path.exists():
         temp_db_path.unlink()
 
+    if not market_data_token:
+        raise RuntimeError(
+            "MARKET_DATA_TOKEN is required to build the shared seed database with live historical data."
+        )
+
     os.environ["DATABASE_URL"] = f"sqlite:///{temp_db_path}"
-    os.environ["MARKET_DATA_TOKEN"] = ""
-    os.environ["USE_MOCK_FALLBACK"] = "true"
+    os.environ["MARKET_DATA_TOKEN"] = market_data_token
+    os.environ["USE_MOCK_FALLBACK"] = "false"
     os.environ["FLASK_DEBUG"] = "false"
 
     from app import app
@@ -399,14 +407,20 @@ def main():
 
     with app.app_context():
         precompute_service = PrecomputeService(app.config)
+        persistence_service = precompute_service.persistence_service
         timeframes = SEED_TIMEFRAMES
         window_sizes = SEED_WINDOW_SIZES
+        lookback_window = max(window_sizes)
+        indicators = app.config["DEFAULT_INDICATORS"]
 
         for index, item in enumerate(SEED_SYMBOLS, start=1):
-            response_data = precompute_service._build_cache_seed_response(item["symbol"], window_sizes)
-            daily_history = list(response_data.get("chartData", {}).get("history", {}).get("daily", []))
-            if daily_history:
-                response_data["chartData"]["history"]["daily"] = daily_history[-SEED_HISTORY_LIMIT:]
+            response_data = precompute_service.market_data_service._build_live_response(
+                symbol=item["symbol"],
+                interval=app.config["DEFAULT_INTERVAL"],
+                lookback_window=lookback_window,
+                indicators=indicators,
+                price_limit=FULL_DAILY_PRICE_HISTORY_LIMIT,
+            )
             response_data["stock"].update(
                 {
                     "symbol": item["symbol"],
@@ -416,8 +430,24 @@ def main():
                     "exchange": item["exchange"],
                 }
             )
-            precompute_service.persistence_service.warm_symbol_cache(
-                response_data,
+
+            daily_history = list(response_data.get("chartData", {}).get("history", {}).get("daily", []))
+            full_daily_price_history = daily_history[-FULL_DAILY_PRICE_HISTORY_LIMIT:] if daily_history else []
+
+            symbol_record = persistence_service._upsert_symbol(response_data["stock"])
+            persistence_service._upsert_daily_prices(
+                symbol_record.id,
+                full_daily_price_history,
+                response_data.get("dataSource", "mock"),
+            )
+            db.session.commit()
+
+            cached_response_data = deepcopy(response_data)
+            if full_daily_price_history:
+                cached_response_data["chartData"]["history"]["daily"] = full_daily_price_history[-SEED_HISTORY_LIMIT:]
+
+            persistence_service.warm_symbol_cache(
+                cached_response_data,
                 timeframes=timeframes,
                 window_sizes=window_sizes,
             )
@@ -427,7 +457,8 @@ def main():
                     "index": index,
                     "total": len(SEED_SYMBOLS),
                     "symbol": item["symbol"],
-                    "history_limit": SEED_HISTORY_LIMIT,
+                    "daily_price_history_limit": FULL_DAILY_PRICE_HISTORY_LIMIT,
+                    "cache_history_limit": SEED_HISTORY_LIMIT,
                 },
                 flush=True,
             )
@@ -457,6 +488,7 @@ def main():
         {
             "database": str(final_db_path),
             "symbol_count": len(SEED_SYMBOLS),
+            "daily_price_history_limit": FULL_DAILY_PRICE_HISTORY_LIMIT,
             "history_limit": SEED_HISTORY_LIMIT,
             "timeframes": list(SEED_TIMEFRAMES),
             "window_sizes": list(SEED_WINDOW_SIZES),
