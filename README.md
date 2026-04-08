@@ -113,6 +113,32 @@ Recommended workflow:
 2. monthly or weekly incremental sync using `incremental_sync_cache.py`
 3. keep the app code stable while only updating the data layer
 
+## Full Local Cache Build
+
+The tracked SQLite seed keeps `daily_prices` at roughly 10-year depth, but the
+repo does not ship a huge fully expanded cache DB in git.
+
+To build the full local daily cache from the seeded prices on your own machine:
+
+```bash
+python backend/scripts/build_full_daily_cache.py
+```
+
+That script:
+
+- reuses the existing `backend/noobtrade_local.db`
+- expands `daily_indicators` to the same daily coverage as `daily_prices`
+- expands `pattern_windows` for `timeframe=daily` and `window_size=30`
+- is safe to rerun and skips symbols that already look complete
+- prints final row counts and runs `PRAGMA integrity_check`
+
+For smaller resumable runs:
+
+```bash
+python backend/scripts/build_full_daily_cache.py --symbols AAPL,NVDA
+python backend/scripts/build_full_daily_cache.py --force
+```
+
 ## Notes
 
 - The frontend currently shows a simple dashboard layout.
