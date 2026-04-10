@@ -183,6 +183,63 @@ class MarketDataService:
         self.MARKET_NEWS_CACHE[cache_key] = collected[:limit]
         return collected[:limit]
 
+    def get_cached_pro_signal(self, symbol, interval="daily", lookback_window=30, current_price=None, indicators=None):
+        symbol_code = symbol.upper()
+        symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
+
+        if symbol_record is None:
+            raise ValueError(f"No cached symbol data found for {symbol_code}.")
+
+        price_records = DailyPrice.query.filter(
+            DailyPrice.symbol_id == symbol_record.id,
+        ).order_by(DailyPrice.trade_date.asc()).limit(self.PRODUCTION_MATCH_CANDLE_LIMIT).all()
+
+        if len(price_records) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
+            raise ValueError(f"Not enough cached price history for {symbol_code}.")
+
+        daily_candles = [
+            {
+                "date": record.trade_date.isoformat(),
+                "open": self._to_float(record.open),
+                "high": self._to_float(record.high),
+                "low": self._to_float(record.low),
+                "close": self._to_float(record.close),
+                "volume": self._to_int(record.volume or 0),
+            }
+            for record in price_records
+            if record.trade_date is not None
+        ]
+
+        if current_price is not None and daily_candles:
+            live_price = self._to_float(current_price)
+            if live_price > 0:
+                last_candle = daily_candles[-1]
+                last_candle["close"] = live_price
+                last_candle["high"] = max(self._to_float(last_candle.get("high")), live_price)
+                last_candle["low"] = min(self._to_float(last_candle.get("low")) or live_price, live_price)
+
+        selected_indicators = indicators or ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
+        current_price_value = self._to_float(current_price) if current_price is not None else self._to_float(daily_candles[-1]["close"])
+        live_match_summary = self._build_live_match_summary(
+            symbol=symbol_code,
+            interval=interval,
+            lookback_window=lookback_window,
+            daily_candles=daily_candles,
+            current_price=current_price_value,
+            last_date=daily_candles[-1]["date"] if daily_candles else None,
+            indicators=selected_indicators,
+            compact_response=True,
+        )
+
+        return {
+            "status": "ok",
+            "symbol": symbol_code,
+            "companyName": symbol_record.company_name or symbol_code,
+            "sector": symbol_record.sector or "Unknown",
+            "currentPrice": current_price_value,
+            "patternAnalysis": live_match_summary,
+        }
+
     def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()
 

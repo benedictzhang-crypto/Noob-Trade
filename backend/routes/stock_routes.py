@@ -120,3 +120,35 @@ def get_market_news():
             "items": news_items,
         }
     )
+
+
+@stock_blueprint.route("/pro-signal/<symbol>", methods=["POST"])
+def get_pro_signal(symbol):
+    payload = request.get_json(silent=True) or {}
+    interval = str(payload.get("interval") or "daily")
+    lookback = int(payload.get("lookback") or current_app.config["DEFAULT_LOOKBACK"])
+    current_price = payload.get("currentPrice")
+    raw_indicators = payload.get("indicators") or current_app.config["DEFAULT_INDICATORS"]
+
+    market_data_service = MarketDataService(current_app.config)
+
+    try:
+        response_data = market_data_service.get_cached_pro_signal(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback,
+            current_price=current_price,
+            indicators=raw_indicators if isinstance(raw_indicators, list) else raw_indicators.split(","),
+        )
+        return jsonify(response_data)
+    except Exception as error:
+        current_app.logger.exception("Pro signal failed for %s", symbol)
+        return jsonify(
+            {
+                "status": "error",
+                "message": str(error),
+                "symbol": symbol.upper(),
+                "interval": interval,
+                "lookback": lookback,
+            }
+        ), 500
