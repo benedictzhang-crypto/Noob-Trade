@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from statistics import mean
 from urllib.parse import quote
 
-from models.market_data import PatternWindow, Symbol
+from models.market_data import DailyPrice, PatternWindow, Symbol
 from services.persistence_service import PersistenceService
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
 from services.mock_market_data_service import (
