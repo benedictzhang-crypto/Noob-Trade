@@ -65,30 +65,42 @@ def get_stock(symbol):
     market_data_service = MarketDataService(current_app.config)
     persistence_service = PersistenceService()
 
-    response_data = market_data_service.get_stock_pattern_analysis(
-        symbol=symbol,
-        interval=interval,
-        lookback_window=lookback,
-        raw_indicators=raw_indicators,
-        default_indicators=current_app.config["DEFAULT_INDICATORS"]
-    )
+    try:
+        response_data = market_data_service.get_stock_pattern_analysis(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback,
+            raw_indicators=raw_indicators,
+            default_indicators=current_app.config["DEFAULT_INDICATORS"]
+        )
 
-    if response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
-        try:
-            response_data = persistence_service.apply_cached_match_preview(response_data)
-        except Exception as error:
-            current_app.logger.warning("Could not apply indicator-aware cached preview: %s", error)
+        if response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
+            try:
+                response_data = persistence_service.apply_cached_match_preview(response_data)
+            except Exception as error:
+                current_app.logger.warning("Could not apply indicator-aware cached preview: %s", error)
 
-    should_persist = current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis
+        should_persist = current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis
 
-    if not prefetch_only and should_persist:
-        try:
-            response_data = persistence_service.save_analysis_run(response_data)
-        except Exception as error:
-            # Keep API responses available even if the database is not ready yet.
-            current_app.logger.warning("Could not persist analysis run: %s", error)
+        if not prefetch_only and should_persist:
+            try:
+                response_data = persistence_service.save_analysis_run(response_data)
+            except Exception as error:
+                # Keep API responses available even if the database is not ready yet.
+                current_app.logger.warning("Could not persist analysis run: %s", error)
 
-    return jsonify(_sanitize_response_payload(response_data))
+        return jsonify(_sanitize_response_payload(response_data))
+    except Exception as error:
+        current_app.logger.exception("Stock analysis failed for %s", symbol)
+        return jsonify(
+            {
+                "status": "error",
+                "message": str(error),
+                "symbol": symbol.upper(),
+                "interval": interval,
+                "lookback": lookback,
+            }
+        ), 500
 
 
 @stock_blueprint.route("/market-news", methods=["GET"])
