@@ -44,6 +44,7 @@ class MarketDataService:
     LIVE_MATCH_TARGET = 20
     LIVE_FORWARD_DAYS = 5
     LIVE_FORWARD_OUTLIER_LIMIT = 40.0
+    PRODUCTION_PRICE_LIMIT = 700
 
     def __init__(self, config):
         self.config = config
@@ -58,6 +59,29 @@ class MarketDataService:
     def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = symbol.upper()
+        is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
+
+        if is_production and self.market_api.is_configured() and self.market_api.is_available():
+            try:
+                return self._build_live_response(
+                    symbol_code,
+                    interval,
+                    lookback_window,
+                    indicators,
+                    price_limit=self.PRODUCTION_PRICE_LIMIT,
+                )
+            except DukeMarketApiUnavailable:
+                logger.warning(
+                    "Production live market data provider is unavailable for %s; falling back.",
+                    symbol_code,
+                    exc_info=True,
+                )
+            except Exception:
+                logger.warning(
+                    "Production lightweight live analysis failed for %s and the service is falling back.",
+                    symbol_code,
+                    exc_info=True,
+                )
 
         if self.market_api.is_configured() and self.market_api.is_available() and self._has_cached_history(symbol_code):
             try:
