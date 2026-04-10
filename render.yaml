@@ -1,18 +1,27 @@
 services:
   - type: web
     name: noobtrade
-    env: docker
+    runtime: docker
     plan: starter
     autoDeploy: true
+    healthCheckPath: /api/health
     domains:
       - noobtrade.com
       - www.noobtrade.com
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: APP_DATABASE_URL
+        sync: false
       - key: MARKET_DATA_TOKEN
         sync: false
+      - key: SECRET_KEY
+        generateValue: true
       - key: FLASK_DEBUG
         value: "false"
+      - key: FLASK_USE_RELOADER
+        value: "false"
+      - key: PORT
+        value: "5000"
       - key: CORS_ORIGINS
         value: "https://noobtrade.com,https://www.noobtrade.com"
