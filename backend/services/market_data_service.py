@@ -58,7 +58,7 @@ class MarketDataService:
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
 
-    def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators):
+    def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators, compact_response=False):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = symbol.upper()
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
@@ -71,6 +71,7 @@ class MarketDataService:
                     lookback_window,
                     indicators,
                     price_limit=self.PRODUCTION_PRICE_LIMIT,
+                    compact_response=compact_response,
                 )
             except DukeMarketApiUnavailable:
                 logger.warning(
@@ -92,6 +93,7 @@ class MarketDataService:
                     interval=interval,
                     lookback_window=lookback_window,
                     indicators=indicators,
+                    compact_response=compact_response,
                 )
             except DukeMarketApiUnavailable:
                 logger.warning(
@@ -108,7 +110,7 @@ class MarketDataService:
 
         if self.market_api.is_configured() and self.market_api.is_available():
             try:
-                return self._build_live_response(symbol_code, interval, lookback_window, indicators)
+                return self._build_live_response(symbol_code, interval, lookback_window, indicators, compact_response=compact_response)
             except DukeMarketApiUnavailable:
                 logger.warning(
                     "Live market data provider is unavailable for %s and the service is falling back to mock data.",
@@ -181,7 +183,7 @@ class MarketDataService:
         self.MARKET_NEWS_CACHE[cache_key] = collected[:limit]
         return collected[:limit]
 
-    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators):
+    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()
 
         if symbol_record is None:
@@ -223,9 +225,9 @@ class MarketDataService:
             current_price=current_price,
             last_date=full_recent_candles[-1]["date"] if full_recent_candles else None,
             indicators=indicators,
+            compact_response=compact_response,
         )
-
-        return {
+        response = {
             "dataSource": "live",
             "_currentWindow": {
                 "featureVector": current_window.feature_vector,
@@ -277,8 +279,13 @@ class MarketDataService:
                 }
             }
         }
+        if compact_response:
+            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
+            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
+            response.pop("chartData", None)
+        return response
 
-    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None):
+    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False):
         overview_payload = self.market_api.get_company_overview(symbol)
         prices_payload = self.market_api.get_daily_prices(symbol, limit=price_limit or max(lookback_window, 3200))
 
@@ -305,6 +312,7 @@ class MarketDataService:
             current_price=current_price,
             last_date=full_daily_candles[-1]["date"] if full_daily_candles else None,
             indicators=indicators,
+            compact_response=compact_response,
         )
         probability_of_increase = live_match_summary["probabilityOfIncrease"] or self._estimate_probability(returns)
         average_return = live_match_summary["avgReturn"]
@@ -313,7 +321,7 @@ class MarketDataService:
         stop_loss_price = live_match_summary["stopLossPrice"]
         recommended_sell_date = live_match_summary["recommendedSellDate"]
 
-        return {
+        response = {
             "dataSource": "live",
             "request": {
                 "symbol": symbol.upper(),
@@ -357,6 +365,11 @@ class MarketDataService:
                 }
             }
         }
+        if compact_response:
+            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
+            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
+            response.pop("chartData", None)
+        return response
 
     def _build_news_focus_universe(self, symbol):
         focus_universe = []
@@ -481,7 +494,7 @@ class MarketDataService:
 
         return f"{max(minutes, 1)} min ago"
 
-    def _build_live_match_summary(self, symbol, interval, lookback_window, daily_candles, current_price, last_date, indicators):
+    def _build_live_match_summary(self, symbol, interval, lookback_window, daily_candles, current_price, last_date, indicators, compact_response=False):
         prepared_candles = self.persistence_service._prepare_candles(daily_candles)
         candles = self.persistence_service._group_prepared_candles(
             prepared_candles,
@@ -561,7 +574,7 @@ class MarketDataService:
                     "futureDrawdown5d": future_stats["maxDownPct"],
                     "futureStats5d": future_stats,
                     "quantSelectedPercent": match_score,
-                    "historicalCandles": self._serialize_grouped_candles(candidate_window),
+                    "historicalCandles": [] if compact_response else self._serialize_grouped_candles(candidate_window),
                 }
             )
 

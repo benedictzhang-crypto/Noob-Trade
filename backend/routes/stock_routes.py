@@ -61,6 +61,7 @@ def get_stock(symbol):
     raw_indicators = request.args.get("indicators", default="")
     prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
+    compact_response = request.args.get("compact", default=0, type=int) == 1
 
     market_data_service = MarketDataService(current_app.config)
     persistence_service = PersistenceService()
@@ -71,7 +72,8 @@ def get_stock(symbol):
             interval=interval,
             lookback_window=lookback,
             raw_indicators=raw_indicators,
-            default_indicators=current_app.config["DEFAULT_INDICATORS"]
+            default_indicators=current_app.config["DEFAULT_INDICATORS"],
+            compact_response=compact_response,
         )
 
         if response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
