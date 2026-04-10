@@ -343,7 +343,8 @@ def create_app():
             return jsonify({"message": "Too many requests. Please slow down and try again."}), 429
 
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
-            if request.endpoint not in {"auth.csrf_token"}:
+            csrf_exempt_endpoints = {"auth.csrf_token", "stock.get_pro_signal"}
+            if request.endpoint not in csrf_exempt_endpoints:
                 sent_token = request.headers.get("X-CSRF-Token", "")
                 session_token = session.get("csrf_token", "")
 
