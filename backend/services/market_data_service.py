@@ -44,7 +44,9 @@ class MarketDataService:
     LIVE_MATCH_TARGET = 20
     LIVE_FORWARD_DAYS = 5
     LIVE_FORWARD_OUTLIER_LIMIT = 40.0
-    PRODUCTION_PRICE_LIMIT = 700
+    PRODUCTION_PRICE_LIMIT = 260
+    PRODUCTION_MATCH_CANDLE_LIMIT = 220
+    PRODUCTION_MATCH_STEP = 3
 
     def __init__(self, config):
         self.config = config
@@ -485,6 +487,10 @@ class MarketDataService:
             prepared_candles,
             self.persistence_service.TIMEFRAME_GROUP_SIZES.get(interval, 1),
         )
+        is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
+
+        if is_production and len(candles) > self.PRODUCTION_MATCH_CANDLE_LIMIT:
+            candles = candles[-self.PRODUCTION_MATCH_CANDLE_LIMIT:]
 
         if len(candles) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
             return self._empty_live_match_summary(interval, last_date, current_price)
@@ -492,8 +498,9 @@ class MarketDataService:
         current_window_candles = candles[-lookback_window:]
         current_window = self._build_live_window_record(current_window_candles, interval, lookback_window)
         candidates = []
+        step = self.PRODUCTION_MATCH_STEP if is_production else 1
 
-        for end_index in range(lookback_window - 1, len(candles) - self.LIVE_FORWARD_DAYS):
+        for end_index in range(lookback_window - 1, len(candles) - self.LIVE_FORWARD_DAYS, step):
             candidate_window = candles[end_index - lookback_window + 1:end_index + 1]
             future_window = candles[end_index + 1:end_index + 1 + self.LIVE_FORWARD_DAYS]
             future_stats = self._calculate_future_window_stats(candidate_window, future_window)
