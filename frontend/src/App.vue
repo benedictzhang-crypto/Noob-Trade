@@ -2208,7 +2208,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="auth-form-grid">
               <label class="auth-field">
                 <span>Email</span>
-                <input v-model="signInForm.email" type="email" placeholder="samuel@example.com" />
+                <input v-model="signInForm.email" type="email" placeholder="noobtrade@example.com" />
               </label>
               <label class="auth-field">
                 <span>Password</span>
@@ -2251,7 +2251,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               </label>
               <label class="auth-field">
                 <span>Email</span>
-                <input v-model="registrationForm.email" type="email" placeholder="samuel@example.com" />
+                <input v-model="registrationForm.email" type="email" placeholder="noobtrade@example.com" />
               </label>
               <label class="auth-field">
                 <span>Password</span>
@@ -2285,7 +2285,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="auth-form-grid">
               <label class="auth-field">
                 <span>Email</span>
-                <input v-model="verificationForm.email" type="email" placeholder="samuel@example.com" />
+                <input v-model="verificationForm.email" type="email" placeholder="noobtrade@example.com" />
               </label>
               <label class="auth-field">
                 <span>Verification Code</span>
@@ -2323,7 +2323,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="auth-form-grid two-columns">
               <label class="auth-field">
                 <span>Email</span>
-                <input v-model="resetPasswordForm.email" type="email" placeholder="samuel@example.com" />
+                <input v-model="resetPasswordForm.email" type="email" placeholder="noobtrade@example.com" />
               </label>
               <label class="auth-field">
                 <span>Verification Code</span>

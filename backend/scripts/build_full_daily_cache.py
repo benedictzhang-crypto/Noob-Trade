@@ -79,17 +79,15 @@ def main():
         if requested_symbols:
             symbol_query = symbol_query.filter(Symbol.symbol.in_(requested_symbols))
 
-        symbols = symbol_query.all()
-        if not symbols:
+        symbol_rows = [(symbol.id, symbol.symbol) for symbol in symbol_query.all()]
+        if not symbol_rows:
             raise RuntimeError("No active symbols found for the requested rebuild scope.")
 
-        total_symbols = len(symbols)
+        total_symbols = len(symbol_rows)
         processed = 0
         skipped = 0
 
-        for index, symbol_record in enumerate(symbols, start=1):
-            symbol_id = symbol_record.id
-            symbol_code = symbol_record.symbol
+        for index, (symbol_id, symbol_code) in enumerate(symbol_rows, start=1):
             price_rows = DailyPrice.query.filter_by(symbol_id=symbol_id).order_by(DailyPrice.trade_date.asc()).all()
             price_count = len(price_rows)
             expected_window_count = max(price_count - TARGET_WINDOW_SIZE + 1, 0)

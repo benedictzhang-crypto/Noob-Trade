@@ -13,7 +13,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app import create_app
-from models.market_data import DailyPrice, PatternWindow, Symbol
+from models.market_data import DailyIndicator, DailyPrice, PatternWindow, Symbol
 from services.market_data_service import MarketDataService
 from services.persistence_service import PersistenceService
 from services.quant_scoring_service import QuantScoringService
@@ -27,8 +27,16 @@ FORWARD_DAYS = 5
 DEFAULT_TARGET_UP_PCT = 1.0
 DEFAULT_BUY_THRESHOLD_PCT = 80.0
 POSITION_SIZE_PCT = 0.05
+DEFAULT_COMMISSION_PCT = 0.0
+DEFAULT_SLIPPAGE_PCT = 0.0
 FULL_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
 DEFAULT_SELECTED_INDICATORS = ["MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
+
+BASE_TIER_MIN_NOTIONAL = 50_000.0
+MID_TIER_MIN_NOTIONAL = 70_000.0
+HIGH_TIER_MIN_NOTIONAL = 100_000.0
+MID_TIER_PCT = 0.07
+HIGH_TIER_PCT = 0.10
 
 
 @dataclass
@@ -41,6 +49,13 @@ class DailyPriceRow:
     volume: float
 
 
+@dataclass
+class DailyIndicatorRow:
+    trade_date: object
+    boll_lower: float
+    macd_hist: float
+
+
 def _to_float(value, default=0.0):
     if value is None:
         return default
@@ -48,6 +63,22 @@ def _to_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _tiered_position_notional(current_equity, available_cash, probability_of_increase):
+    probability_of_increase = _to_float(probability_of_increase, 0.0)
+
+    if probability_of_increase >= 90.0:
+        min_notional = HIGH_TIER_MIN_NOTIONAL
+        pct_notional = current_equity * HIGH_TIER_PCT if current_equity > 1_000_000 else min_notional
+    elif probability_of_increase >= 85.0:
+        min_notional = MID_TIER_MIN_NOTIONAL
+        pct_notional = current_equity * MID_TIER_PCT if current_equity > 1_000_000 else min_notional
+    else:
+        min_notional = BASE_TIER_MIN_NOTIONAL
+        pct_notional = current_equity * POSITION_SIZE_PCT if current_equity > 1_000_000 else min_notional
+
+    return min(available_cash, max(min_notional, pct_notional) if current_equity > 1_000_000 else min_notional)
 
 
 def _load_symbol_universe():
@@ -98,6 +129,77 @@ def _load_daily_windows(symbol_ids):
         .order_by(PatternWindow.end_date.asc(), PatternWindow.id.asc())
         .all()
     )
+
+
+def _load_indicator_history(symbol_ids):
+    records = (
+        DailyIndicator.query
+        .filter(DailyIndicator.symbol_id.in_(symbol_ids))
+        .order_by(DailyIndicator.symbol_id.asc(), DailyIndicator.trade_date.asc())
+        .all()
+    )
+
+    indicator_history = {}
+    indicator_index = {}
+
+    for record in records:
+        symbol_indicators = indicator_history.setdefault(record.symbol_id, [])
+        symbol_date_index = indicator_index.setdefault(record.symbol_id, {})
+        symbol_date_index[record.trade_date] = len(symbol_indicators)
+        symbol_indicators.append(
+            DailyIndicatorRow(
+                trade_date=record.trade_date,
+                boll_lower=_to_float(record.boll_lower, None),
+                macd_hist=_to_float(record.macd_hist, None),
+            )
+        )
+
+    return indicator_history, indicator_index
+
+
+def _passes_boll_lower_touch_filter(symbol_id, anchor_date, price_history, price_date_index, indicator_history, indicator_date_index):
+    price_lookup = price_date_index.get(symbol_id, {})
+    indicator_lookup = indicator_date_index.get(symbol_id, {})
+    anchor_price_index = price_lookup.get(anchor_date)
+    anchor_indicator_index = indicator_lookup.get(anchor_date)
+
+    if anchor_price_index is None or anchor_indicator_index is None:
+        return False
+
+    price_row = price_history.get(symbol_id, [])[anchor_price_index]
+    indicator_row = indicator_history.get(symbol_id, [])[anchor_indicator_index]
+
+    if indicator_row.boll_lower is None:
+        return False
+
+    return (
+        price_row.low <= indicator_row.boll_lower
+        or price_row.close <= indicator_row.boll_lower
+    )
+
+
+def _passes_macd_histogram_strength_filter(symbol_id, anchor_date, price_history, price_date_index, indicator_history, indicator_date_index, required_bars):
+    required_bars = max(1, int(required_bars or 0))
+    price_lookup = price_date_index.get(symbol_id, {})
+    indicator_lookup = indicator_date_index.get(symbol_id, {})
+    anchor_price_index = price_lookup.get(anchor_date)
+
+    if anchor_price_index is None or anchor_price_index < required_bars - 1:
+        return False
+
+    hist_values = []
+
+    for offset in range(required_bars - 1, -1, -1):
+        row = price_history.get(symbol_id, [])[anchor_price_index - offset]
+        indicator_idx = indicator_lookup.get(row.trade_date)
+        if indicator_idx is None:
+            return False
+        indicator_row = indicator_history.get(symbol_id, [])[indicator_idx]
+        if indicator_row.macd_hist is None or indicator_row.macd_hist <= 0:
+            return False
+        hist_values.append(indicator_row.macd_hist)
+
+    return all(current > previous for previous, current in zip(hist_values, hist_values[1:]))
 
 
 def _get_forward_stats_from_window(window_record):
@@ -385,9 +487,13 @@ def _mark_to_market_equity(cash, open_positions):
     return cash + sum(position["shares"] * position["lastMarkPrice"] for position in open_positions)
 
 
-def _close_position(position, exit_price, exit_reason, holding_days):
-    pnl = position["shares"] * (exit_price - position["entryPrice"])
-    pnl_pct = ((exit_price - position["entryPrice"]) / position["entryPrice"]) * 100 if position["entryPrice"] else 0.0
+def _close_position(position, exit_price, exit_reason, holding_days, commission_pct=0.0, slippage_pct=0.0):
+    effective_exit_price = exit_price * (1 - (slippage_pct / 100))
+    exit_notional = position["shares"] * effective_exit_price
+    exit_commission = exit_notional * (commission_pct / 100)
+    net_exit_cash = exit_notional - exit_commission
+    pnl = net_exit_cash - position["entryCashOutlay"]
+    pnl_pct = (pnl / position["entryCashOutlay"]) * 100 if position["entryCashOutlay"] else 0.0
     return {
         "symbol": position["symbol"],
         "anchorDate": position["anchorDate"],
@@ -396,13 +502,19 @@ def _close_position(position, exit_price, exit_reason, holding_days):
         "historicalConfidence": position["historicalConfidence"],
         "entryDate": position["entryDate"].isoformat(),
         "entryPrice": round(position["entryPrice"], 6),
+        "entryReferencePrice": round(position["entryReferencePrice"], 6),
+        "entryCommission": round(position["entryCommission"], 6),
+        "entryCashOutlay": round(position["entryCashOutlay"], 6),
         "targetPrice": round(position["targetPrice"], 6),
         "stopLossPrice": round(position["stopLossPrice"], 6),
         "targetUpPct": round(position.get("targetUpPct", 0.0), 6),
         "matchAvgMaxUpPct": position.get("matchAvgMaxUpPct"),
         "matchFivePercentUpProbability": position.get("matchFivePercentUpProbability"),
         "exitDate": position["currentDate"].isoformat(),
-        "exitPrice": round(exit_price, 6),
+        "exitPrice": round(effective_exit_price, 6),
+        "exitReferencePrice": round(exit_price, 6),
+        "exitCommission": round(exit_commission, 6),
+        "netExitCash": round(net_exit_cash, 6),
         "exitReason": exit_reason,
         "holdingDays": holding_days,
         "positionNotional": round(position["positionNotional"], 6),
@@ -432,7 +544,10 @@ def _build_report_markdown(summary, trades, metadata):
         f"- Indicator bundle: `{', '.join(FULL_INDICATORS)}`",
         f"- Random historical anchors sampled: `{metadata['sampleCount']}`",
         f"- Starting capital: `${metadata['initialCapital']:,.2f}`",
-        f"- Position sizing: `{POSITION_SIZE_PCT * 100:.1f}%` of current total equity per executed trade",
+        "- Position sizing: probability-tiered rolling allocation",
+        f"  80% to <85% signals: minimum ${BASE_TIER_MIN_NOTIONAL:,.0f}, or {POSITION_SIZE_PCT * 100:.0f}% of equity once total equity exceeds $1,000,000",
+        f"  85% to <90% signals: minimum ${MID_TIER_MIN_NOTIONAL:,.0f}, or {MID_TIER_PCT * 100:.0f}% of equity once total equity exceeds $1,000,000",
+        f"  >=90% signals: minimum ${HIGH_TIER_MIN_NOTIONAL:,.0f}, or {HIGH_TIER_PCT * 100:.0f}% of equity once total equity exceeds $1,000,000",
         f"- Buy rule: enter only when `P(+1% in 5D) > {metadata['buyThresholdPct']:.0f}%`",
         f"- Take-profit rule: exit at `+{metadata['targetUpPct']:.1f}%`",
         "- Stop-loss rule: exit at the model's suggested historical risk line",
@@ -565,6 +680,15 @@ def run_backtest(
     dynamic_target_from_matches=False,
     single_position=False,
     max_open_positions=None,
+    no_new_entries_above_positions=None,
+    use_all_anchors=False,
+    candidate_limit=None,
+    commission_pct=DEFAULT_COMMISSION_PCT,
+    slippage_pct=DEFAULT_SLIPPAGE_PCT,
+    test_last_trading_days=None,
+    test_window_offset_trading_days=0,
+    require_boll_lower_touch=False,
+    require_macd_histogram_up_bars=0,
 ):
     app = create_app()
     rng = random.Random(seed)
@@ -577,6 +701,7 @@ def run_backtest(
         symbol_lookup = {symbol.id: symbol.symbol for symbol in symbols}
         price_history, date_index = _load_price_history(symbol_ids)
         windows = _load_daily_windows(symbol_ids)
+        indicator_history, indicator_date_index = _load_indicator_history(symbol_ids)
 
         eligible_anchors = []
 
@@ -595,7 +720,17 @@ def run_backtest(
         if not eligible_anchors:
             raise RuntimeError("No eligible daily 30-bar anchors were found for the current top-50 seed database.")
 
-        sampled_anchors = rng.sample(eligible_anchors, min(sample_count, len(eligible_anchors)))
+        if test_last_trading_days:
+            eligible_anchor_dates = sorted({window.end_date for window in eligible_anchors})
+            offset = max(0, int(test_window_offset_trading_days or 0))
+            if offset >= len(eligible_anchor_dates):
+                raise RuntimeError("Blind-test offset exceeds the number of eligible anchor dates.")
+            window_end = len(eligible_anchor_dates) - offset
+            window_start = max(0, window_end - test_last_trading_days)
+            blind_test_dates = set(eligible_anchor_dates[window_start:window_end])
+            eligible_anchors = [window for window in eligible_anchors if window.end_date in blind_test_dates]
+
+        sampled_anchors = eligible_anchors if use_all_anchors else rng.sample(eligible_anchors, min(sample_count, len(eligible_anchors)))
         sampled_anchors.sort(key=lambda window: (window.end_date, window.symbol_id, window.id))
 
         signal_entries = []
@@ -607,6 +742,31 @@ def run_backtest(
 
         signal_phase_start = time.monotonic()
         for anchor_index_number, anchor in enumerate(sampled_anchors, start=1):
+            if require_boll_lower_touch and not _passes_boll_lower_touch_filter(
+                anchor.symbol_id,
+                anchor.end_date,
+                price_history,
+                date_index,
+                indicator_history,
+                indicator_date_index,
+            ):
+                if progress_every and anchor_index_number % progress_every == 0:
+                    _print_signal_progress(anchor_index_number, len(sampled_anchors), signal_phase_start, buy_signals)
+                continue
+
+            if require_macd_histogram_up_bars and not _passes_macd_histogram_strength_filter(
+                anchor.symbol_id,
+                anchor.end_date,
+                price_history,
+                date_index,
+                indicator_history,
+                indicator_date_index,
+                require_macd_histogram_up_bars,
+            ):
+                if progress_every and anchor_index_number % progress_every == 0:
+                    _print_signal_progress(anchor_index_number, len(sampled_anchors), signal_phase_start, buy_signals)
+                continue
+
             while candidate_index < len(sorted_windows):
                 candidate = sorted_windows[candidate_index]
                 if candidate.end_date >= anchor.end_date:
@@ -615,6 +775,10 @@ def run_backtest(
                 candidate_index += 1
 
             prior_candidates = [candidate for candidate in available_candidates if candidate.id != anchor.id]
+            if candidate_limit is not None and len(prior_candidates) > candidate_limit:
+                # Keep the most recent historical windows for fast walk-forward sweeps.
+                # This preserves chronological causality while avoiding unbounded global scans.
+                prior_candidates = prior_candidates[-candidate_limit:]
 
             if not prior_candidates:
                 continue
@@ -688,9 +852,11 @@ def run_backtest(
     open_positions = []
     equity_curve = [cash]
     trade_rows = []
+    peak_open_positions = 0
     portfolio_phase_start = time.monotonic()
 
     for date_index_number, current_date in enumerate(relevant_dates, start=1):
+        open_positions_at_day_open = len(open_positions)
         next_open_positions = []
 
         for position in open_positions:
@@ -705,16 +871,16 @@ def run_backtest(
             exit_record = None
 
             if row.low <= position["stopLossPrice"] and row.high >= position["targetPrice"]:
-                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss_same_day_dual_touch", day_index)
+                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss_same_day_dual_touch", day_index, commission_pct, slippage_pct)
             elif row.low <= position["stopLossPrice"]:
-                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss", day_index)
+                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss", day_index, commission_pct, slippage_pct)
             elif row.high >= position["targetPrice"]:
-                exit_record = _close_position(position, position["targetPrice"], "take_profit", day_index)
+                exit_record = _close_position(position, position["targetPrice"], "take_profit", day_index, commission_pct, slippage_pct)
             elif current_date >= position["expiryDate"]:
-                exit_record = _close_position(position, row.close, "time_exit", day_index)
+                exit_record = _close_position(position, row.close, "time_exit", day_index, commission_pct, slippage_pct)
 
             if exit_record is not None:
-                cash += position["shares"] * exit_record["exitPrice"]
+                cash += exit_record["netExitCash"]
                 trade_rows.append(exit_record)
                 continue
 
@@ -723,22 +889,41 @@ def run_backtest(
 
         open_positions = next_open_positions
         opened_position_this_date = False
+        opened_positions_this_date = 0
+        current_date_peak_positions = open_positions_at_day_open
 
         for signal in signals_by_date.get(current_date, []):
             if single_position and (open_positions or opened_position_this_date):
                 continue
-            if max_open_positions is not None and len(open_positions) >= max_open_positions:
+            if (
+                no_new_entries_above_positions is not None
+                and open_positions_at_day_open >= no_new_entries_above_positions
+            ):
+                continue
+            if (
+                max_open_positions is not None
+                and open_positions_at_day_open + opened_positions_this_date >= max_open_positions
+            ):
                 continue
 
             current_equity = _mark_to_market_equity(cash, open_positions)
-            desired_notional = current_equity * POSITION_SIZE_PCT
-            entry_price = signal["entryReferencePrice"]
+            desired_notional = _tiered_position_notional(
+                current_equity=current_equity,
+                available_cash=cash,
+                probability_of_increase=signal["probabilityOfIncrease"],
+            )
+            entry_price = signal["entryReferencePrice"] * (1 + (slippage_pct / 100))
             actual_notional = min(cash, desired_notional)
 
             if entry_price <= 0 or actual_notional <= 0:
                 continue
 
-            shares = actual_notional / entry_price
+            entry_commission = actual_notional * (commission_pct / 100)
+            investable_notional = actual_notional - entry_commission
+            if investable_notional <= 0:
+                continue
+
+            shares = investable_notional / entry_price
             if shares <= 0:
                 continue
 
@@ -747,7 +932,10 @@ def run_backtest(
             position = {
                 **signal,
                 "entryPrice": entry_price,
+                "entryReferencePrice": signal["entryReferencePrice"],
                 "positionNotional": actual_notional,
+                "entryCommission": entry_commission,
+                "entryCashOutlay": actual_notional,
                 "shares": shares,
                 "lastMarkPrice": entry_row.close,
                 "dayIndex": 1,
@@ -756,21 +944,27 @@ def run_backtest(
 
             exit_record = None
             if entry_row.low <= position["stopLossPrice"] and entry_row.high >= position["targetPrice"]:
-                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss_same_day_dual_touch", 1)
+                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss_same_day_dual_touch", 1, commission_pct, slippage_pct)
             elif entry_row.low <= position["stopLossPrice"]:
-                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss", 1)
+                exit_record = _close_position(position, position["stopLossPrice"], "stop_loss", 1, commission_pct, slippage_pct)
             elif entry_row.high >= position["targetPrice"]:
-                exit_record = _close_position(position, position["targetPrice"], "take_profit", 1)
+                exit_record = _close_position(position, position["targetPrice"], "take_profit", 1, commission_pct, slippage_pct)
             elif current_date >= position["expiryDate"]:
-                exit_record = _close_position(position, entry_row.close, "time_exit", 1)
+                exit_record = _close_position(position, entry_row.close, "time_exit", 1, commission_pct, slippage_pct)
 
             if exit_record is not None:
-                cash += position["shares"] * exit_record["exitPrice"]
+                cash += exit_record["netExitCash"]
                 trade_rows.append(exit_record)
             else:
                 open_positions.append(position)
+            opened_positions_this_date += 1
+            current_date_peak_positions = max(
+                current_date_peak_positions,
+                open_positions_at_day_open + opened_positions_this_date,
+            )
             opened_position_this_date = True
 
+        peak_open_positions = max(peak_open_positions, current_date_peak_positions, len(open_positions))
         equity_curve.append(_mark_to_market_equity(cash, open_positions))
         if progress_every and date_index_number % progress_every == 0:
             _print_portfolio_progress(date_index_number, len(relevant_dates), portfolio_phase_start, cash, open_positions, trade_rows)
@@ -816,12 +1010,7 @@ def run_backtest(
             abs(mean(trade["pnl"] for trade in winning_trades) / mean(trade["pnl"] for trade in losing_trades)),
             4,
         ) if winning_trades and losing_trades and mean(trade["pnl"] for trade in losing_trades) != 0 else None,
-        "peakConcurrentPositions": max(
-            [0] + [
-                sum(1 for trade in trade_rows if trade["entryDate"] <= date.isoformat() <= trade["exitDate"])
-                for date in relevant_dates
-            ]
-        ),
+        "peakConcurrentPositions": peak_open_positions,
     }
 
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -835,6 +1024,7 @@ def run_backtest(
             "initialCapital": float(initial_capital),
             "seed": seed,
             "positionSizePct": POSITION_SIZE_PCT,
+            "positionSizingMode": "probability_tiered",
             "timeframe": TIMEFRAME,
             "windowSize": WINDOW_SIZE,
             "forwardDays": FORWARD_DAYS,
@@ -845,6 +1035,12 @@ def run_backtest(
             "dynamicTargetFromMatches": dynamic_target_from_matches,
             "singlePosition": single_position,
             "maxOpenPositions": max_open_positions,
+            "noNewEntriesAbovePositions": no_new_entries_above_positions,
+            "useAllAnchors": use_all_anchors,
+            "candidateLimit": candidate_limit,
+            "commissionPct": commission_pct,
+            "slippagePct": slippage_pct,
+            "testLastTradingDays": test_last_trading_days,
             "indicators": selected_indicators,
         },
         "summary": summary,
@@ -870,6 +1066,12 @@ def run_backtest(
         "dynamicTargetFromMatches": dynamic_target_from_matches,
         "singlePosition": single_position,
         "maxOpenPositions": max_open_positions,
+        "noNewEntriesAbovePositions": no_new_entries_above_positions,
+        "useAllAnchors": use_all_anchors,
+        "candidateLimit": candidate_limit,
+        "commissionPct": commission_pct,
+        "slippagePct": slippage_pct,
+        "testLastTradingDays": test_last_trading_days,
         "jsonPath": str(json_path.relative_to(BACKEND_DIR)),
         "reportPath": str(report_path.relative_to(BACKEND_DIR)),
         "equityChartPath": str(equity_chart_path.relative_to(BACKEND_DIR)),
@@ -898,6 +1100,15 @@ def main():
     parser.add_argument("--dynamic-target-from-matches", action="store_true", help="Set take-profit to average top-match 5D high minus 1 percentage point.")
     parser.add_argument("--single-position", action="store_true", help="Allow only one open position at a time, similar to the first sequential backtest.")
     parser.add_argument("--max-open-positions", type=int, default=None, help="Maximum number of concurrent open positions.")
+    parser.add_argument("--no-new-entries-above-positions", type=int, default=None, help="Do not open new trades when positions already open at the day start are at or above this count.")
+    parser.add_argument("--all-anchors", action="store_true", help="Use every eligible anchor in chronological order instead of random sampling.")
+    parser.add_argument("--test-last-trading-days", type=int, default=None, help="Restrict anchors to the last N eligible trading days so earlier history is used only as prior context.")
+    parser.add_argument("--test-window-offset-trading-days", type=int, default=0, help="Offset the blind-test window backwards by N eligible trading days. For example, 252 uses the previous blind year instead of the most recent one.")
+    parser.add_argument("--candidate-limit", type=int, default=None, help="Limit each anchor to the most recent N prior candidate windows before exact scoring.")
+    parser.add_argument("--require-boll-lower-touch", action="store_true", help="Only allow buys when price touches or breaks the lower Bollinger band on the anchor day.")
+    parser.add_argument("--require-macd-histogram-up-bars", type=int, default=0, help="Require at least N consecutive rising positive MACD histogram bars ending on the anchor day.")
+    parser.add_argument("--commission-pct", type=float, default=DEFAULT_COMMISSION_PCT, help="Commission charged on entry and exit, as percent of notional.")
+    parser.add_argument("--slippage-pct", type=float, default=DEFAULT_SLIPPAGE_PCT, help="Execution slippage applied against entry and exit prices, in percent.")
     parser.add_argument(
         "--indicators",
         type=str,
@@ -920,6 +1131,15 @@ def main():
         dynamic_target_from_matches=args.dynamic_target_from_matches,
         single_position=args.single_position,
         max_open_positions=max(1, args.max_open_positions) if args.max_open_positions else None,
+        no_new_entries_above_positions=max(1, args.no_new_entries_above_positions) if args.no_new_entries_above_positions else None,
+        use_all_anchors=args.all_anchors,
+        test_last_trading_days=max(1, args.test_last_trading_days) if args.test_last_trading_days else None,
+        test_window_offset_trading_days=max(0, args.test_window_offset_trading_days),
+        candidate_limit=max(20, args.candidate_limit) if args.candidate_limit else None,
+        commission_pct=max(0.0, args.commission_pct),
+        slippage_pct=max(0.0, args.slippage_pct),
+        require_boll_lower_touch=args.require_boll_lower_touch,
+        require_macd_histogram_up_bars=max(0, args.require_macd_histogram_up_bars),
     )
 
 

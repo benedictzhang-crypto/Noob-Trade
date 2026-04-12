@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: noobtrade-backend
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: "5010"
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: FLASK_USE_RELOADER
+        value: "false"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MARKET_DATA_TOKEN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_DATABASE_URL
+        sync: false

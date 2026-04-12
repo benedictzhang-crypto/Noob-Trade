@@ -1,0 +1,6 @@
+__pycache__/
+.DS_Store
+reports/
+noobtrade_user.db
+noobtrade_local.pre-1898345-backup.db
+noobtrade_local.pre-pull-backup.db
