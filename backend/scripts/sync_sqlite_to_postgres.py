@@ -15,6 +15,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 
 SYNC_TABLES = ("daily_prices", "daily_indicators", "pattern_windows")
+AUTH_TABLES = ("users", "login_verification_codes", "login_activities")
 
 
 def _normalize_database_url(raw_url):
@@ -38,6 +39,17 @@ def _sqlite_path():
     return Path(configured_path).expanduser().resolve()
 
 
+def _app_sqlite_path():
+    configured_path = os.getenv("SQLITE_APP_SOURCE_PATH", str(BACKEND_DIR / "noobtrade_user.db"))
+    return Path(configured_path).expanduser().resolve()
+
+
+def _normalize_app_database_url(raw_url):
+    if not raw_url:
+        return _normalize_database_url(os.getenv("DATABASE_URL", ""))
+    return _normalize_database_url(raw_url)
+
+
 def _fetch_source_symbols(connection):
     cursor = connection.execute(
         """
@@ -46,6 +58,23 @@ def _fetch_source_symbols(connection):
         ORDER BY symbol
         """
     )
+    columns = [column[0] for column in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def _table_exists(connection, table_name):
+    cursor = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def _fetch_all_rows(connection, table_name):
+    if not _table_exists(connection, table_name):
+        return []
+
+    cursor = connection.execute(f"SELECT * FROM {table_name}")
     columns = [column[0] for column in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
@@ -234,12 +263,96 @@ def _sync_pattern_windows(db, rows, symbol_map):
         db.session.execute(sql, params)
 
 
+def _upsert_users(app_engine, rows):
+    sql = text(
+        """
+        INSERT INTO users (
+            id, full_name, email, password_hash, risk_profile, membership, role,
+            email_verified, verified_at, is_disabled, disabled_at, disabled_reason, created_at
+        ) VALUES (
+            :id, :full_name, :email, :password_hash, :risk_profile, :membership, :role,
+            :email_verified, :verified_at, :is_disabled, :disabled_at, :disabled_reason, :created_at
+        )
+        ON CONFLICT (email) DO UPDATE
+        SET full_name = EXCLUDED.full_name,
+            password_hash = EXCLUDED.password_hash,
+            risk_profile = EXCLUDED.risk_profile,
+            membership = EXCLUDED.membership,
+            role = EXCLUDED.role,
+            email_verified = EXCLUDED.email_verified,
+            verified_at = EXCLUDED.verified_at,
+            is_disabled = EXCLUDED.is_disabled,
+            disabled_at = EXCLUDED.disabled_at,
+            disabled_reason = EXCLUDED.disabled_reason
+        """
+    )
+    for row in rows:
+        params = dict(row)
+        params.setdefault("email_verified", False)
+        params.setdefault("verified_at", None)
+        params.setdefault("is_disabled", False)
+        params.setdefault("disabled_at", None)
+        params.setdefault("disabled_reason", None)
+        app_engine.execute(sql, params)
+
+
+def _upsert_login_verification_codes(app_engine, rows):
+    sql = text(
+        """
+        INSERT INTO login_verification_codes (
+            id, user_id, email, code_hash, purpose, expires_at, used_at, created_at
+        ) VALUES (
+            :id, :user_id, :email, :code_hash, :purpose, :expires_at, :used_at, :created_at
+        )
+        ON CONFLICT (id) DO UPDATE
+        SET user_id = EXCLUDED.user_id,
+            email = EXCLUDED.email,
+            code_hash = EXCLUDED.code_hash,
+            purpose = EXCLUDED.purpose,
+            expires_at = EXCLUDED.expires_at,
+            used_at = EXCLUDED.used_at,
+            created_at = EXCLUDED.created_at
+        """
+    )
+    for row in rows:
+        app_engine.execute(sql, row)
+
+
+def _upsert_login_activities(app_engine, rows):
+    sql = text(
+        """
+        INSERT INTO login_activities (
+            id, user_id, email, ip_address, user_agent, device_label, location_label,
+            is_new_device, is_new_location, created_at
+        ) VALUES (
+            :id, :user_id, :email, :ip_address, :user_agent, :device_label, :location_label,
+            :is_new_device, :is_new_location, :created_at
+        )
+        ON CONFLICT (id) DO UPDATE
+        SET user_id = EXCLUDED.user_id,
+            email = EXCLUDED.email,
+            ip_address = EXCLUDED.ip_address,
+            user_agent = EXCLUDED.user_agent,
+            device_label = EXCLUDED.device_label,
+            location_label = EXCLUDED.location_label,
+            is_new_device = EXCLUDED.is_new_device,
+            is_new_location = EXCLUDED.is_new_location,
+            created_at = EXCLUDED.created_at
+        """
+    )
+    for row in rows:
+        app_engine.execute(sql, row)
+
+
 def main():
     sqlite_path = _sqlite_path()
     if not sqlite_path.exists():
         raise RuntimeError(f"SQLite source database not found: {sqlite_path}")
 
+    app_sqlite_path = _app_sqlite_path()
+
     os.environ["DATABASE_URL"] = _normalize_database_url(os.getenv("DATABASE_URL", ""))
+    os.environ["APP_DATABASE_URL"] = _normalize_app_database_url(os.getenv("APP_DATABASE_URL", ""))
     os.environ.setdefault("FLASK_DEBUG", "false")
     os.environ.setdefault("MARKET_DATA_TOKEN", "")
     os.environ.setdefault("USE_MOCK_FALLBACK", "true")
@@ -253,6 +366,12 @@ def main():
         source_symbol_ids = [row["id"] for row in symbol_rows]
         table_rows = {table_name: _fetch_table_rows(sqlite_connection, table_name, source_symbol_ids) for table_name in SYNC_TABLES}
 
+    auth_rows = {table_name: [] for table_name in AUTH_TABLES}
+    if app_sqlite_path.exists():
+        with sqlite3.connect(app_sqlite_path) as auth_connection:
+            auth_connection.row_factory = sqlite3.Row
+            auth_rows = {table_name: _fetch_all_rows(auth_connection, table_name) for table_name in AUTH_TABLES}
+
     with app.app_context():
         db.create_all()
         symbol_map = _upsert_symbols(db, symbol_rows)
@@ -261,12 +380,21 @@ def main():
         _sync_pattern_windows(db, table_rows["pattern_windows"], symbol_map)
         db.session.commit()
 
+        with db.engines["app"].begin() as app_connection:
+            _upsert_users(app_connection, auth_rows["users"])
+            _upsert_login_verification_codes(app_connection, auth_rows["login_verification_codes"])
+            _upsert_login_activities(app_connection, auth_rows["login_activities"])
+
         summary = {
             "database_url": app.config["SQLALCHEMY_DATABASE_URI"],
+            "app_database_url": app.config["SQLALCHEMY_BINDS"]["app"],
             "symbols": len(symbol_rows),
             "daily_prices": len(table_rows["daily_prices"]),
             "daily_indicators": len(table_rows["daily_indicators"]),
             "pattern_windows": len(table_rows["pattern_windows"]),
+            "users": len(auth_rows["users"]),
+            "login_verification_codes": len(auth_rows["login_verification_codes"]),
+            "login_activities": len(auth_rows["login_activities"]),
             "synced_symbols": [row["symbol"] for row in symbol_rows],
         }
 
