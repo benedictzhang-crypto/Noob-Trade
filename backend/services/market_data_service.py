@@ -45,8 +45,10 @@ class MarketDataService:
     LIVE_FORWARD_DAYS = 5
     LIVE_FORWARD_OUTLIER_LIMIT = 40.0
     PRODUCTION_PRICE_LIMIT = 260
+    PRODUCTION_SNAPSHOT_PRICE_LIMIT = 90
     PRODUCTION_MATCH_CANDLE_LIMIT = 220
     PRODUCTION_MATCH_STEP = 3
+    PRODUCTION_MATCH_TARGET = 10
 
     def __init__(self, config):
         self.config = config
@@ -63,25 +65,30 @@ class MarketDataService:
         symbol_code = symbol.upper()
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
 
-        if is_production and self.market_api.is_configured() and self.market_api.is_available():
+        if (
+            is_production
+            and self.market_api.is_configured()
+            and self.market_api.is_available()
+            and self._has_cached_history(symbol_code)
+        ):
             try:
-                return self._build_live_response(
-                    symbol_code,
-                    interval,
-                    lookback_window,
-                    indicators,
-                    price_limit=self.PRODUCTION_PRICE_LIMIT,
+                return self._build_live_current_vs_cached_response(
+                    symbol=symbol_code,
+                    interval=interval,
+                    lookback_window=lookback_window,
+                    indicators=indicators,
                     compact_response=compact_response,
+                    price_limit=self.PRODUCTION_SNAPSHOT_PRICE_LIMIT,
                 )
             except DukeMarketApiUnavailable:
                 logger.warning(
-                    "Production live market data provider is unavailable for %s; falling back.",
+                    "Production cached live snapshot provider is unavailable for %s; falling back.",
                     symbol_code,
                     exc_info=True,
                 )
             except Exception:
                 logger.warning(
-                    "Production lightweight live analysis failed for %s and the service is falling back.",
+                    "Production cached live snapshot failed for %s and the service is falling back.",
                     symbol_code,
                     exc_info=True,
                 )
@@ -241,14 +248,17 @@ class MarketDataService:
             "patternAnalysis": live_match_summary,
         }
 
-    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
+    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()
 
         if symbol_record is None:
             raise ValueError(f"No cached symbol data found for {symbol}.")
 
         overview_payload = self.market_api.get_company_overview(symbol)
-        prices_payload = self.market_api.get_daily_prices(symbol, limit=VISIBLE_INTERVAL_BARS["daily"])
+        prices_payload = self.market_api.get_daily_prices(
+            symbol,
+            limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
+        )
         overview = self._extract_first_record(overview_payload)
         prices = prices_payload.get("data", [])
 
@@ -262,7 +272,7 @@ class MarketDataService:
             interval,
             lookback_window,
         )
-        live_interval_series = self._build_interval_series(full_recent_candles, prices)
+        live_interval_series = None if compact_response else self._build_interval_series(full_recent_candles, prices)
 
         if current_window is None:
             raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
@@ -330,17 +340,17 @@ class MarketDataService:
                 "stopLossPrice": live_match_summary["stopLossPrice"],
                 "highFitHistoricalPaths": live_match_summary["highFitHistoricalPaths"],
             },
-            "chartData": {
+        }
+        if compact_response:
+            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
+            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
+        else:
+            response["chartData"] = {
                 "series": live_interval_series,
                 "history": {
                     "daily": full_recent_candles,
                 }
             }
-        }
-        if compact_response:
-            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
-            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
-            response.pop("chartData", None)
         return response
 
     def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False):
@@ -361,7 +371,7 @@ class MarketDataService:
         volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
         returns = self._calculate_returns(prices)
         full_daily_candles = self._build_daily_candles(prices)
-        interval_series = self._build_interval_series(full_daily_candles, prices)
+        interval_series = None if compact_response else self._build_interval_series(full_daily_candles, prices)
         live_match_summary = self._build_live_match_summary(
             symbol=symbol.upper(),
             interval=interval,
@@ -416,17 +426,17 @@ class MarketDataService:
                 "stopLossPrice": stop_loss_price,
                 "highFitHistoricalPaths": live_match_summary["highFitHistoricalPaths"],
             },
-            "chartData": {
+        }
+        if compact_response:
+            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
+            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
+        else:
+            response["chartData"] = {
                 "series": interval_series,
                 "history": {
                     "daily": full_daily_candles
                 }
             }
-        }
-        if compact_response:
-            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
-            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
-            response.pop("chartData", None)
         return response
 
     def _build_news_focus_universe(self, symbol):
@@ -606,7 +616,7 @@ class MarketDataService:
                 -(item["score"].get("selected_score_percent") or 0),
                 item["distance"],
             ),
-        )[:self.LIVE_MATCH_TARGET]
+        )[:(self.PRODUCTION_MATCH_TARGET if is_production else self.LIVE_MATCH_TARGET)]
         matched_patterns = []
 
         for index, item in enumerate(selected_candidates, start=1):
@@ -642,7 +652,7 @@ class MarketDataService:
         avg_down_touch = round(mean(match["futureStats5d"]["maxDownPct"] for match in matched_patterns), 4)
         signal = "Bullish Bias" if up_probabilities[0]["probability"] >= down_probabilities[0]["probability"] else "Bearish Bias"
 
-        return {
+        response = {
             "probabilityOfIncrease": up_probabilities[0]["probability"],
             "probabilityOfDecrease": down_probabilities[0]["probability"],
             "avgReturn": avg_up_touch,
@@ -658,15 +668,19 @@ class MarketDataService:
             "recommendedSellPrice": round(current_price * (1 + max(avg_up_touch, 0) / 100), 2),
             "recommendedSellDate": self._estimate_sell_date_from_last_date(interval, last_date),
             "stopLossPrice": round(current_price * (1 + min(avg_down_touch, 0) / 100), 2),
-            "highFitHistoricalPaths": [
+        }
+        if compact_response:
+            response["highFitHistoricalPaths"] = []
+        else:
+            response["highFitHistoricalPaths"] = [
                 {
                     "label": match["patternName"],
                     "fitScore": match["matchScore"],
                     "status": f"{match['symbol']} ended on {match['date']} | +5D hi {self._format_signed_percent(match['futureReturn5d'])} | -5D lo {self._format_signed_percent(match['futureDrawdown5d'])}",
                 }
                 for match in matched_patterns
-            ],
-        }
+            ]
+        return response
 
     def _empty_live_match_summary(self, interval, last_date, current_price):
         return {
