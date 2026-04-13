@@ -27,6 +27,8 @@ const portfolioMessage = ref('')
 const portfolioAdjustments = ref({})
 const pendingPortfolioActions = ref({})
 const pendingAdminStatusUpdates = ref({})
+const pendingAdminPasswordResets = ref({})
+const adminPasswordResetDrafts = ref({})
 const feedRefreshKey = ref(getHourRefreshKey())
 const deferredInstallPrompt = ref(null)
 const installMessage = ref('')
@@ -1986,6 +1988,71 @@ async function updateAdminUserStatus(user, isDisabled) {
   }
 }
 
+async function resetAdminUserPassword(user) {
+  if (!currentUser.value?.isAdmin) {
+    adminMessage.value = 'Admin access is required.'
+    return
+  }
+
+  const key = String(user?.id ?? '')
+  const draftPassword = adminPasswordResetDrafts.value[key] ?? ''
+
+  if (!draftPassword) {
+    adminMessage.value = 'Please enter a new password before submitting the reset.'
+    return
+  }
+
+  adminMessage.value = `Resetting password for ${user.email}...`
+  pendingAdminPasswordResets.value = {
+    ...pendingAdminPasswordResets.value,
+    [key]: true
+  }
+
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/users/${user.id}/reset-password`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        newPassword: draftPassword
+      })
+    })
+    const payload = await response.json()
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not reset this password.')
+    }
+
+    adminMessage.value = payload.message || `Password reset for ${user.email} was successful.`
+    const nextDrafts = { ...adminPasswordResetDrafts.value }
+    delete nextDrafts[key]
+    adminPasswordResetDrafts.value = nextDrafts
+  } catch (error) {
+    adminMessage.value = error.message || 'Could not reset this password right now.'
+  } finally {
+    const nextPending = { ...pendingAdminPasswordResets.value }
+    delete nextPending[key]
+    pendingAdminPasswordResets.value = nextPending
+  }
+}
+
+function openAdminPasswordReset(user) {
+  const key = String(user?.id ?? '')
+  adminPasswordResetDrafts.value = {
+    ...adminPasswordResetDrafts.value,
+    [key]: adminPasswordResetDrafts.value[key] ?? ''
+  }
+  adminMessage.value = `Enter a new password for ${user.email}.`
+}
+
+function cancelAdminPasswordReset(user) {
+  const key = String(user?.id ?? '')
+  const nextDrafts = { ...adminPasswordResetDrafts.value }
+  delete nextDrafts[key]
+  adminPasswordResetDrafts.value = nextDrafts
+}
+
 function signOut() {
   secureFetch(`${API_BASE_URL}/auth/logout`, {
     method: 'POST'
@@ -1997,6 +2064,8 @@ function signOut() {
   adminUsers.value = []
   adminMessage.value = ''
   pendingAdminStatusUpdates.value = {}
+  pendingAdminPasswordResets.value = {}
+  adminPasswordResetDrafts.value = {}
   csrfToken.value = ''
   signInForm.value = {
     email: '',
@@ -3219,7 +3288,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span>Role</span>
             <span>Status</span>
             <span>Joined</span>
-            <span>Action</span>
+            <span>Actions</span>
           </div>
 
           <div
@@ -3239,14 +3308,49 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span>{{ user.joinedAt }}</span>
             <div class="admin-action-cell">
               <template v-if="!user.isAdmin">
-                <button
-                  class="chip"
-                  :class="user.isDisabled ? 'chip-confirm' : 'chip-danger'"
-                  :disabled="pendingAdminStatusUpdates[String(user.id)]"
-                  @click="updateAdminUserStatus(user, !user.isDisabled)"
-                >
-                  {{ pendingAdminStatusUpdates[String(user.id)] ? 'Saving...' : (user.isDisabled ? 'Enable' : 'Disable') }}
-                </button>
+                <div class="admin-action-stack">
+                  <div class="admin-action-row">
+                    <button
+                      class="chip"
+                      :class="user.isDisabled ? 'chip-confirm' : 'chip-danger'"
+                      :disabled="pendingAdminStatusUpdates[String(user.id)]"
+                      @click="updateAdminUserStatus(user, !user.isDisabled)"
+                    >
+                      {{ pendingAdminStatusUpdates[String(user.id)] ? 'Saving...' : (user.isDisabled ? 'Enable' : 'Disable') }}
+                    </button>
+                    <button
+                      class="chip chip-muted"
+                      type="button"
+                      @click="openAdminPasswordReset(user)"
+                    >
+                      Reset Password
+                    </button>
+                  </div>
+                  <div v-if="Object.prototype.hasOwnProperty.call(adminPasswordResetDrafts, String(user.id))" class="admin-password-reset-row">
+                    <input
+                      v-model="adminPasswordResetDrafts[String(user.id)]"
+                      type="password"
+                      class="admin-password-reset-input"
+                      placeholder="Enter new password"
+                    />
+                    <button
+                      class="chip chip-confirm"
+                      type="button"
+                      :disabled="pendingAdminPasswordResets[String(user.id)]"
+                      @click="resetAdminUserPassword(user)"
+                    >
+                      {{ pendingAdminPasswordResets[String(user.id)] ? 'Saving...' : 'Submit' }}
+                    </button>
+                    <button
+                      class="chip chip-muted"
+                      type="button"
+                      :disabled="pendingAdminPasswordResets[String(user.id)]"
+                      @click="cancelAdminPasswordReset(user)"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </template>
               <span v-else class="section-chip">Protected</span>
             </div>

@@ -1873,12 +1873,36 @@ select {
 
 .admin-users-head,
 .admin-users-row {
-  grid-template-columns: 0.6fr 1.2fr 1.5fr 0.7fr 0.8fr 0.8fr;
+  grid-template-columns: 0.6fr 1.15fr 1.45fr 0.65fr 0.85fr 0.8fr 1.5fr;
 }
 
 .admin-action-cell {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+}
+
+.admin-action-stack {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.admin-action-row,
+.admin-password-reset-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-password-reset-input {
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  color: var(--text-main);
 }
 
 @media (max-width: 1180px) {

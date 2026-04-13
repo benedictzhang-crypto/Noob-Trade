@@ -856,3 +856,53 @@ def update_user_status(user_id):
             "user": _serialize_user(target_user),
         }
     )
+
+
+@auth_blueprint.route("/users/<int:user_id>/reset-password", methods=["PATCH"])
+def admin_reset_user_password(user_id):
+    admin_user = _get_admin_user()
+    if admin_user is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    new_password = str(payload.get("newPassword", ""))
+
+    if not new_password:
+        return jsonify({"message": "Please enter a new password."}), 400
+
+    password_error = _validate_password_rules(new_password)
+    if password_error:
+        return jsonify({"message": password_error}), 400
+
+    if not current_app.config.get("DB_AVAILABLE", True):
+        temp_items = list(TEMP_USERS.items())
+
+        if user_id < 0 or user_id >= len(temp_items):
+            return jsonify({"message": "User not found."}), 404
+
+        email, temp_user = temp_items[user_id]
+
+        if temp_user.get("role") == "admin":
+            return jsonify({"message": "Admin account passwords cannot be reset from this panel."}), 400
+
+        temp_user["password"] = new_password
+        current_app.logger.info("Admin reset password for temp user %s", email)
+        return jsonify({"message": f"Password reset for {email} was successful."})
+
+    target_user = User.query.filter_by(id=user_id).first()
+
+    if target_user is None:
+        return jsonify({"message": "User not found."}), 404
+
+    if target_user.role == "admin":
+        return jsonify({"message": "Admin account passwords cannot be reset from this panel."}), 400
+
+    admin_email = getattr(admin_user, "email", None) if not isinstance(admin_user, dict) else admin_user.get("email")
+    if target_user.email == admin_email:
+        return jsonify({"message": "You cannot reset your own admin password from this panel."}), 400
+
+    target_user.password_hash = _generate_compatible_password_hash(new_password)
+    db.session.commit()
+    current_app.logger.info("Admin reset password for user %s", target_user.email)
+
+    return jsonify({"message": f"Password reset for {target_user.email} was successful."})
