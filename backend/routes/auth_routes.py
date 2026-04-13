@@ -45,8 +45,10 @@ def _utcnow():
 
 
 def _serialize_user(user):
+    display_code = _display_code_for_email(user.email, fallback_id=user.id)
     return {
         "id": user.id,
+        "displayCode": display_code,
         "fullName": user.full_name,
         "email": user.email,
         "riskProfile": user.risk_profile,
@@ -64,8 +66,10 @@ def _sanitize_text(value, max_length=255):
 
 def _serialize_temp_user(email, temp_user, user_id=None):
     role = temp_user.get("role", "user")
+    display_code = _display_code_for_email(email, fallback_id=user_id)
     return {
         "id": user_id if user_id is not None else abs(hash(email)) % 1000000,
+        "displayCode": display_code,
         "fullName": temp_user.get("full_name", email.split("@")[0]),
         "email": email,
         "riskProfile": temp_user.get("risk_profile", "Balanced"),
@@ -75,6 +79,22 @@ def _serialize_temp_user(email, temp_user, user_id=None):
         "isAdmin": role == "admin",
         "emailVerified": temp_user.get("email_verified", True),
     }
+
+
+def _configured_admin_emails():
+    configured_admins = current_app.config.get("ADMIN_ACCOUNTS") or []
+    return [str(item.get("email") or "").strip().lower() for item in configured_admins if item.get("email")]
+
+
+def _display_code_for_email(email, fallback_id=None):
+    normalized_email = str(email or "").strip().lower()
+    configured_admins = _configured_admin_emails()
+    if normalized_email in configured_admins:
+        return configured_admins.index(normalized_email) + 1
+    try:
+        return int(fallback_id or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _get_admin_user():
@@ -652,19 +672,36 @@ def list_users():
         return jsonify({"message": "Admin access is required."}), 403
 
     if not current_app.config.get("DB_AVAILABLE", True):
+        temp_items = sorted(
+            TEMP_USERS.items(),
+            key=lambda item: (
+                0 if item[1].get("role") == "admin" else 1,
+                _display_code_for_email(item[0], fallback_id=999999),
+                item[0],
+            ),
+        )
         return jsonify(
             {
                 "users": [
                     {
-                        **_serialize_temp_user(email, temp_user, index),
+                        **_serialize_temp_user(email, temp_user, index + 1),
                         "createdAt": None,
                     }
-                    for index, (email, temp_user) in enumerate(TEMP_USERS.items())
+                    for index, (email, temp_user) in enumerate(temp_items)
                 ]
             }
         )
 
     users = User.query.order_by(User.created_at.asc()).all()
+    users = sorted(
+        users,
+        key=lambda user: (
+            0 if user.role == "admin" else 1,
+            _display_code_for_email(user.email, fallback_id=user.id or 999999),
+            user.created_at or datetime.max,
+            user.email.lower(),
+        ),
+    )
     return jsonify(
         {
             "users": [

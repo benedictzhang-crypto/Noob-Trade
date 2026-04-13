@@ -442,7 +442,7 @@ const marketFocusLabel = computed(() => {
   return 'Hot Market'
 })
 const currentUserName = computed(() => currentUser.value?.fullName || 'Guest')
-const currentUserCode = computed(() => formatAdminUserCode(currentUser.value?.id))
+const currentUserCode = computed(() => formatAdminUserCode(currentUser.value?.displayCode ?? currentUser.value?.id))
 const currentExploreRows = computed(() => exploreRankings[currentExploreTab.value] || exploreRankings.Watchlist)
 const allExploreRows = computed(() => {
   const merged = new Map()
@@ -3195,7 +3195,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             :key="user.id"
             class="data-row admin-users-row"
           >
-            <span>{{ formatAdminUserCode(user.id) }}</span>
+            <span>{{ formatAdminUserCode(user.displayCode ?? user.id) }}</span>
             <span>{{ user.fullName }}</span>
             <span>{{ user.email }}</span>
             <span>{{ user.role }}</span>
