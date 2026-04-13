@@ -1,36 +1,21 @@
-const CACHE_NAME = 'noobtrade-v1'
-const ASSETS_TO_CACHE = ['/', '/manifest.webmanifest', '/icons/noobtrade-512.png', '/icons/apple-touch-icon.png']
+/* Self-destructing service worker used to clear old NoobTrade caches. */
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
-  )
+  self.skipWaiting()
+  event.waitUntil(Promise.resolve())
 })
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
+    (async () => {
+      const keys = await caches.keys()
+      await Promise.all(keys.filter((key) => key.startsWith('noobtrade-')).map((key) => caches.delete(key)))
+      await self.clients.claim()
+      await self.registration.unregister()
+    })()
   )
 })
 
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') {
-    return
-  }
-
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse
-      }
-
-      return fetch(event.request).catch(() => caches.match('/'))
-    })
-  )
+self.addEventListener('fetch', () => {
+  // Intentionally empty: this worker exists only to unregister itself and clear stale caches.
 })
