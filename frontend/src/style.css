@@ -1724,6 +1724,16 @@ select {
   text-transform: uppercase;
 }
 
+.section-chip-positive {
+  background: rgba(22, 163, 74, 0.12);
+  color: #166534;
+}
+
+.section-chip-warning {
+  background: rgba(217, 119, 6, 0.14);
+  color: #92400e;
+}
+
 .news-list,
 .post-list,
 .feedback-list {

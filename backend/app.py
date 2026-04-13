@@ -87,6 +87,12 @@ def ensure_auth_schema(app):
                 connection.execute(text("ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0"))
             if "verified_at" not in user_columns:
                 connection.execute(text("ALTER TABLE users ADD COLUMN verified_at DATETIME"))
+            if "is_disabled" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN is_disabled BOOLEAN NOT NULL DEFAULT 0"))
+            if "disabled_at" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN disabled_at DATETIME"))
+            if "disabled_reason" not in user_columns:
+                connection.execute(text("ALTER TABLE users ADD COLUMN disabled_reason VARCHAR(255)"))
 
 
 def migrate_auth_data_to_app_db(app):
@@ -157,6 +163,9 @@ def migrate_auth_data_to_app_db(app):
                     role=row["role"] or "user",
                     email_verified=bool(row["email_verified"]),
                     verified_at=_parse_sqlite_datetime(row["verified_at"]),
+                    is_disabled=bool(row["is_disabled"]) if "is_disabled" in row.keys() else False,
+                    disabled_at=_parse_sqlite_datetime(row["disabled_at"]) if "disabled_at" in row.keys() else None,
+                    disabled_reason=row["disabled_reason"] if "disabled_reason" in row.keys() else None,
                     created_at=_parse_sqlite_datetime(row["created_at"]),
                 ))
 

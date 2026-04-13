@@ -57,6 +57,9 @@ def _serialize_user(user):
         "role": user.role,
         "isAdmin": user.role == "admin",
         "emailVerified": bool(getattr(user, "email_verified", False)),
+        "isDisabled": bool(getattr(user, "is_disabled", False)),
+        "disabledAt": user.disabled_at.isoformat() if getattr(user, "disabled_at", None) else None,
+        "disabledReason": getattr(user, "disabled_reason", None),
     }
 
 
@@ -78,6 +81,9 @@ def _serialize_temp_user(email, temp_user, user_id=None):
         "role": role,
         "isAdmin": role == "admin",
         "emailVerified": temp_user.get("email_verified", True),
+        "isDisabled": bool(temp_user.get("is_disabled", False)),
+        "disabledAt": temp_user.get("disabled_at"),
+        "disabledReason": temp_user.get("disabled_reason"),
     }
 
 
@@ -182,8 +188,20 @@ def _session_response_payload():
     user = _find_user_by_email(session_email)
     if user is None:
         return None
+    if bool(getattr(user, "is_disabled", False)):
+        session.clear()
+        return None
 
     return _serialize_user(user)
+
+
+def _ensure_user_is_active(user):
+    if user is None:
+        return False, (jsonify({"message": "We could not find an account with that email."}), 404)
+    if bool(getattr(user, "is_disabled", False)):
+        session.clear()
+        return False, (jsonify({"message": "This account has been disabled. Please contact an administrator."}), 403)
+    return True, None
 
 
 def _send_login_notice(user):
@@ -604,6 +622,10 @@ def _login_impl():
     if user is None or not verify_secret(user.password_hash, password):
         return jsonify({"message": "Incorrect email or password."}), 401
 
+    is_active, error_response = _ensure_user_is_active(user)
+    if not is_active:
+        return error_response
+
     if needs_rehash(user.password_hash):
         user.password_hash = _generate_compatible_password_hash(password)
         db.session.commit()
@@ -770,3 +792,67 @@ def delete_user(user_id):
     db.session.commit()
 
     return jsonify({"message": f"Deleted user {target_user.email}."})
+
+
+@auth_blueprint.route("/users/<int:user_id>/status", methods=["PATCH"])
+def update_user_status(user_id):
+    admin_user = _get_admin_user()
+    if admin_user is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    disable_user = bool(payload.get("isDisabled"))
+    disabled_reason = _sanitize_text(payload.get("disabledReason", ""), max_length=255) or None
+
+    if not current_app.config.get("DB_AVAILABLE", True):
+        temp_items = list(TEMP_USERS.items())
+
+        if user_id < 0 or user_id >= len(temp_items):
+            return jsonify({"message": "User not found."}), 404
+
+        email, temp_user = temp_items[user_id]
+
+        if temp_user.get("role") == "admin":
+            return jsonify({"message": "Admin accounts cannot be disabled from this panel."}), 400
+
+        temp_user["is_disabled"] = disable_user
+        temp_user["disabled_at"] = _utcnow().isoformat() if disable_user else None
+        temp_user["disabled_reason"] = disabled_reason if disable_user else None
+        return jsonify(
+            {
+                "message": (
+                    f"Disabled user {email}."
+                    if disable_user
+                    else f"Re-enabled user {email}."
+                ),
+                "user": _serialize_temp_user(email, temp_user, user_id + 1),
+            }
+        )
+
+    target_user = User.query.filter_by(id=user_id).first()
+
+    if target_user is None:
+        return jsonify({"message": "User not found."}), 404
+
+    if target_user.role == "admin":
+        return jsonify({"message": "Admin accounts cannot be disabled from this panel."}), 400
+
+    admin_email = getattr(admin_user, "email", None) if not isinstance(admin_user, dict) else admin_user.get("email")
+    if target_user.email == admin_email:
+        return jsonify({"message": "You cannot disable your own admin account."}), 400
+
+    target_user.is_disabled = disable_user
+    target_user.disabled_at = _utcnow() if disable_user else None
+    target_user.disabled_reason = disabled_reason if disable_user else None
+    db.session.commit()
+
+    return jsonify(
+        {
+            "message": (
+                f"Disabled user {target_user.email}."
+                if disable_user
+                else f"Re-enabled user {target_user.email}."
+            ),
+            "user": _serialize_user(target_user),
+        }
+    )

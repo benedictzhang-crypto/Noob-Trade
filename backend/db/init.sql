@@ -8,6 +8,11 @@ CREATE TABLE IF NOT EXISTS users (
     risk_profile VARCHAR(40) NOT NULL DEFAULT 'Balanced',
     membership VARCHAR(40) NOT NULL DEFAULT 'Regular User',
     role VARCHAR(20) NOT NULL DEFAULT 'user',
+    email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+    verified_at TIMESTAMPTZ,
+    is_disabled BOOLEAN NOT NULL DEFAULT FALSE,
+    disabled_at TIMESTAMPTZ,
+    disabled_reason VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

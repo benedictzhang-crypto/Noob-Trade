@@ -15,6 +15,9 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False, default="user")
     email_verified = db.Column(db.Boolean, nullable=False, default=False)
     verified_at = db.Column(db.DateTime(timezone=True))
+    is_disabled = db.Column(db.Boolean, nullable=False, default=False)
+    disabled_at = db.Column(db.DateTime(timezone=True))
+    disabled_reason = db.Column(db.String(255))
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
 
 

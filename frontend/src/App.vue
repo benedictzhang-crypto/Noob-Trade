@@ -26,7 +26,7 @@ const authMessage = ref('')
 const portfolioMessage = ref('')
 const portfolioAdjustments = ref({})
 const pendingPortfolioActions = ref({})
-const pendingAdminDeletes = ref({})
+const pendingAdminStatusUpdates = ref({})
 const feedRefreshKey = ref(getHourRefreshKey())
 const deferredInstallPrompt = ref(null)
 const installMessage = ref('')
@@ -1947,59 +1947,43 @@ async function loadAdminUsers() {
   }
 }
 
-async function deleteAdminUser(user) {
+async function updateAdminUserStatus(user, isDisabled) {
   if (!currentUser.value?.isAdmin) {
     adminMessage.value = 'Admin access is required.'
     return
   }
 
-  adminMessage.value = `Deleting ${user.email}...`
+  adminMessage.value = `${isDisabled ? 'Disabling' : 'Re-enabling'} ${user.email}...`
+  pendingAdminStatusUpdates.value = {
+    ...pendingAdminStatusUpdates.value,
+    [String(user?.id ?? '')]: true
+  }
 
   try {
-    const response = await secureFetch(`${API_BASE_URL}/auth/users/${user.id}`, {
-      method: 'DELETE'
+    const response = await secureFetch(`${API_BASE_URL}/auth/users/${user.id}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        isDisabled
+      })
     })
     const payload = await response.json()
 
     if (!response.ok) {
-      throw new Error(payload.message || 'Could not delete this user.')
+      throw new Error(payload.message || 'Could not update this user.')
     }
 
-    adminUsers.value = adminUsers.value.filter((item) => item.id !== user.id)
-    adminMessage.value = payload.message || `Deleted ${user.email}.`
+    adminUsers.value = adminUsers.value.map((item) => item.id === user.id ? payload.user : item)
+    adminMessage.value = payload.message || `${isDisabled ? 'Disabled' : 'Re-enabled'} ${user.email}.`
   } catch (error) {
-    adminMessage.value = error.message || 'Could not delete this user right now.'
+    adminMessage.value = error.message || 'Could not update this user right now.'
   } finally {
-    clearAdminDelete(user)
+    const nextPending = { ...pendingAdminStatusUpdates.value }
+    delete nextPending[String(user?.id ?? '')]
+    pendingAdminStatusUpdates.value = nextPending
   }
-}
-
-function getAdminDeleteKey(user) {
-  return String(user?.id ?? '')
-}
-
-function isPendingAdminDelete(user) {
-  return Boolean(pendingAdminDeletes.value[getAdminDeleteKey(user)])
-}
-
-function startAdminDelete(user) {
-  const key = getAdminDeleteKey(user)
-  pendingAdminDeletes.value = {
-    ...pendingAdminDeletes.value,
-    [key]: true
-  }
-  adminMessage.value = `Click confirm to delete ${user.email}.`
-}
-
-function clearAdminDelete(user) {
-  const key = getAdminDeleteKey(user)
-  const nextPendingDeletes = { ...pendingAdminDeletes.value }
-  delete nextPendingDeletes[key]
-  pendingAdminDeletes.value = nextPendingDeletes
-}
-
-async function confirmAdminDelete(user) {
-  await deleteAdminUser(user)
 }
 
 function signOut() {
@@ -2012,7 +1996,7 @@ function signOut() {
   authMessage.value = ''
   adminUsers.value = []
   adminMessage.value = ''
-  pendingAdminDeletes.value = {}
+  pendingAdminStatusUpdates.value = {}
   csrfToken.value = ''
   signInForm.value = {
     email: '',
@@ -3233,6 +3217,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span>Name</span>
             <span>Email</span>
             <span>Role</span>
+            <span>Status</span>
             <span>Joined</span>
             <span>Action</span>
           </div>
@@ -3246,19 +3231,21 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span>{{ user.fullName }}</span>
             <span>{{ user.email }}</span>
             <span>{{ user.role }}</span>
+            <span>
+              <span :class="user.isDisabled ? 'section-chip section-chip-warning' : 'section-chip section-chip-positive'">
+                {{ user.isDisabled ? 'Disabled' : 'Active' }}
+              </span>
+            </span>
             <span>{{ user.joinedAt }}</span>
             <div class="admin-action-cell">
               <template v-if="!user.isAdmin">
-                <template v-if="isPendingAdminDelete(user)">
-                  <button class="chip chip-confirm" @click="confirmAdminDelete(user)">Confirm</button>
-                  <button class="chip chip-muted" @click="clearAdminDelete(user)">Cancel</button>
-                </template>
                 <button
-                  v-else
-                  class="chip chip-danger"
-                  @click="startAdminDelete(user)"
+                  class="chip"
+                  :class="user.isDisabled ? 'chip-confirm' : 'chip-danger'"
+                  :disabled="pendingAdminStatusUpdates[String(user.id)]"
+                  @click="updateAdminUserStatus(user, !user.isDisabled)"
                 >
-                  Delete
+                  {{ pendingAdminStatusUpdates[String(user.id)] ? 'Saving...' : (user.isDisabled ? 'Enable' : 'Disable') }}
                 </button>
               </template>
               <span v-else class="section-chip">Protected</span>
