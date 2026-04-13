@@ -272,6 +272,8 @@ def _find_user_by_email(email):
 def _validate_password_rules(password):
     if len(password) < 8:
         return "Please use a password with at least 8 characters."
+    if password.isalnum():
+        return "Please include at least one special symbol such as _, !, or # in your password."
     return None
 
 

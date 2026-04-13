@@ -2383,6 +2383,13 @@ select {
   gap: 8px;
 }
 
+.auth-field-hint {
+  font-size: 0.76rem;
+  color: var(--text-soft);
+  opacity: 0.82;
+  line-height: 1.45;
+}
+
 .auth-field span {
   font-size: 0.82rem;
   font-weight: 700;

@@ -9,7 +9,7 @@ import SearchBar from './components/SearchBar.vue'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
-const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password']
+const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
 
 const activePage = ref('Home')
@@ -78,6 +78,9 @@ const resetPasswordForm = ref({
   email: '',
   code: '',
   newPassword: ''
+})
+const resetPasswordRequestForm = ref({
+  email: ''
 })
 const portfolioForm = ref({
   accountName: 'Family Account',
@@ -1145,6 +1148,10 @@ function navigateTo(page) {
     activePage.value = normalizedPage
     authMessage.value = ''
 
+    if (normalizedPage === 'Reset Password') {
+      resetPasswordRequestForm.value.email = resetPasswordForm.value.email || resetPasswordRequestForm.value.email
+    }
+
     if (normalizedPage === 'Admin' && currentUser.value?.isAdmin) {
       loadAdminUsers()
     }
@@ -1841,7 +1848,7 @@ async function submitRegistration() {
 }
 
 async function requestPasswordReset() {
-  if (!resetPasswordForm.value.email) {
+  if (!resetPasswordRequestForm.value.email) {
     authMessage.value = 'Please enter your email address.'
     return
   }
@@ -1855,7 +1862,7 @@ async function requestPasswordReset() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: resetPasswordForm.value.email
+        email: resetPasswordRequestForm.value.email
       })
     })
     const payload = await parseJsonResponse(
@@ -1867,7 +1874,11 @@ async function requestPasswordReset() {
       throw new Error(payload.message || 'Could not send the password reset code.')
     }
 
+    resetPasswordForm.value.email = resetPasswordRequestForm.value.email
+    resetPasswordForm.value.code = ''
+    resetPasswordForm.value.newPassword = ''
     authMessage.value = payload.message || 'Password reset email sent.'
+    activePage.value = 'Reset Password Confirm'
   } catch (error) {
     authMessage.value = error.message || 'Could not send the password reset code right now.'
   }
@@ -2256,6 +2267,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <label class="auth-field">
                 <span>Password</span>
                 <input v-model="registrationForm.password" type="password" placeholder="Create a password" />
+                <small class="auth-field-hint">Use at least 8 characters and include one special symbol such as _, !, or #.</small>
               </label>
             </div>
 
@@ -2310,9 +2322,43 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="auth-shell">
         <article class="auth-card">
           <p class="eyebrow">Password Recovery</p>
+          <h1>Request a password reset code</h1>
+          <p class="page-subtitle">
+            Enter your email and we will send a verification code. After that, you will move to the reset password page.
+          </p>
+
+          <form @submit.prevent="requestPasswordReset">
+            <div v-if="authMessage" class="status-message loading-message">
+              {{ authMessage }}
+            </div>
+
+            <div class="auth-form-grid">
+              <label class="auth-field">
+                <span>Email</span>
+                <input v-model="resetPasswordRequestForm.email" type="email" placeholder="noobtrade@example.com" />
+              </label>
+            </div>
+
+            <div class="auth-actions">
+              <button class="topbar-button" type="submit">Send Reset Code</button>
+              <button class="topbar-button secondary" type="button" @click="navigateTo('Reset Password Confirm')">I already have a code</button>
+            </div>
+          </form>
+
+          <div class="auth-actions">
+            <button class="topbar-button secondary" type="button" @click="navigateTo('Sign In')">Back to Sign In</button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <main v-else-if="!isAuthenticated && activePage === 'Reset Password Confirm'" class="product-page auth-page">
+      <section class="auth-shell">
+        <article class="auth-card">
+          <p class="eyebrow">Password Recovery</p>
           <h1>Reset your password</h1>
           <p class="page-subtitle">
-            Request a reset code by email, then enter the code and your new password below.
+            Enter the verification code from your email, then create a new password to finish the reset.
           </p>
 
           <form @submit.prevent="submitPasswordReset">
@@ -2332,12 +2378,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <label class="auth-field">
                 <span>New Password</span>
                 <input v-model="resetPasswordForm.newPassword" type="password" placeholder="Create a new password" />
+                <small class="auth-field-hint">Use at least 8 characters and include one special symbol such as _, !, or #.</small>
               </label>
             </div>
 
             <div class="auth-actions">
               <button class="topbar-button" type="submit">Update Password</button>
-              <button class="topbar-button secondary" type="button" @click="requestPasswordReset">Send Reset Code</button>
+              <button class="topbar-button secondary" type="button" @click="navigateTo('Reset Password')">Send a new code</button>
             </div>
           </form>
 
