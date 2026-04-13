@@ -67,6 +67,33 @@ class MarketDataService:
 
         if (
             is_production
+            and compact_response
+            and self.market_api.is_configured()
+            and self.market_api.is_available()
+            and self._has_cached_history(symbol_code)
+        ):
+            try:
+                return self._build_production_compact_response(
+                    symbol=symbol_code,
+                    interval=interval,
+                    lookback_window=lookback_window,
+                    indicators=indicators,
+                )
+            except DukeMarketApiUnavailable:
+                logger.warning(
+                    "Production compact Duke snapshot is unavailable for %s; falling back.",
+                    symbol_code,
+                    exc_info=True,
+                )
+            except Exception:
+                logger.warning(
+                    "Production compact Duke snapshot failed for %s; falling back.",
+                    symbol_code,
+                    exc_info=True,
+                )
+
+        if (
+            is_production
             and self.market_api.is_configured()
             and self.market_api.is_available()
             and self._has_cached_history(symbol_code)
@@ -246,6 +273,70 @@ class MarketDataService:
             "sector": symbol_record.sector or "Unknown",
             "currentPrice": current_price_value,
             "patternAnalysis": live_match_summary,
+        }
+
+    def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
+        overview_payload = self.market_api.get_company_overview(symbol)
+        prices_payload = self.market_api.get_daily_prices(symbol, limit=max(lookback_window + 10, 40))
+        overview = self._extract_first_record(overview_payload)
+        prices = prices_payload.get("data", [])
+
+        if not prices:
+            raise ValueError("No price data returned from market API.")
+
+        current_price = self._to_float(prices[0].get("close"))
+        previous_close = self._to_float(prices[1].get("close", current_price)) if len(prices) > 1 else current_price
+        open_price = self._to_float(prices[0].get("open", current_price))
+        high_values = [self._to_float(item.get("high", item.get("close"))) for item in prices]
+        low_values = [self._to_float(item.get("low", item.get("close"))) for item in prices]
+        volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
+
+        cached_signal = self.get_cached_pro_signal(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback_window,
+            current_price=current_price,
+            indicators=indicators,
+        )
+        analysis = cached_signal.get("patternAnalysis", {})
+
+        return {
+            "dataSource": "live",
+            "request": {
+                "symbol": symbol,
+                "interval": interval,
+                "lookback": lookback_window,
+                "indicators": indicators,
+            },
+            "stock": {
+                "symbol": symbol,
+                "companyName": overview.get("companyName", f"{symbol} Holdings Inc."),
+                "sector": overview.get("sector", "Unknown"),
+                "industry": overview.get("industry", "Unknown"),
+                "currentPrice": current_price,
+                "previousClose": previous_close,
+                "open": open_price,
+                "volume": sum(volume_values),
+                "week52High": round(max(high_values), 2),
+                "week52Low": round(min(low_values), 2),
+            },
+            "patternAnalysis": {
+                "lookbackWindow": lookback_window,
+                "selectedIndicators": indicators,
+                "probabilityOfIncrease": analysis.get("probabilityOfIncrease", 50.0),
+                "probabilityOfDecrease": analysis.get("probabilityOfDecrease", 50.0),
+                "avgReturn": analysis.get("avgReturn"),
+                "maxDrawdown": analysis.get("maxDrawdown"),
+                "matchedPatternsCount": analysis.get("matchedPatternsCount", 0),
+                "matchedHistoricalPatterns": analysis.get("matchedHistoricalPatterns", []),
+                "quantConfidence": analysis.get("quantConfidence", 0.0),
+                "signalClassification": analysis.get("signalClassification", "Bullish Bias"),
+                "futureFiveDayProbabilities": analysis.get("futureFiveDayProbabilities", {"up": [], "down": []}),
+                "recommendedSellPrice": analysis.get("recommendedSellPrice"),
+                "recommendedSellDate": analysis.get("recommendedSellDate"),
+                "stopLossPrice": analysis.get("stopLossPrice"),
+                "highFitHistoricalPaths": analysis.get("highFitHistoricalPaths", []),
+            },
         }
 
     def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None):
