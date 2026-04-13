@@ -134,11 +134,12 @@ class MarketDataService:
         hour_bucket = datetime.utcnow().strftime("%Y-%m-%d-%H")
         cache_key = f"{normalized_symbol or 'market'}:{limit}:{hour_bucket}"
         cached_value = self.MARKET_NEWS_CACHE.get(cache_key)
+        is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
 
         if cached_value is not None:
             return cached_value
 
-        if not self.market_api.is_configured():
+        if is_production or not self.market_api.is_configured():
             fallback_news = self._build_fallback_news(normalized_symbol, limit)
             self.MARKET_NEWS_CACHE[cache_key] = fallback_news
             return fallback_news

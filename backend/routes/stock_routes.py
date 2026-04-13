@@ -48,6 +48,7 @@ def health_check():
 @stock_blueprint.route("/stock/<symbol>", methods=["GET"])
 def get_stock(symbol):
     """Return stock details and persist the generated analysis run."""
+    is_production = str(current_app.config.get("ENVIRONMENT", "")).lower() == "production"
     lookback = request.args.get(
         "lookback",
         default=current_app.config["DEFAULT_LOOKBACK"],
@@ -63,6 +64,13 @@ def get_stock(symbol):
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
     compact_response = request.args.get("compact", default=0, type=int) == 1
 
+    if is_production:
+        # Keep the cloud trading backend lean: the deployed service is primarily
+        # supporting ProTrade and lightweight reads, not heavy analysis history.
+        compact_response = True
+        prefetch_only = False
+        persist_analysis = False
+
     market_data_service = MarketDataService(current_app.config)
     persistence_service = PersistenceService()
 
@@ -76,13 +84,13 @@ def get_stock(symbol):
             compact_response=compact_response,
         )
 
-        if response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
+        if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
             try:
                 response_data = persistence_service.apply_cached_match_preview(response_data)
             except Exception as error:
                 current_app.logger.warning("Could not apply indicator-aware cached preview: %s", error)
 
-        should_persist = current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis
+        should_persist = (current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis) and not is_production
 
         if not prefetch_only and should_persist:
             try:
