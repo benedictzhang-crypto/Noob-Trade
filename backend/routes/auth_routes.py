@@ -45,7 +45,7 @@ def _utcnow():
 
 
 def _serialize_user(user):
-    display_code = _display_code_for_email(user.email, fallback_id=user.id)
+    display_code = _display_code_for_user(user)
     return {
         "id": user.id,
         "displayCode": display_code,
@@ -66,7 +66,7 @@ def _sanitize_text(value, max_length=255):
 
 def _serialize_temp_user(email, temp_user, user_id=None):
     role = temp_user.get("role", "user")
-    display_code = _display_code_for_email(email, fallback_id=user_id)
+    display_code = _display_code_for_temp_email(email, role)
     return {
         "id": user_id if user_id is not None else abs(hash(email)) % 1000000,
         "displayCode": display_code,
@@ -86,15 +86,33 @@ def _configured_admin_emails():
     return [str(item.get("email") or "").strip().lower() for item in configured_admins if item.get("email")]
 
 
-def _display_code_for_email(email, fallback_id=None):
+def _display_code_for_temp_email(email, role="user"):
     normalized_email = str(email or "").strip().lower()
     configured_admins = _configured_admin_emails()
-    if normalized_email in configured_admins:
+    if role == "admin" and normalized_email in configured_admins:
         return configured_admins.index(normalized_email) + 1
-    try:
-        return int(fallback_id or 0)
-    except (TypeError, ValueError):
-        return 0
+    temp_regulars = [
+        addr
+        for addr, temp_user in TEMP_USERS.items()
+        if temp_user.get("role") != "admin"
+    ]
+    temp_regulars = sorted(str(addr).strip().lower() for addr in temp_regulars)
+    if normalized_email in temp_regulars:
+        return 101 + temp_regulars.index(normalized_email)
+    return 0
+
+
+def _display_code_for_user(user):
+    normalized_email = str(user.email or "").strip().lower()
+    configured_admins = _configured_admin_emails()
+    if user.role == "admin" and normalized_email in configured_admins:
+        return configured_admins.index(normalized_email) + 1
+
+    regular_users = User.query.filter(User.role != "admin").order_by(User.created_at.asc(), User.id.asc()).all()
+    for index, regular_user in enumerate(regular_users, start=101):
+        if regular_user.id == user.id:
+            return index
+    return 0
 
 
 def _get_admin_user():
@@ -676,7 +694,7 @@ def list_users():
             TEMP_USERS.items(),
             key=lambda item: (
                 0 if item[1].get("role") == "admin" else 1,
-                _display_code_for_email(item[0], fallback_id=999999),
+                _display_code_for_temp_email(item[0], item[1].get("role", "user")),
                 item[0],
             ),
         )
@@ -697,7 +715,7 @@ def list_users():
         users,
         key=lambda user: (
             0 if user.role == "admin" else 1,
-            _display_code_for_email(user.email, fallback_id=user.id or 999999),
+            _display_code_for_user(user),
             user.created_at or datetime.max,
             user.email.lower(),
         ),
