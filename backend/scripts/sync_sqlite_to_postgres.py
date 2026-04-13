@@ -16,6 +16,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 SYNC_TABLES = ("daily_prices", "daily_indicators", "pattern_windows")
 AUTH_TABLES = ("users", "login_verification_codes", "login_activities")
+BATCH_SIZE = 2000
 
 
 def _normalize_database_url(raw_url):
@@ -48,6 +49,14 @@ def _normalize_app_database_url(raw_url):
     if not raw_url:
         return _normalize_database_url(os.getenv("DATABASE_URL", ""))
     return _normalize_database_url(raw_url)
+
+
+def _coerce_bool(value):
+    if isinstance(value, bool):
+        return value
+    if value in (None, "", 0, "0", "false", "False"):
+        return False
+    return True
 
 
 def _fetch_source_symbols(connection):
@@ -141,26 +150,27 @@ def _upsert_symbols(db, symbol_rows):
 
 
 def _sync_daily_prices(db, rows, symbol_map):
-    for row in rows:
-        db.session.execute(
-            text(
-                """
-                INSERT INTO daily_prices (
-                    symbol_id, trade_date, open, high, low, close, adjusted_close, volume, source
-                ) VALUES (
-                    :symbol_id, :trade_date, :open, :high, :low, :close, :adjusted_close, :volume, :source
-                )
-                ON CONFLICT (symbol_id, trade_date) DO UPDATE
-                SET open = EXCLUDED.open,
-                    high = EXCLUDED.high,
-                    low = EXCLUDED.low,
-                    close = EXCLUDED.close,
-                    adjusted_close = EXCLUDED.adjusted_close,
-                    volume = EXCLUDED.volume,
-                    source = EXCLUDED.source
-                """
-            ),
-            {
+    sql = text(
+        """
+        INSERT INTO daily_prices (
+            symbol_id, trade_date, open, high, low, close, adjusted_close, volume, source
+        ) VALUES (
+            :symbol_id, :trade_date, :open, :high, :low, :close, :adjusted_close, :volume, :source
+        )
+        ON CONFLICT (symbol_id, trade_date) DO UPDATE
+        SET open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            adjusted_close = EXCLUDED.adjusted_close,
+            volume = EXCLUDED.volume,
+            source = EXCLUDED.source
+        """
+    )
+
+    batch = []
+    for index, row in enumerate(rows, start=1):
+        batch.append({
                 "symbol_id": symbol_map[row["symbol_id"]],
                 "trade_date": row["trade_date"],
                 "open": row["open"],
@@ -170,8 +180,17 @@ def _sync_daily_prices(db, rows, symbol_map):
                 "adjusted_close": row.get("adjusted_close"),
                 "volume": row.get("volume"),
                 "source": row.get("source") or "duke_api",
-            },
-        )
+            })
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  daily_prices: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  daily_prices: {len(rows)}/{len(rows)}", flush=True)
 
 
 def _sync_daily_indicators(db, rows, symbol_map):
@@ -214,12 +233,23 @@ def _sync_daily_indicators(db, rows, symbol_map):
         """
     )
 
-    for row in rows:
+    batch = []
+    for index, row in enumerate(rows, start=1):
         params = dict(row)
         params["symbol_id"] = symbol_map[row["symbol_id"]]
         params.pop("id", None)
         params.pop("created_at", None)
-        db.session.execute(sql, params)
+        batch.append(params)
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  daily_indicators: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  daily_indicators: {len(rows)}/{len(rows)}", flush=True)
 
 
 def _sync_pattern_windows(db, rows, symbol_map):
@@ -254,13 +284,24 @@ def _sync_pattern_windows(db, rows, symbol_map):
         """
     )
 
-    for row in rows:
+    batch = []
+    for index, row in enumerate(rows, start=1):
         params = dict(row)
         params["symbol_id"] = symbol_map[row["symbol_id"]]
         params["feature_vector"] = json.dumps(row.get("feature_vector") or {})
         params.pop("id", None)
         params.pop("created_at", None)
-        db.session.execute(sql, params)
+        batch.append(params)
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  pattern_windows: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  pattern_windows: {len(rows)}/{len(rows)}", flush=True)
 
 
 def _upsert_users(app_engine, rows):
@@ -288,9 +329,9 @@ def _upsert_users(app_engine, rows):
     )
     for row in rows:
         params = dict(row)
-        params.setdefault("email_verified", False)
+        params["email_verified"] = _coerce_bool(params.get("email_verified", False))
         params.setdefault("verified_at", None)
-        params.setdefault("is_disabled", False)
+        params["is_disabled"] = _coerce_bool(params.get("is_disabled", False))
         params.setdefault("disabled_at", None)
         params.setdefault("disabled_reason", None)
         app_engine.execute(sql, params)
@@ -315,7 +356,10 @@ def _upsert_login_verification_codes(app_engine, rows):
         """
     )
     for row in rows:
-        app_engine.execute(sql, row)
+        params = dict(row)
+        params["is_new_device"] = _coerce_bool(params.get("is_new_device", False))
+        params["is_new_location"] = _coerce_bool(params.get("is_new_location", False))
+        app_engine.execute(sql, params)
 
 
 def _upsert_login_activities(app_engine, rows):
@@ -341,7 +385,10 @@ def _upsert_login_activities(app_engine, rows):
         """
     )
     for row in rows:
-        app_engine.execute(sql, row)
+        params = dict(row)
+        params["is_new_device"] = _coerce_bool(params.get("is_new_device", False))
+        params["is_new_location"] = _coerce_bool(params.get("is_new_location", False))
+        app_engine.execute(sql, params)
 
 
 def main():
@@ -374,15 +421,31 @@ def main():
 
     with app.app_context():
         db.create_all()
+        print("Upserting symbols...", flush=True)
         symbol_map = _upsert_symbols(db, symbol_rows)
+        print(f"Synced {len(symbol_rows)} symbols.", flush=True)
+
+        print(f"Syncing {len(table_rows['daily_prices'])} daily_prices rows...", flush=True)
         _sync_daily_prices(db, table_rows["daily_prices"], symbol_map)
+        db.session.commit()
+        print("Committed daily_prices.", flush=True)
+
+        print(f"Syncing {len(table_rows['daily_indicators'])} daily_indicators rows...", flush=True)
         _sync_daily_indicators(db, table_rows["daily_indicators"], symbol_map)
+        db.session.commit()
+        print("Committed daily_indicators.", flush=True)
+
+        print(f"Syncing {len(table_rows['pattern_windows'])} pattern_windows rows...", flush=True)
         _sync_pattern_windows(db, table_rows["pattern_windows"], symbol_map)
         db.session.commit()
+        print("Committed pattern_windows.", flush=True)
 
         with db.engines["app"].begin() as app_connection:
+            print(f"Syncing {len(auth_rows['users'])} users...", flush=True)
             _upsert_users(app_connection, auth_rows["users"])
+            print(f"Syncing {len(auth_rows['login_verification_codes'])} login_verification_codes...", flush=True)
             _upsert_login_verification_codes(app_connection, auth_rows["login_verification_codes"])
+            print(f"Syncing {len(auth_rows['login_activities'])} login_activities...", flush=True)
             _upsert_login_activities(app_connection, auth_rows["login_activities"])
 
         summary = {

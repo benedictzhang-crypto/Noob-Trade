@@ -56,6 +56,33 @@ def _auth_sqlite_database_path(app):
     return Path(auth_uri.removeprefix("sqlite:///"))
 
 
+def _build_engine_options(app):
+    base_options = app.config.get("SQLALCHEMY_ENGINE_OPTIONS") or {}
+    connect_args = dict(base_options.get("connect_args") or {})
+    primary_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    auth_uri = _auth_database_uri(app)
+
+    sqlite_only_keys = {"timeout", "check_same_thread"}
+    uses_only_sqlite = primary_uri.startswith("sqlite:///") and (not auth_uri or auth_uri.startswith("sqlite:///"))
+
+    if uses_only_sqlite:
+        return base_options
+
+    filtered_connect_args = {
+        key: value
+        for key, value in connect_args.items()
+        if key not in sqlite_only_keys
+    }
+
+    normalized = dict(base_options)
+    if filtered_connect_args:
+        normalized["connect_args"] = filtered_connect_args
+    else:
+        normalized.pop("connect_args", None)
+
+    return normalized
+
+
 def _parse_sqlite_datetime(value):
     if value in (None, ""):
         return None
@@ -326,6 +353,7 @@ def create_app():
 
     app = Flask(__name__, static_folder=static_folder, static_url_path="")
     app.config.from_object(Config)
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _build_engine_options(app)
 
     # Allow requests from the local frontend during development.
     CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
