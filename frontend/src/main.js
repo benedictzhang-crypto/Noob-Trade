@@ -4,7 +4,7 @@ import './style.css'
 
 createApp(App).mount('#app')
 
-if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.getRegistrations().then((registrations) => {
       registrations.forEach((registration) => {
@@ -19,11 +19,5 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
           .forEach((key) => caches.delete(key).catch(() => {}))
       })
     }
-  })
-} else if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((error) => {
-      console.error('Service worker registration failed:', error)
-    })
   })
 }
