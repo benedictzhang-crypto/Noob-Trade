@@ -7,6 +7,19 @@ class Config:
     """Simple application settings for local development."""
 
     @staticmethod
+    def _production_data_dir():
+        configured_dir = os.getenv("NOOBTRADE_DATA_DIR", "").strip()
+
+        if configured_dir:
+            return Path(configured_dir)
+
+        default_dir = Path("/var/data")
+        if default_dir.exists():
+            return default_dir
+
+        return None
+
+    @staticmethod
     def _parse_admin_accounts():
         raw_accounts = os.getenv(
             "ADMIN_ACCOUNTS",
@@ -35,6 +48,12 @@ class Config:
         if configured_url:
             return configured_url
 
+        if os.getenv("APP_ENV", "development").strip().lower() == "production":
+            production_dir = Config._production_data_dir()
+            if production_dir is not None:
+                sqlite_path = production_dir / "noobtrade_local.db"
+                return f"sqlite:///{sqlite_path}"
+
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_local.db"
         return f"sqlite:///{sqlite_path}"
@@ -44,6 +63,12 @@ class Config:
         configured_url = os.getenv("APP_DATABASE_URL")
         if configured_url:
             return configured_url
+
+        if os.getenv("APP_ENV", "development").strip().lower() == "production":
+            production_dir = Config._production_data_dir()
+            if production_dir is not None:
+                sqlite_path = production_dir / "noobtrade_user.db"
+                return f"sqlite:///{sqlite_path}"
 
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_user.db"

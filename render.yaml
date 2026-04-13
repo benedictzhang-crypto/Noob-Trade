@@ -17,6 +17,8 @@ services:
         sync: false
       - key: SECRET_KEY
         generateValue: true
+      - key: NOOBTRADE_DATA_DIR
+        value: "/var/data"
       - key: FLASK_DEBUG
         value: "false"
       - key: FLASK_USE_RELOADER
