@@ -19,8 +19,6 @@ services:
         generateValue: true
       - key: APP_ENV
         value: "production"
-      - key: NOOBTRADE_DATA_DIR
-        value: "/var/data"
       - key: FLASK_DEBUG
         value: "false"
       - key: FLASK_USE_RELOADER

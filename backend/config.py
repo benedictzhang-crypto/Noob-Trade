@@ -24,6 +24,9 @@ class Config:
 
     @staticmethod
     def _production_data_dir():
+        if os.getenv("DATABASE_URL", "").strip() or os.getenv("APP_DATABASE_URL", "").strip():
+            return None
+
         configured_dir = os.getenv("NOOBTRADE_DATA_DIR", "").strip()
 
         if configured_dir:
