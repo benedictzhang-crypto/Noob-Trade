@@ -23,4 +23,4 @@ COPY backend/ /app/backend/
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
 WORKDIR /app/backend
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "180", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "2", "--timeout", "180", "app:app"]
