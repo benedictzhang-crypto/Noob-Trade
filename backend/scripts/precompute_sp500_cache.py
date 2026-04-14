@@ -16,6 +16,7 @@ from services.precompute_service import PrecomputeService
 
 WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 DEFAULT_PROGRESS_PATH = BACKEND_DIR / ".runtime" / "sp500-precompute-progress.json"
+DEFAULT_HISTORY_LIMIT = 2519
 
 
 def fetch_sp500_symbols():
@@ -100,8 +101,14 @@ def main():
     parser.add_argument(
         "--sleep-seconds",
         type=float,
-        default=0.0,
-        help="Optional pause between symbols to reduce CPU pressure.",
+        default=0.5,
+        help="Optional pause between symbols to reduce API pressure.",
+    )
+    parser.add_argument(
+        "--history-limit",
+        type=int,
+        default=DEFAULT_HISTORY_LIMIT,
+        help="Daily history length to request per symbol before persisting indicators and pattern windows.",
     )
     args = parser.parse_args()
 
@@ -137,6 +144,7 @@ def main():
                     symbols=[symbol],
                     timeframes=[item.strip() for item in args.timeframes.split(",") if item.strip()],
                     window_sizes=tuple(int(item.strip()) for item in args.window_sizes.split(",") if item.strip()),
+                    history_limit=max(args.history_limit, 60),
                 )
                 completed.add(symbol)
                 failed.pop(symbol, None)

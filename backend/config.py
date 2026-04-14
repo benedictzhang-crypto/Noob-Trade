@@ -3,8 +3,24 @@ import secrets
 from pathlib import Path
 
 
+def _normalize_postgres_url(raw_url):
+    if not raw_url:
+        return raw_url
+
+    normalized = raw_url.strip()
+    if normalized.startswith("postgres://"):
+        return normalized.replace("postgres://", "postgresql+psycopg://", 1)
+    if normalized.startswith("postgresql://"):
+        return normalized.replace("postgresql://", "postgresql+psycopg://", 1)
+    return normalized
+
+
 class Config:
     """Simple application settings for local development."""
+
+    @staticmethod
+    def _normalize_postgres_url(raw_url):
+        return _normalize_postgres_url(raw_url)
 
     @staticmethod
     def _production_data_dir():
@@ -46,7 +62,7 @@ class Config:
     def _default_database_uri():
         configured_url = os.getenv("DATABASE_URL")
         if configured_url:
-            return configured_url
+            return _normalize_postgres_url(configured_url)
 
         if os.getenv("APP_ENV", "development").strip().lower() == "production":
             production_dir = Config._production_data_dir()
@@ -62,7 +78,7 @@ class Config:
     def _default_app_database_uri():
         configured_url = os.getenv("APP_DATABASE_URL")
         if configured_url:
-            return configured_url
+            return _normalize_postgres_url(configured_url)
 
         if os.getenv("APP_ENV", "development").strip().lower() == "production":
             production_dir = Config._production_data_dir()

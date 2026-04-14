@@ -11,17 +11,23 @@ class PrecomputeService:
         self.market_data_service = MarketDataService(config)
         self.persistence_service = PersistenceService()
 
-    def warm_symbols(self, symbols=None, timeframes=None, window_sizes=None):
+    def warm_symbols(self, symbols=None, timeframes=None, window_sizes=None, history_limit=None):
         selected_symbols = tuple(symbols or self.config["PRECOMPUTE_DEMO_SYMBOLS"])
         results = []
 
         for symbol in selected_symbols:
-            response_data = self._build_cache_seed_response(symbol, window_sizes)
+            response_data = self._build_cache_seed_response(
+                symbol,
+                window_sizes,
+                history_limit=history_limit,
+            )
             cache_result = self.persistence_service.warm_symbol_cache(
                 response_data,
                 timeframes=timeframes,
                 window_sizes=window_sizes,
             )
+            if history_limit:
+                cache_result["historyLimit"] = history_limit
             results.append(cache_result)
 
         return results
@@ -43,7 +49,7 @@ class PrecomputeService:
 
         return results
 
-    def _build_cache_seed_response(self, symbol, window_sizes):
+    def _build_cache_seed_response(self, symbol, window_sizes, history_limit=None):
         lookback_window = max(window_sizes or self.persistence_service.SUPPORTED_WINDOW_SIZES)
         indicators = self.config["DEFAULT_INDICATORS"]
 
@@ -53,6 +59,7 @@ class PrecomputeService:
                 interval=self.config["DEFAULT_INTERVAL"],
                 lookback_window=lookback_window,
                 indicators=indicators,
+                price_limit=max(lookback_window, history_limit) if history_limit else None,
             )
 
         return build_mock_stock_pattern_analysis(
