@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.engine.url import make_url
 
+from models.market_data import DailyPrice, PatternWindow, Symbol
 from services.market_data_service import MarketDataService
 from services.persistence_service import PersistenceService
 
@@ -46,6 +47,116 @@ def _sanitize_response_payload(value):
         return [_sanitize_response_payload(item) for item in value]
 
     return value
+
+
+def _to_float(value, default=0.0):
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def _to_int(value, default=0):
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except Exception:
+        return default
+
+
+def _build_production_summary_payload(symbol: str, interval: str, lookback: int, indicators: list[str]):
+    symbol_code = str(symbol or "").upper().strip()
+    symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
+    if symbol_record is None:
+        raise ValueError(f"{symbol_code} is not available in the production cache yet.")
+
+    price_records = (
+        DailyPrice.query.filter(DailyPrice.symbol_id == symbol_record.id)
+        .order_by(DailyPrice.trade_date.desc())
+        .limit(90)
+        .all()
+    )
+    if len(price_records) < 2:
+        raise ValueError(f"Not enough cached price history for {symbol_code}.")
+
+    price_records = list(reversed(price_records))
+    latest = price_records[-1]
+    previous = price_records[-2]
+    window = (
+        PatternWindow.query.filter(
+            PatternWindow.symbol_id == symbol_record.id,
+            PatternWindow.timeframe == interval,
+            PatternWindow.window_size == lookback,
+        )
+        .order_by(PatternWindow.end_date.desc())
+        .first()
+    )
+
+    high_values = [_to_float(item.high, _to_float(item.close)) for item in price_records]
+    low_values = [_to_float(item.low, _to_float(item.close)) for item in price_records]
+    daily_series = [
+        {
+            "date": item.trade_date.isoformat(),
+            "open": round(_to_float(item.open), 2),
+            "high": round(_to_float(item.high), 2),
+            "low": round(_to_float(item.low), 2),
+            "close": round(_to_float(item.close), 2),
+            "volume": _to_int(item.volume),
+        }
+        for item in price_records
+    ]
+
+    probability = round(_to_float(window.probability_score), 2) if window is not None else 0.0
+    avg_return = round(_to_float(window.avg_return), 2) if window is not None else 0.0
+    max_drawdown = round(_to_float(window.max_drawdown), 2) if window is not None else 0.0
+    current_price = round(_to_float(latest.close), 2)
+
+    return {
+        "dataSource": "cached",
+        "request": {
+            "symbol": symbol_code,
+            "interval": interval,
+            "lookback": lookback,
+            "indicators": indicators,
+        },
+        "stock": {
+            "symbol": symbol_code,
+            "companyName": symbol_record.company_name or symbol_code,
+            "sector": symbol_record.sector or "Unknown",
+            "industry": symbol_record.industry or "Unknown",
+            "currentPrice": current_price,
+            "previousClose": round(_to_float(previous.close), 2),
+            "open": round(_to_float(latest.open), 2),
+            "volume": _to_int(latest.volume),
+            "week52High": round(max(high_values), 2),
+            "week52Low": round(min(low_values), 2),
+        },
+        "patternAnalysis": {
+            "lookbackWindow": lookback,
+            "selectedIndicators": indicators,
+            "probabilityOfIncrease": probability,
+            "probabilityOfDecrease": round(max(0.0, 100.0 - probability), 2),
+            "avgReturn": avg_return,
+            "maxDrawdown": max_drawdown,
+            "matchedPatternsCount": 0,
+            "matchedHistoricalPatterns": [],
+            "quantConfidence": probability,
+            "signalClassification": "Cached Summary",
+            "futureFiveDayProbabilities": {"up": [], "down": []},
+            "recommendedSellPrice": round(current_price * 1.012, 2),
+            "recommendedSellDate": None,
+            "stopLossPrice": round(current_price * 0.974, 2),
+            "highFitHistoricalPaths": [],
+        },
+        "chartData": {
+            "series": {
+                "daily": daily_series,
+            }
+        },
+    }
 
 
 @stock_blueprint.route("/health", methods=["GET"])
@@ -99,6 +210,7 @@ def get_stock(symbol):
     analysis_mode = request.args.get("analysis", default="full", type=str).strip().lower()
     if analysis_mode not in {"full", "summary"}:
         analysis_mode = "full"
+    indicators = [item for item in (raw_indicators.split(",") if raw_indicators else current_app.config["DEFAULT_INDICATORS"]) if item]
 
     if is_production:
         # In production, keep explicit compact/prefetch requests lightweight,
@@ -106,6 +218,20 @@ def get_stock(symbol):
         compact_response = compact_response or prefetch_only
         prefetch_only = False
         persist_analysis = False
+        if analysis_mode == "summary":
+            try:
+                return jsonify(_sanitize_response_payload(_build_production_summary_payload(symbol, interval, lookback, indicators)))
+            except Exception as error:
+                current_app.logger.exception("Production summary stock analysis failed for %s", symbol)
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": str(error),
+                        "symbol": symbol.upper(),
+                        "interval": interval,
+                        "lookback": lookback,
+                    }
+                ), 500
 
     market_data_service = MarketDataService(current_app.config)
     persistence_service = None
