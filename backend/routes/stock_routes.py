@@ -67,24 +67,22 @@ def _to_int(value, default=0):
         return default
 
 
-def _build_production_summary_payload(symbol: str, interval: str, lookback: int, indicators: list[str]):
+def _build_live_search_payload(market_data_service: MarketDataService, symbol: str, interval: str, lookback: int, indicators: list[str]):
     symbol_code = str(symbol or "").upper().strip()
     symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
     if symbol_record is None:
         raise ValueError(f"{symbol_code} is not available in the production cache yet.")
 
-    price_records = (
-        DailyPrice.query.filter(DailyPrice.symbol_id == symbol_record.id)
-        .order_by(DailyPrice.trade_date.desc())
-        .limit(90)
-        .all()
-    )
-    if len(price_records) < 2:
-        raise ValueError(f"Not enough cached price history for {symbol_code}.")
+    overview_payload = market_data_service.market_api.get_company_overview(symbol_code)
+    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=320)
+    overview = market_data_service._extract_first_record(overview_payload)
+    prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
+    if len(prices) < 2:
+        raise ValueError("No price data returned from market API.")
 
-    price_records = list(reversed(price_records))
-    latest = price_records[-1]
-    previous = price_records[-2]
+    daily_candles = market_data_service._build_daily_candles(prices)
+    latest = daily_candles[-1]
+    previous = daily_candles[-2]
     window = (
         PatternWindow.query.filter(
             PatternWindow.symbol_id == symbol_record.id,
@@ -95,27 +93,16 @@ def _build_production_summary_payload(symbol: str, interval: str, lookback: int,
         .first()
     )
 
-    high_values = [_to_float(item.high, _to_float(item.close)) for item in price_records]
-    low_values = [_to_float(item.low, _to_float(item.close)) for item in price_records]
-    daily_series = [
-        {
-            "date": item.trade_date.isoformat(),
-            "open": round(_to_float(item.open), 2),
-            "high": round(_to_float(item.high), 2),
-            "low": round(_to_float(item.low), 2),
-            "close": round(_to_float(item.close), 2),
-            "volume": _to_int(item.volume),
-        }
-        for item in price_records
-    ]
+    high_values = [_to_float(item.get("high"), _to_float(item.get("close"))) for item in daily_candles]
+    low_values = [_to_float(item.get("low"), _to_float(item.get("close"))) for item in daily_candles]
 
     probability = round(_to_float(window.probability_score), 2) if window is not None else 0.0
     avg_return = round(_to_float(window.avg_return), 2) if window is not None else 0.0
     max_drawdown = round(_to_float(window.max_drawdown), 2) if window is not None else 0.0
-    current_price = round(_to_float(latest.close), 2)
+    current_price = round(_to_float(latest.get("close")), 2)
 
     return {
-        "dataSource": "cached",
+        "dataSource": "live",
         "request": {
             "symbol": symbol_code,
             "interval": interval,
@@ -124,13 +111,13 @@ def _build_production_summary_payload(symbol: str, interval: str, lookback: int,
         },
         "stock": {
             "symbol": symbol_code,
-            "companyName": symbol_record.company_name or symbol_code,
-            "sector": symbol_record.sector or "Unknown",
-            "industry": symbol_record.industry or "Unknown",
+            "companyName": overview.get("companyName", symbol_record.company_name or symbol_code),
+            "sector": overview.get("sector", symbol_record.sector or "Unknown"),
+            "industry": overview.get("industry", symbol_record.industry or "Unknown"),
             "currentPrice": current_price,
-            "previousClose": round(_to_float(previous.close), 2),
-            "open": round(_to_float(latest.open), 2),
-            "volume": _to_int(latest.volume),
+            "previousClose": round(_to_float(previous.get("close")), 2),
+            "open": round(_to_float(latest.get("open")), 2),
+            "volume": _to_int(latest.get("volume")),
             "week52High": round(max(high_values), 2),
             "week52Low": round(min(low_values), 2),
         },
@@ -144,7 +131,7 @@ def _build_production_summary_payload(symbol: str, interval: str, lookback: int,
             "matchedPatternsCount": 0,
             "matchedHistoricalPatterns": [],
             "quantConfidence": probability,
-            "signalClassification": "Cached Summary",
+            "signalClassification": "Generate to score",
             "futureFiveDayProbabilities": {"up": [], "down": []},
             "recommendedSellPrice": round(current_price * 1.012, 2),
             "recommendedSellDate": None,
@@ -152,9 +139,7 @@ def _build_production_summary_payload(symbol: str, interval: str, lookback: int,
             "highFitHistoricalPaths": [],
         },
         "chartData": {
-            "series": {
-                "daily": daily_series,
-            }
+            "series": market_data_service._build_interval_series(daily_candles, prices),
         },
     }
 
@@ -208,7 +193,9 @@ def get_stock(symbol):
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
     compact_response = request.args.get("compact", default=0, type=int) == 1
     analysis_mode = request.args.get("analysis", default="full", type=str).strip().lower()
-    if analysis_mode not in {"full", "summary"}:
+    if analysis_mode == "summary":
+        analysis_mode = "search"
+    if analysis_mode not in {"full", "search"}:
         analysis_mode = "full"
     indicators = [item for item in (raw_indicators.split(",") if raw_indicators else current_app.config["DEFAULT_INDICATORS"]) if item]
 
@@ -218,11 +205,12 @@ def get_stock(symbol):
         compact_response = compact_response or prefetch_only
         prefetch_only = False
         persist_analysis = False
-        if analysis_mode == "summary":
+        if analysis_mode == "search":
+            market_data_service = MarketDataService(current_app.config)
             try:
-                return jsonify(_sanitize_response_payload(_build_production_summary_payload(symbol, interval, lookback, indicators)))
+                return jsonify(_sanitize_response_payload(_build_live_search_payload(market_data_service, symbol, interval, lookback, indicators)))
             except Exception as error:
-                current_app.logger.exception("Production summary stock analysis failed for %s", symbol)
+                current_app.logger.exception("Production live search failed for %s", symbol)
                 return jsonify(
                     {
                         "status": "error",

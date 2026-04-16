@@ -1361,7 +1361,7 @@ async function primeAnalysisCache(symbol) {
     return
   }
 
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, 'summary')
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, 'search')
   if (analysisCache.value[cacheKey]) {
     return
   }
@@ -1369,7 +1369,7 @@ async function primeAnalysisCache(symbol) {
   pendingAnalysisPrefetch.add(cleanedSymbol)
 
   try {
-    await fetchStockAnalysis(cleanedSymbol, { prefetch: true, analysisMode: 'summary' })
+    await fetchStockAnalysis(cleanedSymbol, { prefetch: true, analysisMode: 'search' })
   } catch {
     // Prefetch should stay silent and never block the main UX.
   } finally {
@@ -1406,7 +1406,7 @@ async function runSearch(source = 'search') {
 
   try {
     const data = await fetchStockAnalysis(cleanedSymbol, {
-      analysisMode: isGenerateAction ? 'full' : 'summary'
+      analysisMode: isGenerateAction ? 'full' : 'search'
     })
 
     stockResponse.value = data
