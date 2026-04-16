@@ -20,7 +20,8 @@ const selectedChartInterval = ref('daily')
 const currentExploreTab = ref('Watchlist')
 const exploreViewMode = ref('ranked')
 const exploreSearchQuery = ref('')
-const isLoading = ref(false)
+const isSearching = ref(false)
+const isGenerating = ref(false)
 const errorMessage = ref('')
 const authMessage = ref('')
 const portfolioMessage = ref('')
@@ -1366,7 +1367,7 @@ async function primeAnalysisCache(symbol) {
   }
 }
 
-async function runSearch() {
+async function runSearch(source = 'search') {
   const cleanedSymbol = symbolInput.value.trim().toUpperCase()
 
   if (!cleanedSymbol) {
@@ -1385,7 +1386,12 @@ async function runSearch() {
     return
   }
 
-  isLoading.value = true
+  const isGenerateAction = source === 'generate'
+  if (isGenerateAction) {
+    isGenerating.value = true
+  } else {
+    isSearching.value = true
+  }
   errorMessage.value = ''
 
   try {
@@ -1405,7 +1411,11 @@ async function runSearch() {
       'We could not load stock data. Please make sure the Flask backend is running and try again.'
     console.error(error)
   } finally {
-    isLoading.value = false
+    if (isGenerateAction) {
+      isGenerating.value = false
+    } else {
+      isSearching.value = false
+    }
   }
 }
 
@@ -2626,8 +2636,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <SearchBar
             v-model="symbolInput"
             :error-message="errorMessage"
-            :is-loading="isLoading"
-            @search="runSearch"
+            :is-loading="isSearching"
+            @search="runSearch('search')"
             @select-popular="selectPopularSymbol"
           />
         </div>
@@ -2672,8 +2682,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <IndicatorSelector
           :indicators="indicators"
-          :is-loading="isLoading"
-          @run-analysis="runSearch"
+          :is-loading="isGenerating"
+          @run-analysis="runSearch('generate')"
           @toggle-indicator="toggleIndicator"
         />
       </section>

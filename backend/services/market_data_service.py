@@ -74,32 +74,6 @@ class MarketDataService:
 
         if (
             is_production
-            and self.alpaca_market_api.is_configured()
-            and self._has_cached_history(symbol_code)
-        ):
-            try:
-                return self._build_alpaca_current_vs_cached_response(
-                    symbol=symbol_code,
-                    interval=interval,
-                    lookback_window=lookback_window,
-                    indicators=indicators,
-                    compact_response=compact_response,
-                )
-            except AlpacaMarketDataUnavailable:
-                logger.warning(
-                    "Alpaca live snapshot is unavailable for %s; falling back to Duke.",
-                    symbol_code,
-                    exc_info=True,
-                )
-            except Exception:
-                logger.warning(
-                    "Alpaca cached live snapshot failed for %s; falling back.",
-                    symbol_code,
-                    exc_info=True,
-                )
-
-        if (
-            is_production
             and compact_response
             and self.market_api.is_configured()
             and self.market_api.is_available()
