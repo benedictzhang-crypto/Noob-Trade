@@ -5,7 +5,6 @@ from statistics import mean
 from urllib.parse import quote
 
 from models.market_data import DailyPrice, PatternWindow, Symbol
-from services.alpaca_market_data_service import AlpacaMarketDataService, AlpacaMarketDataUnavailable
 from services.persistence_service import PersistenceService
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
 from services.mock_market_data_service import (
@@ -60,13 +59,6 @@ class MarketDataService:
             timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
-        self.alpaca_market_api = AlpacaMarketDataService(
-            base_url=config.get("ALPACA_DATA_BASE_URL", ""),
-            api_key=config.get("ALPACA_API_KEY", ""),
-            secret_key=config.get("ALPACA_SECRET_KEY", ""),
-            timeout=config.get("MARKET_DATA_TIMEOUT_SECONDS", 1.5),
-        )
-
     def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators, compact_response=False):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = symbol.upper()
@@ -281,113 +273,6 @@ class MarketDataService:
             "currentPrice": current_price_value,
             "patternAnalysis": live_match_summary,
         }
-
-    def _build_alpaca_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
-        symbol_record = Symbol.query.filter_by(symbol=symbol).first()
-
-        if symbol_record is None:
-            raise ValueError(f"No cached symbol data found for {symbol}.")
-
-        cached_prices = self._load_cached_daily_prices(symbol_record)
-        if not cached_prices:
-            raise ValueError(f"No cached price history found for {symbol}.")
-
-        full_recent_candles = self._serialize_cached_daily_prices(cached_prices)
-        live_snapshot = self.alpaca_market_api.get_stock_snapshot(symbol)
-        current_price, previous_close, open_price, current_volume = self._extract_alpaca_live_fields(
-            live_snapshot,
-            fallback_close=self._to_float(full_recent_candles[-1]["close"]),
-            fallback_prev_close=self._to_float(full_recent_candles[-2]["close"]) if len(full_recent_candles) > 1 else self._to_float(full_recent_candles[-1]["close"]),
-            fallback_open=self._to_float(full_recent_candles[-1]["open"]),
-            fallback_volume=self._to_int(full_recent_candles[-1]["volume"]),
-        )
-
-        live_candles = [dict(candle) for candle in full_recent_candles]
-        if live_candles:
-            live_candles[-1]["close"] = current_price
-            live_candles[-1]["high"] = max(self._to_float(live_candles[-1]["high"]), current_price)
-            live_candles[-1]["low"] = min(self._to_float(live_candles[-1]["low"]) or current_price, current_price)
-            live_candles[-1]["open"] = open_price or self._to_float(live_candles[-1]["open"])
-            live_candles[-1]["volume"] = current_volume or self._to_int(live_candles[-1]["volume"])
-
-        prepared_candles = self.persistence_service._prepare_candles(live_candles)
-        current_window = self._build_current_window_snapshot(prepared_candles, interval, lookback_window)
-        if current_window is None:
-            raise ValueError(f"Not enough cached data to build {interval}/{lookback_window} snapshot.")
-
-        live_interval_series = None if compact_response else self._build_interval_series(live_candles, [])
-        high_values = [self._to_float(item.get("high", item.get("close"))) for item in full_recent_candles]
-        low_values = [self._to_float(item.get("low", item.get("close"))) for item in full_recent_candles]
-        average_return = self._to_float(current_window.avg_return) or 0.0
-        max_drawdown = self._to_float(current_window.max_drawdown) or 0.0
-        live_match_summary = self._build_live_match_summary(
-            symbol=symbol,
-            interval=interval,
-            lookback_window=lookback_window,
-            daily_candles=live_candles,
-            current_price=current_price,
-            last_date=live_candles[-1]["date"] if live_candles else None,
-            indicators=indicators,
-            compact_response=compact_response,
-        )
-
-        response = {
-            "dataSource": "live",
-            "_currentWindow": {
-                "featureVector": current_window.feature_vector,
-                "returnPct": self._to_float(current_window.return_pct),
-                "timeframe": interval,
-                "windowSize": lookback_window,
-                "endDate": current_window.end_date.isoformat(),
-            },
-            "_skipCacheWrite": True,
-            "request": {
-                "symbol": symbol,
-                "interval": interval,
-                "lookback": lookback_window,
-                "indicators": indicators,
-            },
-            "stock": {
-                "symbol": symbol,
-                "companyName": symbol_record.company_name or f"{symbol} Holdings Inc.",
-                "sector": symbol_record.sector or "Unknown",
-                "industry": symbol_record.industry or "Unknown",
-                "currentPrice": current_price,
-                "previousClose": previous_close,
-                "open": open_price,
-                "volume": current_volume,
-                "week52High": round(max(high_values), 2),
-                "week52Low": round(min(low_values), 2),
-            },
-            "patternAnalysis": {
-                "lookbackWindow": lookback_window,
-                "selectedIndicators": indicators,
-                "probabilityOfIncrease": live_match_summary["probabilityOfIncrease"],
-                "probabilityOfDecrease": live_match_summary["probabilityOfDecrease"],
-                "avgReturn": live_match_summary["avgReturn"] if live_match_summary["avgReturn"] is not None else round(average_return, 4),
-                "maxDrawdown": live_match_summary["maxDrawdown"] if live_match_summary["maxDrawdown"] is not None else round(max_drawdown, 4),
-                "matchedPatternsCount": live_match_summary["matchedPatternsCount"],
-                "matchedHistoricalPatterns": live_match_summary["matchedHistoricalPatterns"],
-                "quantConfidence": live_match_summary["quantConfidence"],
-                "signalClassification": live_match_summary["signalClassification"],
-                "futureFiveDayProbabilities": live_match_summary["futureFiveDayProbabilities"],
-                "recommendedSellPrice": live_match_summary["recommendedSellPrice"],
-                "recommendedSellDate": live_match_summary["recommendedSellDate"],
-                "stopLossPrice": live_match_summary["stopLossPrice"],
-                "highFitHistoricalPaths": live_match_summary["highFitHistoricalPaths"],
-            },
-        }
-        if compact_response:
-            response["patternAnalysis"].pop("matchedHistoricalPatterns", None)
-            response["patternAnalysis"].pop("highFitHistoricalPaths", None)
-        else:
-            response["chartData"] = {
-                "series": live_interval_series,
-                "history": {
-                    "daily": live_candles,
-                }
-            }
-        return response
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
         overview_payload = self.market_api.get_company_overview(symbol)
@@ -1260,18 +1145,6 @@ class MarketDataService:
                 }
             )
         return candles
-
-    def _extract_alpaca_live_fields(self, snapshot, fallback_close, fallback_prev_close, fallback_open, fallback_volume):
-        latest_trade = snapshot.get("latestTrade") or {}
-        daily_bar = snapshot.get("dailyBar") or {}
-        prev_daily_bar = snapshot.get("prevDailyBar") or {}
-
-        current_price = self._to_float(latest_trade.get("p") or daily_bar.get("c") or fallback_close)
-        previous_close = self._to_float(prev_daily_bar.get("c") or fallback_prev_close or current_price)
-        open_price = self._to_float(daily_bar.get("o") or fallback_open or current_price)
-        volume = self._to_int(daily_bar.get("v") or fallback_volume or 0)
-
-        return current_price, previous_close, open_price, volume
 
     def _has_cached_history(self, symbol):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()

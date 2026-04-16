@@ -132,9 +132,6 @@ class Config:
         "https://marketdata.colab.duke.edu/api/v1"
     )
     MARKET_DATA_TOKEN = os.getenv("MARKET_DATA_TOKEN", "")
-    ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets")
-    ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", "")
-    ALPACA_SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
     MARKET_DATA_TIMEOUT_SECONDS = float(os.getenv("MARKET_DATA_TIMEOUT_SECONDS", "1.5"))
     MARKET_DATA_COOLDOWN_SECONDS = int(os.getenv("MARKET_DATA_COOLDOWN_SECONDS", "10"))
     USE_MOCK_FALLBACK = os.getenv("USE_MOCK_FALLBACK", "true").lower() == "true"
