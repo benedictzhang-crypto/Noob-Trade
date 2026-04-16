@@ -73,9 +73,7 @@ def _build_live_search_payload(market_data_service: MarketDataService, symbol: s
     if symbol_record is None:
         raise ValueError(f"{symbol_code} is not available in the production cache yet.")
 
-    overview_payload = market_data_service.market_api.get_company_overview(symbol_code)
-    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=320)
-    overview = market_data_service._extract_first_record(overview_payload)
+    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=180)
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
     if len(prices) < 2:
         raise ValueError("No price data returned from market API.")
@@ -111,9 +109,9 @@ def _build_live_search_payload(market_data_service: MarketDataService, symbol: s
         },
         "stock": {
             "symbol": symbol_code,
-            "companyName": overview.get("companyName", symbol_record.company_name or symbol_code),
-            "sector": overview.get("sector", symbol_record.sector or "Unknown"),
-            "industry": overview.get("industry", symbol_record.industry or "Unknown"),
+            "companyName": symbol_record.company_name or symbol_code,
+            "sector": symbol_record.sector or "Unknown",
+            "industry": symbol_record.industry or "Unknown",
             "currentPrice": current_price,
             "previousClose": round(_to_float(previous.get("close")), 2),
             "open": round(_to_float(latest.get("open")), 2),
