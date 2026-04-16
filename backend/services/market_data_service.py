@@ -44,11 +44,11 @@ class MarketDataService:
     LIVE_MATCH_TARGET = 20
     LIVE_FORWARD_DAYS = 5
     LIVE_FORWARD_OUTLIER_LIMIT = 40.0
-    PRODUCTION_PRICE_LIMIT = 260
+    PRODUCTION_PRICE_LIMIT = 160
     PRODUCTION_SNAPSHOT_PRICE_LIMIT = 90
-    PRODUCTION_MATCH_CANDLE_LIMIT = 220
+    PRODUCTION_MATCH_CANDLE_LIMIT = 120
     PRODUCTION_MATCH_STEP = 3
-    PRODUCTION_MATCH_TARGET = 10
+    PRODUCTION_MATCH_TARGET = 6
 
     def __init__(self, config):
         self.config = config
@@ -75,10 +75,14 @@ class MarketDataService:
                 )
             except Exception:
                 logger.warning(
-                    "Production cached database response failed for %s; falling back.",
+                    "Production cached database response failed for %s.",
                     symbol_code,
                     exc_info=True,
                 )
+                raise
+
+        if is_production:
+            raise ValueError(f"{symbol_code} is not available in the production cache yet.")
 
         if (
             is_production
@@ -175,6 +179,9 @@ class MarketDataService:
 
                 if not self.config["USE_MOCK_FALLBACK"]:
                     raise
+
+        if is_production:
+            raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
         return build_mock_stock_pattern_analysis(symbol_code, interval, lookback_window, indicators)
 

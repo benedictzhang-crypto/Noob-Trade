@@ -85,7 +85,7 @@ def get_stock(symbol):
         persist_analysis = False
 
     market_data_service = MarketDataService(current_app.config)
-    persistence_service = PersistenceService()
+    persistence_service = None
 
     try:
         response_data = market_data_service.get_stock_pattern_analysis(
@@ -99,6 +99,7 @@ def get_stock(symbol):
         response_data = _trim_trade_response_payload(response_data)
 
         if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
+            persistence_service = persistence_service or PersistenceService()
             try:
                 response_data = persistence_service.apply_cached_match_preview(response_data)
             except Exception as error:
@@ -107,6 +108,7 @@ def get_stock(symbol):
         should_persist = (current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis) and not is_production
 
         if not prefetch_only and should_persist:
+            persistence_service = persistence_service or PersistenceService()
             try:
                 response_data = persistence_service.save_analysis_run(response_data)
             except Exception as error:
