@@ -925,7 +925,7 @@ function createInitialTransactions() {
 
 function createDemoUser(override = {}) {
   return {
-    fullName: 'Samuel Trader',
+    fullName: 'example noob trade',
     email: 'demo@noobtrade.app',
     riskProfile: 'Balanced',
     membership: 'Regular User',
@@ -2333,7 +2333,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="auth-form-grid two-columns">
               <label class="auth-field">
                 <span>Full Name</span>
-                <input v-model="registrationForm.fullName" type="text" placeholder="Samuel Trader" />
+                <input v-model="registrationForm.fullName" type="text" placeholder="example noob trade" />
               </label>
               <label class="auth-field">
                 <span>Email</span>
