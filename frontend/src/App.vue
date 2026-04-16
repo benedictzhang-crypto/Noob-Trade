@@ -1977,6 +1977,16 @@ async function updateAdminUserStatus(user, isDisabled) {
     return
   }
 
+  const confirmed = window.confirm(
+    isDisabled
+      ? `Disable ${user.email}? They will not be able to sign in until you enable the account again.`
+      : `Enable ${user.email}? This user will be allowed to sign in again.`
+  )
+
+  if (!confirmed) {
+    return
+  }
+
   adminMessage.value = `${isDisabled ? 'Disabling' : 'Re-enabling'} ${user.email}...`
   pendingAdminStatusUpdates.value = {
     ...pendingAdminStatusUpdates.value,
@@ -2006,6 +2016,48 @@ async function updateAdminUserStatus(user, isDisabled) {
   } finally {
     const nextPending = { ...pendingAdminStatusUpdates.value }
     delete nextPending[String(user?.id ?? '')]
+    pendingAdminStatusUpdates.value = nextPending
+  }
+}
+
+async function removeAdminUser(user) {
+  if (!currentUser.value?.isAdmin) {
+    adminMessage.value = 'Admin access is required.'
+    return
+  }
+
+  const confirmed = window.confirm(
+    `Remove ${user.email}? This will permanently delete the user account.`
+  )
+
+  if (!confirmed) {
+    return
+  }
+
+  const key = String(user?.id ?? '')
+  adminMessage.value = `Removing ${user.email}...`
+  pendingAdminStatusUpdates.value = {
+    ...pendingAdminStatusUpdates.value,
+    [key]: true
+  }
+
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/users/${user.id}`, {
+      method: 'DELETE'
+    })
+    const payload = await response.json()
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not remove this user.')
+    }
+
+    adminUsers.value = adminUsers.value.filter((item) => item.id !== user.id)
+    adminMessage.value = payload.message || `Removed ${user.email}.`
+  } catch (error) {
+    adminMessage.value = error.message || 'Could not remove this user right now.'
+  } finally {
+    const nextPending = { ...pendingAdminStatusUpdates.value }
+    delete nextPending[key]
     pendingAdminStatusUpdates.value = nextPending
   }
 }
@@ -3343,9 +3395,18 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                     <button
                       class="chip chip-muted"
                       type="button"
+                      :disabled="pendingAdminStatusUpdates[String(user.id)]"
                       @click="openAdminPasswordReset(user)"
                     >
                       Reset Password
+                    </button>
+                    <button
+                      class="chip chip-danger"
+                      type="button"
+                      :disabled="pendingAdminStatusUpdates[String(user.id)]"
+                      @click="removeAdminUser(user)"
+                    >
+                      {{ pendingAdminStatusUpdates[String(user.id)] ? 'Saving...' : 'Remove' }}
                     </button>
                   </div>
                   <div v-if="Object.prototype.hasOwnProperty.call(adminPasswordResetDrafts, String(user.id))" class="admin-password-reset-row">
