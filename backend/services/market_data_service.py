@@ -316,20 +316,26 @@ class MarketDataService:
         high_values = [self._to_float(item.get("high", item.get("close"))) for item in daily_candles]
         low_values = [self._to_float(item.get("low", item.get("close"))) for item in daily_candles]
         volume_values = [self._to_int(item.get("volume", 0)) for item in daily_candles]
-
-        match_summary = self._build_live_match_summary(
-            symbol=symbol,
-            interval=interval,
-            lookback_window=lookback_window,
-            daily_candles=daily_candles,
-            current_price=current_price,
-            last_date=daily_candles[-1]["date"] if daily_candles else None,
-            indicators=indicators,
-            compact_response=compact_response,
+        current_window = self.persistence_service._find_current_window(
+            symbol_record.id,
+            interval,
+            lookback_window,
+        )
+        match_summary = self._empty_live_match_summary(
+            interval,
+            daily_candles[-1]["date"] if daily_candles else None,
+            current_price,
         )
 
         response = {
             "dataSource": "cached",
+            "_currentWindow": {
+                "featureVector": current_window.feature_vector if current_window is not None else {},
+                "returnPct": self._to_float(current_window.return_pct) if current_window is not None else None,
+                "timeframe": interval,
+                "windowSize": lookback_window,
+                "endDate": current_window.end_date.isoformat() if current_window and current_window.end_date else None,
+            },
             "request": {
                 "symbol": symbol,
                 "interval": interval,
@@ -371,7 +377,7 @@ class MarketDataService:
                 "series": self._build_interval_series(daily_candles, daily_candles),
             }
 
-        return response
+        return self.persistence_service.apply_cached_match_preview(response)
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
         overview_payload = self.market_api.get_company_overview(symbol)
