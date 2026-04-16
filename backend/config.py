@@ -31,6 +31,21 @@ def _default_engine_options():
     }
 
 
+def _resolve_environment():
+    explicit = os.getenv("APP_ENV", "").strip().lower()
+    if explicit:
+        return explicit
+
+    if os.getenv("RENDER", "").strip().lower() == "true":
+        return "production"
+
+    database_url = (os.getenv("DATABASE_URL") or os.getenv("APP_DATABASE_URL") or "").strip().lower()
+    if database_url.startswith("postgres://") or database_url.startswith("postgresql://"):
+        return "production"
+
+    return "development"
+
+
 class Config:
     """Simple application settings for local development."""
 
@@ -107,8 +122,8 @@ class Config:
         sqlite_path = backend_dir / "noobtrade_user.db"
         return f"sqlite:///{sqlite_path}"
 
-    DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true"
-    ENVIRONMENT = os.getenv("APP_ENV", "development").strip().lower() or "development"
+    ENVIRONMENT = _resolve_environment()
+    DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true" and ENVIRONMENT != "production"
     USE_RELOADER = os.getenv("FLASK_USE_RELOADER", "false").lower() == "true"
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
     HOST = os.getenv("HOST", "127.0.0.1")
