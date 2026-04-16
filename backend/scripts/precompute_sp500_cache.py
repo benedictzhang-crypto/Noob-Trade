@@ -6,17 +6,23 @@ import re
 import time
 
 import requests
+from sqlalchemy import text
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from app import create_app
+from extensions import db
 from services.precompute_service import PrecomputeService
 
 WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
 DEFAULT_PROGRESS_PATH = BACKEND_DIR / ".runtime" / "sp500-precompute-progress.json"
 DEFAULT_HISTORY_LIMIT = 2519
+NO_PRICE_MARKERS = (
+    "No price data returned from market API.",
+    "No market data returned",
+)
 
 
 def fetch_sp500_symbols():
@@ -52,9 +58,13 @@ def fetch_sp500_symbols():
 
 def load_progress(progress_path):
     if not progress_path.exists():
-        return {"completed": [], "failed": {}}
+        return {"completed": [], "failed": {}, "excluded": {}}
 
-    return json.loads(progress_path.read_text(encoding="utf-8"))
+    progress = json.loads(progress_path.read_text(encoding="utf-8"))
+    progress.setdefault("completed", [])
+    progress.setdefault("failed", {})
+    progress.setdefault("excluded", {})
+    return progress
 
 
 def save_progress(progress_path, progress):
@@ -66,6 +76,16 @@ def parse_csv(raw_value):
     if not raw_value:
         return None
     return [item.strip().upper() for item in raw_value.split(",") if item.strip()]
+
+
+def load_existing_symbols():
+    rows = db.session.execute(text("select symbol from symbols")).all()
+    return {row[0].upper() for row in rows if row and row[0]}
+
+
+def should_exclude_symbol(error_message):
+    normalized = (error_message or "").strip()
+    return any(marker in normalized for marker in NO_PRICE_MARKERS)
 
 
 def main():
@@ -110,6 +130,11 @@ def main():
         default=DEFAULT_HISTORY_LIMIT,
         help="Daily history length to request per symbol before persisting indicators and pattern windows.",
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip symbols that already exist in the target database.",
+    )
     args = parser.parse_args()
 
     progress_path = Path(args.progress_file).expanduser().resolve()
@@ -120,22 +145,30 @@ def main():
     if args.limit and args.limit > 0:
         symbols = symbols[:args.limit]
 
-    completed = set(progress.get("completed", []))
-    failed = dict(progress.get("failed", {}))
-    remaining_symbols = [symbol for symbol in symbols if symbol not in completed]
-
-    print(
-        {
-            "total_symbols": len(symbols),
-            "already_completed": len(completed.intersection(symbols)),
-            "remaining": len(remaining_symbols),
-            "progress_file": str(progress_path),
-        }
-    )
-
     app = create_app()
 
     with app.app_context():
+        completed = set(progress.get("completed", []))
+        failed = dict(progress.get("failed", {}))
+        excluded = dict(progress.get("excluded", {}))
+        existing_symbols = load_existing_symbols() if args.skip_existing else set()
+        skipped_existing = existing_symbols.intersection(symbols)
+        completed.update(skipped_existing)
+        remaining_symbols = [
+            symbol for symbol in symbols if symbol not in completed and symbol not in excluded
+        ]
+
+        print(
+            {
+                "total_symbols": len(symbols),
+                "already_completed": len((set(progress.get("completed", []))).intersection(symbols)),
+                "already_excluded": len(set(excluded).intersection(symbols)),
+                "already_in_database": len(skipped_existing),
+                "remaining": len(remaining_symbols),
+                "progress_file": str(progress_path),
+            }
+        )
+
         precompute_service = PrecomputeService(app.config)
 
         for index, symbol in enumerate(remaining_symbols, start=1):
@@ -148,15 +181,30 @@ def main():
                 )
                 completed.add(symbol)
                 failed.pop(symbol, None)
+                excluded.pop(symbol, None)
                 print({"status": "ok", "symbol": symbol, "index": index, "result": results[0] if results else None})
             except Exception as error:
-                failed[symbol] = str(error)
-                print({"status": "error", "symbol": symbol, "index": index, "error": str(error)})
+                error_message = str(error)
+                if should_exclude_symbol(error_message):
+                    excluded[symbol] = error_message
+                    failed.pop(symbol, None)
+                    print(
+                        {
+                            "status": "excluded",
+                            "symbol": symbol,
+                            "index": index,
+                            "reason": error_message,
+                        }
+                    )
+                else:
+                    failed[symbol] = error_message
+                    print({"status": "error", "symbol": symbol, "index": index, "error": error_message})
 
             save_progress(
                 progress_path,
                 {
                     "completed": sorted(completed),
+                    "excluded": excluded,
                     "failed": failed,
                 },
             )
