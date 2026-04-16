@@ -84,10 +84,7 @@ class Config:
             return _normalize_postgres_url(configured_url)
 
         if os.getenv("APP_ENV", "development").strip().lower() == "production":
-            production_dir = Config._production_data_dir()
-            if production_dir is not None:
-                sqlite_path = production_dir / "noobtrade_local.db"
-                return f"sqlite:///{sqlite_path}"
+            raise RuntimeError("DATABASE_URL is required in production. NoobTrade production storage must use Postgres.")
 
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_local.db"
@@ -99,11 +96,12 @@ class Config:
         if configured_url:
             return _normalize_postgres_url(configured_url)
 
+        configured_primary = os.getenv("DATABASE_URL")
+        if configured_primary:
+            return _normalize_postgres_url(configured_primary)
+
         if os.getenv("APP_ENV", "development").strip().lower() == "production":
-            production_dir = Config._production_data_dir()
-            if production_dir is not None:
-                sqlite_path = production_dir / "noobtrade_user.db"
-                return f"sqlite:///{sqlite_path}"
+            raise RuntimeError("APP_DATABASE_URL or DATABASE_URL is required in production. NoobTrade production auth storage must use Postgres.")
 
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_user.db"

@@ -1,4 +1,5 @@
 from flask import Blueprint, current_app, jsonify, request
+from sqlalchemy.engine.url import make_url
 
 from services.market_data_service import MarketDataService
 from services.persistence_service import PersistenceService
@@ -50,10 +51,29 @@ def _sanitize_response_payload(value):
 @stock_blueprint.route("/health", methods=["GET"])
 def health_check():
     """Small health endpoint for local frontend checks."""
+    database_url = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    app_bind = (current_app.config.get("SQLALCHEMY_BINDS") or {}).get("app", "")
+
+    def _backend_label(raw_url):
+        if not raw_url:
+            return "unknown"
+        try:
+            drivername = make_url(raw_url).drivername
+        except Exception:
+            return "unknown"
+        if drivername.startswith("postgresql"):
+            return "postgres"
+        if drivername.startswith("sqlite"):
+            return "sqlite"
+        return drivername
+
     return jsonify(
         {
             "status": "ok",
-            "message": "Backend is running"
+            "message": "Backend is running",
+            "environment": str(current_app.config.get("ENVIRONMENT", "development")),
+            "storageBackend": _backend_label(database_url),
+            "authStorageBackend": _backend_label(app_bind or database_url),
         }
     )
 
