@@ -15,6 +15,22 @@ def _normalize_postgres_url(raw_url):
     return normalized
 
 
+def _default_engine_options():
+    database_url = (
+        os.getenv("DATABASE_URL")
+        or os.getenv("APP_DATABASE_URL")
+        or ""
+    ).strip().lower()
+    if database_url.startswith("postgres://") or database_url.startswith("postgresql://"):
+        return {}
+    return {
+        "connect_args": {
+            "timeout": 30,
+            "check_same_thread": False,
+        }
+    }
+
+
 class Config:
     """Simple application settings for local development."""
 
@@ -151,12 +167,7 @@ class Config:
         "app": _default_app_database_uri.__func__(),
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "connect_args": {
-            "timeout": 30,
-            "check_same_thread": False,
-        }
-    }
+    SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options.__func__()
     SQLITE_DESTRUCTIVE_RECOVERY = os.getenv("SQLITE_DESTRUCTIVE_RECOVERY", "false").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
