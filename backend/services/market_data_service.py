@@ -64,6 +64,22 @@ class MarketDataService:
         symbol_code = symbol.upper()
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
 
+        if is_production and self._has_cached_history(symbol_code):
+            try:
+                return self._build_cached_db_response(
+                    symbol=symbol_code,
+                    interval=interval,
+                    lookback_window=lookback_window,
+                    indicators=indicators,
+                    compact_response=compact_response,
+                )
+            except Exception:
+                logger.warning(
+                    "Production cached database response failed for %s; falling back.",
+                    symbol_code,
+                    exc_info=True,
+                )
+
         if (
             is_production
             and compact_response
@@ -273,6 +289,82 @@ class MarketDataService:
             "currentPrice": current_price_value,
             "patternAnalysis": live_match_summary,
         }
+
+    def _build_cached_db_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
+        symbol_record = Symbol.query.filter_by(symbol=symbol).first()
+
+        if symbol_record is None:
+            raise ValueError(f"No cached symbol data found for {symbol}.")
+
+        price_limit = max(self.PRODUCTION_PRICE_LIMIT, lookback_window + self.LIVE_FORWARD_DAYS + 10)
+        price_records = self._load_cached_daily_prices(symbol_record, limit=price_limit)
+
+        if len(price_records) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
+            raise ValueError(f"Not enough cached price history for {symbol}.")
+
+        daily_candles = self._serialize_cached_daily_prices(price_records)
+        current_price = self._to_float(daily_candles[-1]["close"])
+        previous_close = self._to_float(daily_candles[-2]["close"]) if len(daily_candles) > 1 else current_price
+        open_price = self._to_float(daily_candles[-1]["open"])
+        high_values = [self._to_float(item.get("high", item.get("close"))) for item in daily_candles]
+        low_values = [self._to_float(item.get("low", item.get("close"))) for item in daily_candles]
+        volume_values = [self._to_int(item.get("volume", 0)) for item in daily_candles]
+
+        match_summary = self._build_live_match_summary(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback_window,
+            daily_candles=daily_candles,
+            current_price=current_price,
+            last_date=daily_candles[-1]["date"] if daily_candles else None,
+            indicators=indicators,
+            compact_response=compact_response,
+        )
+
+        response = {
+            "dataSource": "cached",
+            "request": {
+                "symbol": symbol,
+                "interval": interval,
+                "lookback": lookback_window,
+                "indicators": indicators,
+            },
+            "stock": {
+                "symbol": symbol,
+                "companyName": symbol_record.company_name or symbol,
+                "sector": symbol_record.sector or "Unknown",
+                "industry": symbol_record.industry or "Unknown",
+                "currentPrice": current_price,
+                "previousClose": previous_close,
+                "open": open_price,
+                "volume": volume_values[-1] if volume_values else 0,
+                "week52High": round(max(high_values), 2),
+                "week52Low": round(min(low_values), 2),
+            },
+            "patternAnalysis": {
+                "lookbackWindow": lookback_window,
+                "selectedIndicators": indicators,
+                "probabilityOfIncrease": match_summary["probabilityOfIncrease"],
+                "probabilityOfDecrease": match_summary["probabilityOfDecrease"],
+                "avgReturn": match_summary["avgReturn"],
+                "maxDrawdown": match_summary["maxDrawdown"],
+                "matchedPatternsCount": match_summary["matchedPatternsCount"],
+                "matchedHistoricalPatterns": match_summary["matchedHistoricalPatterns"],
+                "quantConfidence": match_summary["quantConfidence"],
+                "signalClassification": match_summary["signalClassification"],
+                "futureFiveDayProbabilities": match_summary["futureFiveDayProbabilities"],
+                "recommendedSellPrice": match_summary["recommendedSellPrice"],
+                "recommendedSellDate": match_summary["recommendedSellDate"],
+                "stopLossPrice": match_summary["stopLossPrice"],
+                "highFitHistoricalPaths": match_summary.get("highFitHistoricalPaths", []),
+            },
+        }
+        if not compact_response:
+            response["chartData"] = {
+                "series": self._build_interval_series(daily_candles, daily_candles),
+            }
+
+        return response
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
         overview_payload = self.market_api.get_company_overview(symbol)

@@ -78,9 +78,9 @@ def get_stock(symbol):
     compact_response = request.args.get("compact", default=0, type=int) == 1
 
     if is_production:
-        # Keep the cloud trading backend lean: the deployed service is primarily
-        # supporting ProTrade and lightweight reads, not heavy analysis history.
-        compact_response = True
+        # In production, keep explicit compact/prefetch requests lightweight,
+        # but allow normal interactive searches to return chart data again.
+        compact_response = compact_response or prefetch_only
         prefetch_only = False
         persist_analysis = False
 
