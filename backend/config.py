@@ -167,7 +167,7 @@ class Config:
         "app": _default_app_database_uri.__func__(),
     }
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options.__func__()
+    SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options()
     SQLITE_DESTRUCTIVE_RECOVERY = os.getenv("SQLITE_DESTRUCTIVE_RECOVERY", "false").lower() == "true"
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
