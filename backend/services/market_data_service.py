@@ -59,10 +59,20 @@ class MarketDataService:
             timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
-    def get_stock_pattern_analysis(self, symbol, interval, lookback_window, raw_indicators, default_indicators, compact_response=False):
+    def get_stock_pattern_analysis(
+        self,
+        symbol,
+        interval,
+        lookback_window,
+        raw_indicators,
+        default_indicators,
+        compact_response=False,
+        analysis_mode="full",
+    ):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = symbol.upper()
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
+        summary_only = str(analysis_mode or "full").lower() != "full"
 
         if is_production and self._has_cached_history(symbol_code):
             try:
@@ -72,6 +82,7 @@ class MarketDataService:
                     lookback_window=lookback_window,
                     indicators=indicators,
                     compact_response=compact_response,
+                    apply_match_preview=not summary_only,
                 )
             except Exception:
                 logger.warning(
@@ -297,7 +308,15 @@ class MarketDataService:
             "patternAnalysis": live_match_summary,
         }
 
-    def _build_cached_db_response(self, symbol, interval, lookback_window, indicators, compact_response=False):
+    def _build_cached_db_response(
+        self,
+        symbol,
+        interval,
+        lookback_window,
+        indicators,
+        compact_response=False,
+        apply_match_preview=True,
+    ):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()
 
         if symbol_record is None:
@@ -377,7 +396,10 @@ class MarketDataService:
                 "series": self._build_interval_series(daily_candles, daily_candles),
             }
 
-        return self.persistence_service.apply_cached_match_preview(response)
+        if apply_match_preview:
+            return self.persistence_service.apply_cached_match_preview(response)
+
+        return response
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
         overview_payload = self.market_api.get_company_overview(symbol)

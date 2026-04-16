@@ -577,6 +577,14 @@ const dataSourceMeta = computed(() => {
     }
   }
 
+  if (stockResponse.value.dataSource === 'cached') {
+    return {
+      label: 'Cached Data',
+      description: 'Postgres market cache',
+      tone: 'live'
+    }
+  }
+
   return {
     label: 'Mock Data',
     description: 'Fallback sample feed',
@@ -1304,24 +1312,26 @@ function openAnalysis(symbol = activeSymbol.value) {
   }
 }
 
-function buildAnalysisCacheKey(symbol) {
+function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
   return [
     String(symbol || '').trim().toUpperCase(),
     selectedChartInterval.value,
-    getSelectedIndicators().join(',')
+    getSelectedIndicators().join(','),
+    analysisMode
   ].join('|')
 }
 
-async function fetchStockAnalysis(symbol, { prefetch = false } = {}) {
+async function fetchStockAnalysis(symbol, { prefetch = false, analysisMode = 'full' } = {}) {
   const cleanedSymbol = String(symbol || '').trim().toUpperCase()
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol)
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode)
 
   if (analysisCache.value[cacheKey]) {
     return analysisCache.value[cacheKey]
   }
 
   const query = new URLSearchParams({
-    indicators: getSelectedIndicators().join(',')
+    indicators: getSelectedIndicators().join(','),
+    analysis: analysisMode,
   })
   query.set('interval', selectedChartInterval.value)
 
@@ -1351,7 +1361,7 @@ async function primeAnalysisCache(symbol) {
     return
   }
 
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol)
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, 'summary')
   if (analysisCache.value[cacheKey]) {
     return
   }
@@ -1359,7 +1369,7 @@ async function primeAnalysisCache(symbol) {
   pendingAnalysisPrefetch.add(cleanedSymbol)
 
   try {
-    await fetchStockAnalysis(cleanedSymbol, { prefetch: true })
+    await fetchStockAnalysis(cleanedSymbol, { prefetch: true, analysisMode: 'summary' })
   } catch {
     // Prefetch should stay silent and never block the main UX.
   } finally {
@@ -1395,7 +1405,9 @@ async function runSearch(source = 'search') {
   errorMessage.value = ''
 
   try {
-    const data = await fetchStockAnalysis(cleanedSymbol)
+    const data = await fetchStockAnalysis(cleanedSymbol, {
+      analysisMode: isGenerateAction ? 'full' : 'summary'
+    })
 
     stockResponse.value = data
     activeSymbol.value = data.stock.symbol

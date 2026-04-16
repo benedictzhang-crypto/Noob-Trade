@@ -96,6 +96,9 @@ def get_stock(symbol):
     prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
     compact_response = request.args.get("compact", default=0, type=int) == 1
+    analysis_mode = request.args.get("analysis", default="full", type=str).strip().lower()
+    if analysis_mode not in {"full", "summary"}:
+        analysis_mode = "full"
 
     if is_production:
         # In production, keep explicit compact/prefetch requests lightweight,
@@ -115,6 +118,7 @@ def get_stock(symbol):
             raw_indicators=raw_indicators,
             default_indicators=current_app.config["DEFAULT_INDICATORS"],
             compact_response=compact_response,
+            analysis_mode=analysis_mode,
         )
         response_data = _trim_trade_response_payload(response_data)
 
