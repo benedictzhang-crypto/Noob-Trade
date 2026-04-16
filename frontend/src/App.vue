@@ -1420,7 +1420,7 @@ async function runSearch(source = 'search') {
     })
   } catch (error) {
     errorMessage.value =
-      'We could not load stock data. Please make sure the Flask backend is running and try again.'
+      error?.message || 'This data is not accessible right now.'
     console.error(error)
   } finally {
     if (isGenerateAction) {

@@ -149,8 +149,16 @@ def main():
 
     with app.app_context():
         completed = set(progress.get("completed", []))
-        failed = dict(progress.get("failed", {}))
         excluded = dict(progress.get("excluded", {}))
+        failed = dict(progress.get("failed", {}))
+
+        # This run treats any prior failure as an excluded symbol so we do not
+        # keep rescanning the same failing symbols forever.
+        if failed:
+            for symbol, reason in failed.items():
+                excluded.setdefault(symbol, reason)
+            failed = {}
+
         existing_symbols = load_existing_symbols() if args.skip_existing else set()
         skipped_existing = existing_symbols.intersection(symbols)
         completed.update(skipped_existing)
@@ -185,20 +193,16 @@ def main():
                 print({"status": "ok", "symbol": symbol, "index": index, "result": results[0] if results else None})
             except Exception as error:
                 error_message = str(error)
-                if should_exclude_symbol(error_message):
-                    excluded[symbol] = error_message
-                    failed.pop(symbol, None)
-                    print(
-                        {
-                            "status": "excluded",
-                            "symbol": symbol,
-                            "index": index,
-                            "reason": error_message,
-                        }
-                    )
-                else:
-                    failed[symbol] = error_message
-                    print({"status": "error", "symbol": symbol, "index": index, "error": error_message})
+                excluded[symbol] = error_message
+                failed.pop(symbol, None)
+                print(
+                    {
+                        "status": "excluded",
+                        "symbol": symbol,
+                        "index": index,
+                        "reason": error_message,
+                    }
+                )
 
             save_progress(
                 progress_path,
