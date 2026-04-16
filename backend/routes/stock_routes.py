@@ -20,6 +20,19 @@ PRIVATE_RESPONSE_KEYS = {
 }
 
 
+def _trim_trade_response_payload(payload):
+    if not isinstance(payload, dict):
+        return payload
+
+    chart_data = payload.get("chartData")
+    if isinstance(chart_data, dict) and "history" in chart_data:
+        trimmed_chart_data = dict(chart_data)
+        trimmed_chart_data.pop("history", None)
+        payload["chartData"] = trimmed_chart_data
+
+    return payload
+
+
 def _sanitize_response_payload(value):
     if isinstance(value, dict):
         return {
@@ -83,6 +96,7 @@ def get_stock(symbol):
             default_indicators=current_app.config["DEFAULT_INDICATORS"],
             compact_response=compact_response,
         )
+        response_data = _trim_trade_response_payload(response_data)
 
         if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
             try:
