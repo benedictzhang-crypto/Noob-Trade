@@ -54,22 +54,6 @@ class Config:
         return _normalize_postgres_url(raw_url)
 
     @staticmethod
-    def _production_data_dir():
-        if os.getenv("DATABASE_URL", "").strip() or os.getenv("APP_DATABASE_URL", "").strip():
-            return None
-
-        configured_dir = os.getenv("NOOBTRADE_DATA_DIR", "").strip()
-
-        if configured_dir:
-            return Path(configured_dir)
-
-        default_dir = Path("/var/data")
-        if default_dir.exists():
-            return default_dir
-
-        return None
-
-    @staticmethod
     def _parse_admin_accounts():
         raw_accounts = os.getenv(
             "ADMIN_ACCOUNTS",
