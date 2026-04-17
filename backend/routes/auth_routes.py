@@ -307,6 +307,15 @@ def _issue_security_code(user, purpose, expiry_minutes):
     return code
 
 
+def _issue_security_code_or_response(user, purpose, expiry_minutes, log_label, failure_message):
+    try:
+        return _issue_security_code(user, purpose, expiry_minutes), None
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Could not persist %s security code for %s", log_label, user.email)
+        return None, (jsonify({"message": failure_message}), 500)
+
+
 def _consume_security_code(user, purpose, code):
     recent_codes = LoginVerificationCode.query.filter_by(
         user_id=user.id,
@@ -513,11 +522,15 @@ def register():
     if not email_delivery_available:
         return jsonify({"message": _email_required_message()}), 503
 
-    code = _issue_security_code(
+    code, error_response = _issue_security_code_or_response(
         user=user,
         purpose="email_verification",
         expiry_minutes=current_app.config.get("EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES", 15),
+        log_label="email verification",
+        failure_message="Could not create the email verification code right now. Please try again.",
     )
+    if error_response is not None:
+        return error_response
 
     try:
         _email_service().send_email_verification_code(user.email, code)
@@ -553,11 +566,15 @@ def request_email_verification():
     if not _email_delivery_available():
         return jsonify({"message": _email_required_message()}), 503
 
-    code = _issue_security_code(
+    code, error_response = _issue_security_code_or_response(
         user=user,
         purpose="email_verification",
         expiry_minutes=current_app.config.get("EMAIL_VERIFICATION_CODE_EXPIRY_MINUTES", 15),
+        log_label="email verification",
+        failure_message="Could not create the email verification code right now. Please try again.",
     )
+    if error_response is not None:
+        return error_response
 
     try:
         _email_service().send_email_verification_code(user.email, code)
@@ -616,11 +633,15 @@ def request_password_reset():
     if not _email_delivery_available():
         return jsonify({"message": _email_required_message()}), 503
 
-    code = _issue_security_code(
+    code, error_response = _issue_security_code_or_response(
         user=user,
         purpose="password_reset",
         expiry_minutes=current_app.config.get("PASSWORD_RESET_CODE_EXPIRY_MINUTES", 15),
+        log_label="password reset",
+        failure_message="Could not create the password reset code right now. Please try again.",
     )
+    if error_response is not None:
+        return error_response
 
     try:
         _email_service().send_password_reset_code(user.email, code)

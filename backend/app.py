@@ -138,6 +138,38 @@ def ensure_auth_schema(app):
                 connection.execute(text("ALTER TABLE users ADD COLUMN disabled_reason VARCHAR(255)"))
 
 
+def ensure_auth_postgres_sequences(app):
+    with app.app_context():
+        auth_engine = db.engines["app"]
+        if auth_engine.dialect.name != "postgresql":
+            return
+
+        table_names = ("users", "login_verification_codes", "login_activities")
+
+        with auth_engine.begin() as connection:
+            for table_name in table_names:
+                sequence_name = connection.execute(
+                    text("SELECT pg_get_serial_sequence(:qualified_table, 'id')"),
+                    {"qualified_table": f"public.{table_name}"},
+                ).scalar()
+
+                if not sequence_name:
+                    continue
+
+                connection.execute(
+                    text(
+                        f"""
+                        SELECT setval(
+                            :sequence_name,
+                            GREATEST(COALESCE((SELECT MAX(id) FROM {table_name}), 0) + 1, 1),
+                            false
+                        )
+                        """
+                    ),
+                    {"sequence_name": sequence_name},
+                )
+
+
 def migrate_auth_data_to_app_db(app):
     source_path = _sqlite_database_path(app)
     target_path = _auth_sqlite_database_path(app)
@@ -334,6 +366,7 @@ def initialize_database(app):
         db.create_all()
 
     ensure_auth_schema(app)
+    ensure_auth_postgres_sequences(app)
     migrate_auth_data_to_app_db(app)
     ensure_admin_user(app)
 
