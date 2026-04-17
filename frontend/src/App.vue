@@ -569,6 +569,17 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
+  const isTradePage = activePage.value === 'Trade'
+  const isLiveLoading = isTradePage && isAuthenticated.value && (isSearching.value || isGenerating.value)
+
+  if (isLiveLoading) {
+    return {
+      label: 'Live API',
+      description: `Loading live market data for ${symbolInput.value.trim().toUpperCase() || activeSymbol.value || 'current symbol'}...`,
+      tone: 'live'
+    }
+  }
+
   if (stockResponse.value.dataSource === 'live') {
     return {
       label: 'Live API',
@@ -586,9 +597,9 @@ const dataSourceMeta = computed(() => {
   }
 
   return {
-    label: 'Mock Data',
-    description: 'Fallback sample feed',
-    tone: 'mock'
+    label: isTradePage && isAuthenticated.value ? 'Live API' : 'Mock Data',
+    description: isTradePage && isAuthenticated.value ? 'Waiting for live market data.' : 'Fallback sample feed',
+    tone: isTradePage && isAuthenticated.value ? 'live' : 'mock'
   }
 })
 
@@ -1573,6 +1584,26 @@ watch(
         primeAnalysisCache(row.symbol)
       })
     }, 250)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [activePage.value, isAuthenticated.value],
+  async ([page, authenticated]) => {
+    if (page !== 'Trade' || !authenticated) {
+      return
+    }
+
+    if (isSearching.value || isGenerating.value) {
+      return
+    }
+
+    if (stockResponse.value?.dataSource === 'live' && stockResponse.value?.stock?.symbol === activeSymbol.value) {
+      return
+    }
+
+    await runSearch('search')
   },
   { immediate: true }
 )
