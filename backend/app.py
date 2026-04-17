@@ -19,7 +19,7 @@ from models.auth import LoginActivity, LoginVerificationCode, User
 from routes.auth_routes import auth_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
-from services.security_service import hash_secret
+from services.security_service import hash_secret, verify_secret
 
 
 def _generate_compatible_password_hash(app, password):
@@ -313,8 +313,17 @@ def ensure_admin_user(app):
                 existing_admin.verified_at = datetime.utcnow()
                 updated = True
 
-            existing_admin.password_hash = _generate_compatible_password_hash(app, admin_details["password"])
-            updated = True
+            if not existing_admin.password_hash:
+                existing_admin.password_hash = _generate_compatible_password_hash(app, admin_details["password"])
+                updated = True
+            else:
+                try:
+                    if not verify_secret(existing_admin.password_hash, admin_details["password"]):
+                        existing_admin.password_hash = _generate_compatible_password_hash(app, admin_details["password"])
+                        updated = True
+                except Exception:
+                    existing_admin.password_hash = _generate_compatible_password_hash(app, admin_details["password"])
+                    updated = True
 
         if updated:
             db.session.commit()
