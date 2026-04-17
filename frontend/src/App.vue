@@ -2400,7 +2400,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </button>
       </nav>
 
-      <div class="topbar-actions">
+      <div v-if="canInstallApp || isAuthenticated" class="topbar-actions">
         <button
           v-if="canInstallApp"
           class="topbar-button secondary"
@@ -2410,10 +2410,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </button>
         <template v-if="isAuthenticated">
           <button class="topbar-button" @click="signOut">Sign out</button>
-        </template>
-        <template v-else>
-          <button class="topbar-button secondary" @click="navigateTo('Sign In')">Sign In</button>
-          <button class="topbar-button" @click="navigateTo('Register')">Create Account</button>
         </template>
       </div>
     </header>
@@ -2428,7 +2424,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             guided decision support, and a mock trading workflow that becomes richer after sign-in.
           </p>
           <div class="hero-actions">
-            <button class="topbar-button" @click="navigateTo('Register')">Create an account</button>
+            <button class="topbar-button" @click="navigateTo('Register')">Register</button>
             <button class="topbar-button secondary" @click="navigateTo('Sign In')">I already have access</button>
           </div>
         </div>
@@ -2489,7 +2485,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
             <div class="auth-actions">
               <button class="topbar-button" type="submit">Sign In</button>
-              <button class="topbar-button secondary" type="button" @click="navigateTo('Register')">Create New Account</button>
+              <button class="topbar-button secondary" type="button" @click="navigateTo('Register')">Register</button>
             </div>
           </form>
 
@@ -2505,9 +2501,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="auth-shell">
         <article class="auth-card">
           <p class="eyebrow">New User Registration</p>
-          <h1>Create your Noob Trade account</h1>
+          <h1>Register for Noob Trade</h1>
           <p class="page-subtitle">
-            Create an account with your email and password. Regular users must verify by email, while the preconfigured admin accounts can sign in directly.
+            Register with your email and password. Regular users must verify by email, while the preconfigured admin accounts can sign in directly.
           </p>
 
           <form @submit.prevent="submitRegistration">
@@ -2532,7 +2528,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </div>
 
             <div class="auth-actions">
-              <button class="topbar-button" type="submit">Create Account</button>
+              <button class="topbar-button" type="submit">Register</button>
               <button class="topbar-button secondary" type="button" @click="navigateTo('Sign In')">Back to Sign In</button>
             </div>
           </form>
