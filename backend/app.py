@@ -427,6 +427,8 @@ def create_app():
     app.config["PRODUCTION_POSTGRES_ERROR"] = postgres_error
     if not postgres_ok and postgres_error:
         app.logger.error(postgres_error)
+        if str(app.config.get("ENVIRONMENT", "")).lower() == "production":
+            raise RuntimeError(postgres_error)
 
     # Allow requests from the local frontend during development.
     CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
