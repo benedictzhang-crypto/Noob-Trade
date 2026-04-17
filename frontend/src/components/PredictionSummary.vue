@@ -6,6 +6,10 @@ const props = defineProps({
     type: Object,
     required: true
   },
+  stockData: {
+    type: Object,
+    required: true
+  },
   analysisData: {
     type: Object,
     required: true
@@ -31,6 +35,14 @@ function getConfidence(value) {
   }
 
   return numericValue.toFixed(2)
+}
+
+function formatPrice(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return 'TBD'
+  }
+
+  return '$' + Number(value).toFixed(2)
 }
 
 function formatValue(value) {
@@ -73,6 +85,30 @@ const matchedPatternCount = computed(() => {
   }
 
   return matchedPatterns.value.length
+})
+const currentPrice = computed(() => {
+  const value = Number(props.stockData?.currentPrice)
+  return Number.isFinite(value) ? value : null
+})
+const projectedTargetPrice = computed(() => {
+  const basePrice = currentPrice.value
+  const avgReturn = Number(props.analysisData?.avgReturn)
+
+  if (!Number.isFinite(basePrice) || !Number.isFinite(avgReturn)) {
+    return null
+  }
+
+  return basePrice * (1 + (avgReturn / 100))
+})
+const projectedRiskLine = computed(() => {
+  const basePrice = currentPrice.value
+  const avgDrawdown = Number(props.analysisData?.maxDrawdown)
+
+  if (!Number.isFinite(basePrice) || !Number.isFinite(avgDrawdown)) {
+    return null
+  }
+
+  return basePrice * (1 + (avgDrawdown / 100))
 })
 
 function formatThreshold(value) {
@@ -199,6 +235,14 @@ function calculateDynamicProbability(side, threshold) {
       <div class="suggestion-row">
         <span>Average 5D Low Touch</span>
         <strong class="negative">{{ formatPercent(analysisData.maxDrawdown) }}</strong>
+      </div>
+      <div class="suggestion-row">
+        <span>Target Price</span>
+        <strong class="positive">{{ formatPrice(projectedTargetPrice) }}</strong>
+      </div>
+      <div class="suggestion-row">
+        <span>Risk Line</span>
+        <strong class="negative">{{ formatPrice(projectedRiskLine) }}</strong>
       </div>
       <div class="suggestion-row">
         <span>Matched Patterns</span>

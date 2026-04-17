@@ -2894,6 +2894,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <PredictionSummary
           :format-percent="formatPercent"
           :request-data="stockResponse.request"
+          :stock-data="stockResponse.stock"
           :analysis-data="stockResponse.patternAnalysis"
         />
 
