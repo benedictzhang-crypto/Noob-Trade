@@ -1393,11 +1393,11 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   })
 
   if (!response.ok) {
-    const payload = await parseJsonResponse(
+    const payload = await parseErrorResponse(
       response,
-      'This data is not accessible right now.'
+      `${cleanedSymbol} data is not accessible right now.`
     )
-    throw new Error(payload.message || 'This data is not accessible right now.')
+    throw new Error(payload.message || `${cleanedSymbol} data is not accessible right now.`)
   }
 
   const data = await response.json()
@@ -1635,6 +1635,31 @@ async function parseJsonResponse(response, fallbackMessage) {
     return JSON.parse(rawText)
   } catch {
     throw new Error(fallbackMessage)
+  }
+}
+
+async function parseErrorResponse(response, fallbackMessage) {
+  const rawText = await response.text()
+  const statusMessage = response?.status
+    ? `${fallbackMessage} (HTTP ${response.status})`
+    : fallbackMessage
+
+  if (!rawText) {
+    return { message: statusMessage }
+  }
+
+  try {
+    return JSON.parse(rawText)
+  } catch {
+    const textPreview = String(rawText)
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 180)
+
+    return {
+      message: textPreview ? `${statusMessage}: ${textPreview}` : statusMessage
+    }
   }
 }
 
