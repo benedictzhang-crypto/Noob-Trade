@@ -14,4 +14,4 @@ ENV FLASK_USE_RELOADER=false
 
 EXPOSE 5010
 
-CMD ["gunicorn", "-b", "0.0.0.0:5010", "app:app"]
+CMD ["sh", "-c", "gunicorn -b 0.0.0.0:${PORT:-5010} app:app"]
