@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hmac
 import html
 import secrets
@@ -13,7 +13,17 @@ auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 
 def _utcnow():
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
+
+
+def _coerce_utc_datetime(value):
+    if value is None:
+        return None
+
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
 
 
 def _serialize_user(user, display_code=None):
@@ -327,7 +337,8 @@ def _consume_security_code(user, purpose, code):
     now = _utcnow()
 
     for record in recent_codes:
-        if record.expires_at and record.expires_at < now:
+        expires_at = _coerce_utc_datetime(record.expires_at)
+        if expires_at and expires_at < now:
             continue
 
         if verify_secret(record.code_hash, code):
