@@ -2,6 +2,8 @@ from datetime import date, datetime
 from statistics import mean, pstdev
 from types import SimpleNamespace
 
+from sqlalchemy import literal
+
 from extensions import db
 from models.analysis import AnalysisRun, PatternMatch
 from models.market_data import DailyIndicator, DailyPrice, PatternWindow, Symbol
@@ -20,6 +22,7 @@ class PersistenceService:
         "monthly": 21,
     }
     MATCH_TARGET = 20
+    MATCH_CANDIDATE_POOL_SIZE = 4000
     HIGH_FIT_THRESHOLD = 70.0
     SUPPORTED_TIMEFRAMES = ("daily", "5day", "weekly", "2week", "monthly")
 
@@ -379,12 +382,14 @@ class PersistenceService:
     def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True):
         if current_window is None:
             return []
-    
+
+        candidate_window_ids = self._candidate_window_ids(current_window, selected_indicators)
+
+        if not candidate_window_ids:
+            return []
+
         candidate_windows = PatternWindow.query.filter(
-            PatternWindow.timeframe == current_window.timeframe,
-            PatternWindow.window_size == current_window.window_size,
-            PatternWindow.id != current_window.id,
-            PatternWindow.end_date < current_window.end_date,
+            PatternWindow.id.in_(candidate_window_ids),
         ).all()
     
         ranked_matches = []
@@ -451,6 +456,65 @@ class PersistenceService:
             )
     
         return response_matches
+
+    def _candidate_window_ids(self, current_window, selected_indicators):
+        base_query = PatternWindow.query.with_entities(PatternWindow.id).filter(
+            PatternWindow.timeframe == current_window.timeframe,
+            PatternWindow.window_size == current_window.window_size,
+        )
+
+        if getattr(current_window, "id", None) is not None:
+            base_query = base_query.filter(PatternWindow.id != current_window.id)
+
+        if getattr(current_window, "end_date", None) is not None:
+            base_query = base_query.filter(PatternWindow.end_date < current_window.end_date)
+
+        rough_distance = self._build_candidate_distance_expression(current_window, selected_indicators)
+
+        rows = base_query.order_by(
+            rough_distance.asc(),
+            PatternWindow.end_date.desc(),
+        ).limit(self.MATCH_CANDIDATE_POOL_SIZE).all()
+
+        return [row.id for row in rows]
+
+    def _build_candidate_distance_expression(self, current_window, selected_indicators):
+        selected = set(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
+        zero = literal(0.0)
+
+        def diff(column_name, current_value, weight=1.0):
+            numeric_value = self._to_float(current_value)
+            if numeric_value is None:
+                numeric_value = 0.0
+            return db.func.abs(db.func.coalesce(getattr(PatternWindow, column_name), 0.0) - numeric_value) * weight
+
+        distance_terms = [
+            diff("return_pct", getattr(current_window, "return_pct", None), 0.35),
+            diff("max_drawdown", getattr(current_window, "max_drawdown", None), 0.35),
+            diff("volatility", getattr(current_window, "volatility", None), 0.2),
+            diff("probability_score", getattr(current_window, "probability_score", None), 0.15),
+        ]
+
+        if "MA" in selected:
+            distance_terms.append(diff("ma_slope", getattr(current_window, "ma_slope", None), 2.5))
+        if "EMA" in selected:
+            distance_terms.append(diff("ema_slope", getattr(current_window, "ema_slope", None), 2.5))
+        if "MACD" in selected:
+            distance_terms.append(diff("macd_trend", getattr(current_window, "macd_trend", None), 4.0))
+        if "BOLL" in selected:
+            distance_terms.append(diff("volatility", getattr(current_window, "volatility", None), 2.0))
+        if "RSI" in selected:
+            distance_terms.append(diff("rsi_avg", getattr(current_window, "rsi_avg", None), 1.8))
+            distance_terms.append(diff("rsi_min", getattr(current_window, "rsi_min", None), 0.8))
+            distance_terms.append(diff("rsi_max", getattr(current_window, "rsi_max", None), 0.8))
+        if "VOL" in selected:
+            distance_terms.append(diff("volume_change_ratio", getattr(current_window, "volume_change_ratio", None), 2.0))
+
+        rough_distance = zero
+        for term in distance_terms:
+            rough_distance = rough_distance + term
+
+        return rough_distance
     
     def _apply_match_results_to_response(self, response_data, matched_patterns):
         pattern_analysis = response_data["patternAnalysis"]
