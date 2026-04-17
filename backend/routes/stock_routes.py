@@ -69,11 +69,7 @@ def _to_int(value, default=0):
 
 def _build_live_search_payload(market_data_service: MarketDataService, symbol: str, interval: str, lookback: int, indicators: list[str]):
     symbol_code = str(symbol or "").upper().strip()
-    symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
-    if symbol_record is None:
-        raise ValueError(f"{symbol_code} is not available in the production cache yet.")
-
-    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=180)
+    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=120)
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
     if len(prices) < 2:
         raise ValueError("No price data returned from market API.")
@@ -81,22 +77,9 @@ def _build_live_search_payload(market_data_service: MarketDataService, symbol: s
     daily_candles = market_data_service._build_daily_candles(prices)
     latest = daily_candles[-1]
     previous = daily_candles[-2]
-    window = (
-        PatternWindow.query.filter(
-            PatternWindow.symbol_id == symbol_record.id,
-            PatternWindow.timeframe == interval,
-            PatternWindow.window_size == lookback,
-        )
-        .order_by(PatternWindow.end_date.desc())
-        .first()
-    )
 
     high_values = [_to_float(item.get("high"), _to_float(item.get("close"))) for item in daily_candles]
     low_values = [_to_float(item.get("low"), _to_float(item.get("close"))) for item in daily_candles]
-
-    probability = round(_to_float(window.probability_score), 2) if window is not None else 0.0
-    avg_return = round(_to_float(window.avg_return), 2) if window is not None else 0.0
-    max_drawdown = round(_to_float(window.max_drawdown), 2) if window is not None else 0.0
     current_price = round(_to_float(latest.get("close")), 2)
 
     return {
@@ -109,9 +92,9 @@ def _build_live_search_payload(market_data_service: MarketDataService, symbol: s
         },
         "stock": {
             "symbol": symbol_code,
-            "companyName": symbol_record.company_name or symbol_code,
-            "sector": symbol_record.sector or "Unknown",
-            "industry": symbol_record.industry or "Unknown",
+            "companyName": symbol_code,
+            "sector": "Live API",
+            "industry": "Live API",
             "currentPrice": current_price,
             "previousClose": round(_to_float(previous.get("close")), 2),
             "open": round(_to_float(latest.get("open")), 2),
@@ -122,14 +105,14 @@ def _build_live_search_payload(market_data_service: MarketDataService, symbol: s
         "patternAnalysis": {
             "lookbackWindow": lookback,
             "selectedIndicators": indicators,
-            "probabilityOfIncrease": probability,
-            "probabilityOfDecrease": round(max(0.0, 100.0 - probability), 2),
-            "avgReturn": avg_return,
-            "maxDrawdown": max_drawdown,
+            "probabilityOfIncrease": None,
+            "probabilityOfDecrease": None,
+            "avgReturn": None,
+            "maxDrawdown": None,
             "matchedPatternsCount": 0,
             "matchedHistoricalPatterns": [],
-            "quantConfidence": probability,
-            "signalClassification": "Generate to score",
+            "quantConfidence": None,
+            "signalClassification": "Search loads live market data only. Generate to score.",
             "futureFiveDayProbabilities": {"up": [], "down": []},
             "recommendedSellPrice": round(current_price * 1.012, 2),
             "recommendedSellDate": None,

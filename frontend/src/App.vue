@@ -1342,7 +1342,11 @@ async function fetchStockAnalysis(symbol, { prefetch = false, analysisMode = 'fu
   const response = await fetch(`${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`)
 
   if (!response.ok) {
-    throw new Error('The server could not return stock data right now.')
+    const payload = await parseJsonResponse(
+      response,
+      'This data is not accessible right now.'
+    )
+    throw new Error(payload.message || 'This data is not accessible right now.')
   }
 
   const data = await response.json()
