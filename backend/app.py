@@ -59,15 +59,15 @@ def _auth_sqlite_database_path(app):
 def _assert_production_postgres(app):
     environment = str(app.config.get("ENVIRONMENT", "")).lower()
     if environment != "production":
-        return
+        return True, None
 
     primary_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI", "") or "")
     auth_uri = str(_auth_database_uri(app) or "")
 
     if not primary_uri.startswith("postgresql") or not auth_uri.startswith("postgresql"):
-        raise RuntimeError(
-            "NoobTrade production must run on Postgres for both primary and auth storage."
-        )
+        return False, "NoobTrade production must run on Postgres for both primary and auth storage."
+
+    return True, None
 
 
 def _build_engine_options(app):
@@ -368,7 +368,11 @@ def create_app():
     app = Flask(__name__, static_folder=static_folder, static_url_path="")
     app.config.from_object(Config)
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _build_engine_options(app)
-    _assert_production_postgres(app)
+    postgres_ok, postgres_error = _assert_production_postgres(app)
+    app.config["PRODUCTION_POSTGRES_OK"] = postgres_ok
+    app.config["PRODUCTION_POSTGRES_ERROR"] = postgres_error
+    if not postgres_ok and postgres_error:
+        app.logger.error(postgres_error)
 
     # Allow requests from the local frontend during development.
     CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})

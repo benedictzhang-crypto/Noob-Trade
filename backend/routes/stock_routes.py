@@ -151,6 +151,8 @@ def health_check():
             "environment": str(current_app.config.get("ENVIRONMENT", "development")),
             "storageBackend": _backend_label(database_url),
             "authStorageBackend": _backend_label(app_bind or database_url),
+            "productionPostgresOk": bool(current_app.config.get("PRODUCTION_POSTGRES_OK", True)),
+            "productionPostgresError": current_app.config.get("PRODUCTION_POSTGRES_ERROR"),
         }
     )
 
