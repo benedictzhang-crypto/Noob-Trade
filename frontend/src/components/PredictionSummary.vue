@@ -33,14 +33,6 @@ function getConfidence(value) {
   return numericValue.toFixed(2)
 }
 
-function formatPrice(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return 'TBD'
-  }
-
-  return '$' + Number(value).toFixed(2)
-}
-
 function formatValue(value) {
   if (value === null || value === undefined || value === '') {
     return 'TBD'
@@ -207,14 +199,6 @@ function calculateDynamicProbability(side, threshold) {
       <div class="suggestion-row">
         <span>Average 5D Low Touch</span>
         <strong class="negative">{{ formatPercent(analysisData.maxDrawdown) }}</strong>
-      </div>
-      <div class="suggestion-row">
-        <span>Historical Target Price</span>
-        <strong class="positive">{{ formatPrice(analysisData.recommendedSellPrice) }}</strong>
-      </div>
-      <div class="suggestion-row">
-        <span>Historical Risk Line</span>
-        <strong class="negative">{{ formatPrice(analysisData.stopLossPrice) }}</strong>
       </div>
       <div class="suggestion-row">
         <span>Matched Patterns</span>
