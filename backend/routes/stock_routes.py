@@ -2,8 +2,6 @@ from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy.engine.url import make_url
 
 from models.market_data import DailyPrice, PatternWindow, Symbol
-from services.market_data_service import MarketDataService
-from services.persistence_service import PersistenceService
 
 stock_blueprint = Blueprint("stock", __name__, url_prefix="/api")
 
@@ -67,7 +65,19 @@ def _to_int(value, default=0):
         return default
 
 
-def _build_live_search_payload(market_data_service: MarketDataService, symbol: str, interval: str, lookback: int, indicators: list[str]):
+def _market_data_service():
+    from services.market_data_service import MarketDataService
+
+    return MarketDataService(current_app.config)
+
+
+def _persistence_service():
+    from services.persistence_service import PersistenceService
+
+    return PersistenceService()
+
+
+def _build_live_search_payload(market_data_service, symbol: str, interval: str, lookback: int, indicators: list[str]):
     symbol_code = str(symbol or "").upper().strip()
     prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=90)
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
@@ -189,7 +199,7 @@ def get_stock(symbol):
         prefetch_only = False
         persist_analysis = False
         if analysis_mode == "search":
-            market_data_service = MarketDataService(current_app.config)
+            market_data_service = _market_data_service()
             try:
                 return jsonify(_sanitize_response_payload(_build_live_search_payload(market_data_service, symbol, interval, lookback, indicators)))
             except Exception as error:
@@ -204,7 +214,7 @@ def get_stock(symbol):
                     }
                 ), 500
 
-    market_data_service = MarketDataService(current_app.config)
+    market_data_service = _market_data_service()
     persistence_service = None
 
     try:
@@ -220,7 +230,7 @@ def get_stock(symbol):
         response_data = _trim_trade_response_payload(response_data)
 
         if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
-            persistence_service = persistence_service or PersistenceService()
+            persistence_service = persistence_service or _persistence_service()
             try:
                 response_data = persistence_service.apply_cached_match_preview(response_data)
             except Exception as error:
@@ -229,7 +239,7 @@ def get_stock(symbol):
         should_persist = (current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis) and not is_production
 
         if not prefetch_only and should_persist:
-            persistence_service = persistence_service or PersistenceService()
+            persistence_service = persistence_service or _persistence_service()
             try:
                 response_data = persistence_service.save_analysis_run(response_data)
             except Exception as error:
@@ -255,7 +265,7 @@ def get_market_news():
     symbol = request.args.get("symbol", default="", type=str).strip()
     limit = request.args.get("limit", default=5, type=int)
 
-    market_data_service = MarketDataService(current_app.config)
+    market_data_service = _market_data_service()
     news_items = market_data_service.get_market_news(symbol=symbol, limit=max(1, min(limit, 10)))
 
     return jsonify(
@@ -275,7 +285,7 @@ def get_pro_signal(symbol):
     current_price = payload.get("currentPrice")
     raw_indicators = payload.get("indicators") or current_app.config["DEFAULT_INDICATORS"]
 
-    market_data_service = MarketDataService(current_app.config)
+    market_data_service = _market_data_service()
 
     try:
         response_data = market_data_service.get_cached_pro_signal(
