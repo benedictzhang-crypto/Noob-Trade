@@ -1339,23 +1339,48 @@ async function fetchStockAnalysis(symbol, { prefetch = false, analysisMode = 'fu
     query.set('prefetch', '1')
   }
 
-  const response = await fetch(`${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`)
+  const requestUrl = `${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`
+  const shouldRetry = analysisMode === 'search' && !prefetch
+  const maxAttempts = shouldRetry ? 3 : 1
+  let lastError = null
 
-  if (!response.ok) {
-    const payload = await parseJsonResponse(
-      response,
-      'This data is not accessible right now.'
-    )
-    throw new Error(payload.message || 'This data is not accessible right now.')
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(requestUrl)
+
+      if (!response.ok) {
+        const payload = await parseJsonResponse(
+          response,
+          'This data is not accessible right now.'
+        )
+        const message = payload.message || 'This data is not accessible right now.'
+
+        if (response.status >= 500 && attempt < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
+          continue
+        }
+
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      analysisCache.value = {
+        ...analysisCache.value,
+        [cacheKey]: data
+      }
+
+      return data
+    } catch (error) {
+      lastError = error
+
+      if (attempt < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
+        continue
+      }
+    }
   }
 
-  const data = await response.json()
-  analysisCache.value = {
-    ...analysisCache.value,
-    [cacheKey]: data
-  }
-
-  return data
+  throw lastError || new Error('This data is not accessible right now.')
 }
 
 async function primeAnalysisCache(symbol) {
