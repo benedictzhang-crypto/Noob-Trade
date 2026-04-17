@@ -43,8 +43,6 @@ const portfolioSparklineSeries = ref({})
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
-let explorePrefetchTimer = null
-const pendingAnalysisPrefetch = new Set()
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -735,10 +733,6 @@ onBeforeUnmount(() => {
     window.clearInterval(feedRefreshTimer)
   }
 
-  if (explorePrefetchTimer) {
-    window.clearTimeout(explorePrefetchTimer)
-  }
-
   if (beforeInstallHandler) {
     window.removeEventListener('beforeinstallprompt', beforeInstallHandler)
   }
@@ -1321,7 +1315,7 @@ function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
   ].join('|')
 }
 
-async function fetchStockAnalysis(symbol, { prefetch = false, analysisMode = 'full' } = {}) {
+async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   const cleanedSymbol = String(symbol || '').trim().toUpperCase()
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode)
 
@@ -1335,75 +1329,24 @@ async function fetchStockAnalysis(symbol, { prefetch = false, analysisMode = 'fu
   })
   query.set('interval', selectedChartInterval.value)
 
-  if (prefetch) {
-    query.set('prefetch', '1')
-  }
-
   const requestUrl = `${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`
-  const shouldRetry = analysisMode === 'search' && !prefetch
-  const maxAttempts = shouldRetry ? 3 : 1
-  let lastError = null
+  const response = await fetch(requestUrl)
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const response = await fetch(requestUrl)
-
-      if (!response.ok) {
-        const payload = await parseJsonResponse(
-          response,
-          'This data is not accessible right now.'
-        )
-        const message = payload.message || 'This data is not accessible right now.'
-
-        if (response.status >= 500 && attempt < maxAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
-          continue
-        }
-
-        throw new Error(message)
-      }
-
-      const data = await response.json()
-      analysisCache.value = {
-        ...analysisCache.value,
-        [cacheKey]: data
-      }
-
-      return data
-    } catch (error) {
-      lastError = error
-
-      if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
-        continue
-      }
-    }
+  if (!response.ok) {
+    const payload = await parseJsonResponse(
+      response,
+      'This data is not accessible right now.'
+    )
+    throw new Error(payload.message || 'This data is not accessible right now.')
   }
 
-  throw lastError || new Error('This data is not accessible right now.')
-}
-
-async function primeAnalysisCache(symbol) {
-  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
-
-  if (!cleanedSymbol || pendingAnalysisPrefetch.has(cleanedSymbol) || !isAuthenticated.value) {
-    return
+  const data = await response.json()
+  analysisCache.value = {
+    ...analysisCache.value,
+    [cacheKey]: data
   }
 
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, 'search')
-  if (analysisCache.value[cacheKey]) {
-    return
-  }
-
-  pendingAnalysisPrefetch.add(cleanedSymbol)
-
-  try {
-    await fetchStockAnalysis(cleanedSymbol, { prefetch: true, analysisMode: 'search' })
-  } catch {
-    // Prefetch should stay silent and never block the main UX.
-  } finally {
-    pendingAnalysisPrefetch.delete(cleanedSymbol)
-  }
+  return data
 }
 
 async function runSearch(source = 'search') {
@@ -1552,32 +1495,6 @@ function toggleStarredSymbol(symbol) {
 }
 
 watch(
-  () => [
-    activePage.value,
-    currentExploreTab.value,
-    exploreSearchQuery.value,
-    selectedChartInterval.value,
-    getSelectedIndicators().join(',')
-  ],
-  () => {
-    if (explorePrefetchTimer) {
-      window.clearTimeout(explorePrefetchTimer)
-    }
-
-    if (activePage.value !== 'Explore') {
-      return
-    }
-
-    explorePrefetchTimer = window.setTimeout(() => {
-      filteredExploreRows.value.slice(0, 3).forEach((row) => {
-        primeAnalysisCache(row.symbol)
-      })
-    }, 250)
-  },
-  { immediate: true }
-)
-
-watch(
   () => [isAuthenticated.value, portfolioSymbols.value.join('|')],
   ([authenticated]) => {
     if (!authenticated || !portfolioSymbols.value.length) {
@@ -1645,32 +1562,6 @@ function buildHourlySocialFeed(symbol, refreshKey) {
 function buildXSearchLink(symbol, postText) {
   const query = `${symbol} stock ${postText}`
   return `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=live`
-}
-
-function loadCachedAdminUsers() {
-  if (typeof window === 'undefined') {
-    return []
-  }
-
-  try {
-    const raw = window.localStorage.getItem('noobtrade.adminUsersCache')
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveCachedAdminUsers(users) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  try {
-    window.localStorage.setItem('noobtrade.adminUsersCache', JSON.stringify(Array.isArray(users) ? users : []))
-  } catch {
-    // Ignore cache write failures.
-  }
 }
 
 async function parseJsonResponse(response, fallbackMessage) {
@@ -2061,11 +1952,6 @@ async function loadAdminUsers() {
     return
   }
 
-  const cachedUsers = loadCachedAdminUsers()
-  if (cachedUsers.length) {
-    adminUsers.value = cachedUsers
-  }
-
   isAdminLoading.value = true
   adminMessage.value = ''
 
@@ -2083,12 +1969,8 @@ async function loadAdminUsers() {
     }
 
     adminUsers.value = payload.users || []
-    saveCachedAdminUsers(adminUsers.value)
   } catch (error) {
     adminMessage.value = error.message || 'Could not load registered users right now.'
-    if (!adminUsers.value.length && cachedUsers.length) {
-      adminUsers.value = cachedUsers
-    }
   } finally {
     isAdminLoading.value = false
   }
@@ -2967,8 +2849,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             >
               <button
                 class="watchlist-link explore-symbol-link"
-                @mouseenter="primeAnalysisCache(row.symbol)"
-                @focus="primeAnalysisCache(row.symbol)"
                 @click="openAnalysis(row.symbol)"
               >
                 {{ row.symbol }}
