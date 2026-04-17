@@ -9,35 +9,6 @@ from services.email_service import EmailService
 from services.security_service import hash_secret, needs_rehash, verify_secret
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
-auth_legacy_blueprint = Blueprint("auth_legacy", __name__, url_prefix="/api")
-
-
-TEMP_USERS = {
-    "zzzzhly@126.com": {
-        "password": "Happy20252026",
-        "full_name": "Noob Trade Admin",
-        "risk_profile": "Balanced",
-        "membership": "Administrator",
-        "role": "admin",
-        "email_verified": True,
-    },
-    "690991780@qq.com": {
-        "password": "mmd750114",
-        "full_name": "Noob Trade Admin 2",
-        "risk_profile": "Balanced",
-        "membership": "Administrator",
-        "role": "admin",
-        "email_verified": True,
-    },
-    "user1@example.com": {
-        "password": "user12345",
-        "full_name": "Demo User",
-        "risk_profile": "Balanced",
-        "membership": "Regular User",
-        "role": "user",
-        "email_verified": True,
-    },
-}
 
 
 def _utcnow():
@@ -67,45 +38,9 @@ def _sanitize_text(value, max_length=255):
     return html.escape(str(value or "").strip())[:max_length]
 
 
-def _serialize_temp_user(email, temp_user, user_id=None):
-    role = temp_user.get("role", "user")
-    display_code = _display_code_for_temp_email(email, role)
-    return {
-        "id": user_id if user_id is not None else abs(hash(email)) % 1000000,
-        "displayCode": display_code,
-        "fullName": temp_user.get("full_name", email.split("@")[0]),
-        "email": email,
-        "riskProfile": temp_user.get("risk_profile", "Balanced"),
-        "membership": temp_user.get("membership", "Regular User"),
-        "joinedAt": "Local Session",
-        "role": role,
-        "isAdmin": role == "admin",
-        "emailVerified": temp_user.get("email_verified", True),
-        "isDisabled": bool(temp_user.get("is_disabled", False)),
-        "disabledAt": temp_user.get("disabled_at"),
-        "disabledReason": temp_user.get("disabled_reason"),
-    }
-
-
 def _configured_admin_emails():
     configured_admins = current_app.config.get("ADMIN_ACCOUNTS") or []
     return [str(item.get("email") or "").strip().lower() for item in configured_admins if item.get("email")]
-
-
-def _display_code_for_temp_email(email, role="user"):
-    normalized_email = str(email or "").strip().lower()
-    configured_admins = _configured_admin_emails()
-    if role == "admin" and normalized_email in configured_admins:
-        return configured_admins.index(normalized_email) + 1
-    temp_regulars = [
-        addr
-        for addr, temp_user in TEMP_USERS.items()
-        if temp_user.get("role") != "admin"
-    ]
-    temp_regulars = sorted(str(addr).strip().lower() for addr in temp_regulars)
-    if normalized_email in temp_regulars:
-        return 101 + temp_regulars.index(normalized_email)
-    return 0
 
 
 def _display_code_for_user(user):
@@ -156,12 +91,6 @@ def _get_admin_user():
     if not admin_email:
         return None
 
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_user = _temp_user_for_email(admin_email)
-        if temp_user and temp_user.get("role") == "admin":
-            return {"email": admin_email, "role": "admin"}
-        return None
-
     user = User.query.filter_by(email=admin_email).first()
     if user is None or user.role != "admin":
         return None
@@ -207,12 +136,6 @@ def _session_response_payload():
 
     if not session_email:
         return None
-
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_user = _temp_user_for_email(session_email)
-        if temp_user is None:
-            return None
-        return _serialize_temp_user(session_email, temp_user)
 
     user = _find_user_by_email(session_email)
     if user is None:
@@ -262,10 +185,6 @@ def _send_login_notice_to_email(email):
     except Exception:
         current_app.logger.exception("Could not send login notice email")
         return False, "Could not send the login notice email right now."
-
-
-def _temp_user_for_email(email):
-    return TEMP_USERS.get(email)
 
 
 def _generate_compatible_password_hash(password):
@@ -407,9 +326,6 @@ def _record_login_activity(user):
 
 @auth_blueprint.route("/register", methods=["POST"])
 def register():
-    if not current_app.config.get("DB_AVAILABLE", True):
-        return jsonify({"message": "Registration is temporarily unavailable because the database is offline."}), 503
-
     payload = request.get_json(silent=True) or {}
     full_name = str(payload.get("fullName", "")).strip()
     email = str(payload.get("email", "")).strip().lower()
@@ -484,9 +400,6 @@ def register():
 
 @auth_blueprint.route("/verify-email/request", methods=["POST"])
 def request_email_verification():
-    if not current_app.config.get("DB_AVAILABLE", True):
-        return jsonify({"message": "Email verification is temporarily unavailable because the database is offline."}), 503
-
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip().lower()
 
@@ -521,9 +434,6 @@ def request_email_verification():
 
 @auth_blueprint.route("/verify-email/confirm", methods=["POST"])
 def confirm_email_verification():
-    if not current_app.config.get("DB_AVAILABLE", True):
-        return jsonify({"message": "Email verification is temporarily unavailable because the database is offline."}), 503
-
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip().lower()
     code = str(payload.get("code", "")).strip()
@@ -556,9 +466,6 @@ def confirm_email_verification():
 
 @auth_blueprint.route("/password-reset/request", methods=["POST"])
 def request_password_reset():
-    if not current_app.config.get("DB_AVAILABLE", True):
-        return jsonify({"message": "Password reset is temporarily unavailable because the database is offline."}), 503
-
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip().lower()
 
@@ -590,9 +497,6 @@ def request_password_reset():
 
 @auth_blueprint.route("/password-reset/confirm", methods=["POST"])
 def confirm_password_reset():
-    if not current_app.config.get("DB_AVAILABLE", True):
-        return jsonify({"message": "Password reset is temporarily unavailable because the database is offline."}), 503
-
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip().lower()
     code = str(payload.get("code", "")).strip()
@@ -626,25 +530,6 @@ def _login_impl():
 
     if not email or not password:
         return jsonify({"message": "Please enter both email and password."}), 400
-
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_user = _temp_user_for_email(email)
-
-        if temp_user is None or temp_user.get("password") != password:
-            return jsonify({"message": "Incorrect email or password."}), 401
-
-        message = f"Welcome back, {temp_user['full_name']}."
-
-        return jsonify(
-            {
-                "code": 200,
-                "message": message,
-                "emailNoticeSent": False,
-                "emailNoticeMessage": None,
-                "user": _serialize_temp_user(email, temp_user),
-                "csrfToken": _issue_csrf_token(),
-            }
-        ), 200
 
     user = _find_user_by_email(email)
 
@@ -726,42 +611,11 @@ def login():
     return _login_impl()
 
 
-@auth_legacy_blueprint.route("/login", methods=["POST"])
-def login_legacy():
-    return _login_impl()
-
-
-@auth_legacy_blueprint.route("/session", methods=["GET"])
-def auth_session_legacy():
-    return auth_session()
-
-
 @auth_blueprint.route("/users", methods=["GET"])
 def list_users():
     admin_user = _get_admin_user()
     if admin_user is None:
         return jsonify({"message": "Admin access is required."}), 403
-
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_items = sorted(
-            TEMP_USERS.items(),
-            key=lambda item: (
-                0 if item[1].get("role") == "admin" else 1,
-                _display_code_for_temp_email(item[0], item[1].get("role", "user")),
-                item[0],
-            ),
-        )
-        return jsonify(
-            {
-                "users": [
-                    {
-                        **_serialize_temp_user(email, temp_user, index + 1),
-                        "createdAt": None,
-                    }
-                    for index, (email, temp_user) in enumerate(temp_items)
-                ]
-            }
-        )
 
     users = User.query.order_by(User.created_at.asc()).all()
     display_code_map = _build_display_code_map(users)
@@ -793,20 +647,6 @@ def delete_user(user_id):
     if admin_user is None:
         return jsonify({"message": "Admin access is required."}), 403
 
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_items = list(TEMP_USERS.items())
-
-        if user_id < 0 or user_id >= len(temp_items):
-            return jsonify({"message": "User not found."}), 404
-
-        email, temp_user = temp_items[user_id]
-
-        if temp_user.get("role") == "admin":
-            return jsonify({"message": "Admin accounts cannot be deleted from this panel."}), 400
-
-        del TEMP_USERS[email]
-        return jsonify({"message": f"Deleted user {email}."})
-
     target_user = User.query.filter_by(id=user_id).first()
 
     if target_user is None:
@@ -833,31 +673,6 @@ def update_user_status(user_id):
     payload = request.get_json(silent=True) or {}
     disable_user = bool(payload.get("isDisabled"))
     disabled_reason = _sanitize_text(payload.get("disabledReason", ""), max_length=255) or None
-
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_items = list(TEMP_USERS.items())
-
-        if user_id < 0 or user_id >= len(temp_items):
-            return jsonify({"message": "User not found."}), 404
-
-        email, temp_user = temp_items[user_id]
-
-        if temp_user.get("role") == "admin":
-            return jsonify({"message": "Admin accounts cannot be disabled from this panel."}), 400
-
-        temp_user["is_disabled"] = disable_user
-        temp_user["disabled_at"] = _utcnow().isoformat() if disable_user else None
-        temp_user["disabled_reason"] = disabled_reason if disable_user else None
-        return jsonify(
-            {
-                "message": (
-                    f"Disabled user {email}."
-                    if disable_user
-                    else f"Re-enabled user {email}."
-                ),
-                "user": _serialize_temp_user(email, temp_user, user_id + 1),
-            }
-        )
 
     target_user = User.query.filter_by(id=user_id).first()
 
@@ -903,21 +718,6 @@ def admin_reset_user_password(user_id):
     password_error = _validate_password_rules(new_password)
     if password_error:
         return jsonify({"message": password_error}), 400
-
-    if not current_app.config.get("DB_AVAILABLE", True):
-        temp_items = list(TEMP_USERS.items())
-
-        if user_id < 0 or user_id >= len(temp_items):
-            return jsonify({"message": "User not found."}), 404
-
-        email, temp_user = temp_items[user_id]
-
-        if temp_user.get("role") == "admin":
-            return jsonify({"message": "Admin account passwords cannot be reset from this panel."}), 400
-
-        temp_user["password"] = new_password
-        current_app.logger.info("Admin reset password for temp user %s", email)
-        return jsonify({"message": f"Password reset for {email} was successful."})
 
     target_user = User.query.filter_by(id=user_id).first()
 

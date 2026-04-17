@@ -14,7 +14,7 @@ from config import Config
 from extensions import db
 from models import analysis, auth, market_data, trading
 from models.auth import LoginActivity, LoginVerificationCode, User
-from routes.auth_routes import auth_blueprint, auth_legacy_blueprint
+from routes.auth_routes import auth_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
 from services.security_service import hash_secret
@@ -380,9 +380,6 @@ def create_app():
 
     app.register_blueprint(stock_blueprint)
     app.register_blueprint(auth_blueprint)
-    app.register_blueprint(auth_legacy_blueprint)
-
-    app.config["DB_AVAILABLE"] = True
 
     @app.before_request
     def apply_basic_security():
@@ -420,14 +417,11 @@ def create_app():
         initialize_database(app)
     except Exception:
         app.logger.exception("Database initialization failed on first attempt.")
-
-        recovered = False
         if _is_sqlite_app(app):
             recovered = recover_sqlite_database(app)
-
-        if not recovered:
-            app.config["DB_AVAILABLE"] = False
-            app.logger.exception("Database initialization failed; app will continue with temporary login fallback.")
+            if recovered:
+                return app
+        raise
 
     if frontend_dist.exists():
         @app.route("/", defaults={"path": ""})
