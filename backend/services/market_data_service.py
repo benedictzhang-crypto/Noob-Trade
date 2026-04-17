@@ -1,9 +1,11 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from statistics import mean
 from urllib.parse import quote
 
+from config import Config
 from models.market_data import DailyPrice, PatternWindow, Symbol
 from services.persistence_service import PersistenceService
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
@@ -33,13 +35,7 @@ class MarketDataService:
     """
 
     MARKET_NEWS_CACHE = {}
-    TOP_50_SYMBOLS = [
-        "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK.B", "LLY", "AVGO", "JPM",
-        "V", "XOM", "UNH", "MA", "COST", "JNJ", "HD", "ORCL", "PG", "MRK",
-        "NFLX", "ABBV", "BAC", "KO", "AMD", "CVX", "PEP", "CRM", "WMT", "TMO",
-        "ACN", "CSCO", "MCD", "ABT", "IBM", "GE", "LIN", "DIS", "ADBE", "NOW",
-        "INTU", "QCOM", "CAT", "TXN", "AXP", "AMAT", "BKNG", "UBER", "GS", "SPY",
-    ]
+    TOP_50_SYMBOLS = list(Config.MATCH_SCORING_SYMBOLS)
     HOT_NEWS_SYMBOLS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "AMZN", "TSLA", "META", "AMD", "JPM"]
     LIVE_MATCH_TARGET = 20
     LIVE_FORWARD_DAYS = 5
@@ -52,6 +48,7 @@ class MarketDataService:
 
     def __init__(self, config):
         self.config = config
+        self.top_50_symbols = tuple(config.get("MATCH_SCORING_SYMBOLS") or self.TOP_50_SYMBOLS)
         self.persistence_service = PersistenceService()
         self.market_api = DukeMarketApiService(
             base_url=config["MARKET_DATA_BASE_URL"],
@@ -59,6 +56,7 @@ class MarketDataService:
             timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
+
     def get_stock_pattern_analysis(
         self,
         symbol,
@@ -347,10 +345,10 @@ class MarketDataService:
         return response
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
-        overview_payload = self.market_api.get_company_overview(symbol)
-        prices_payload = self.market_api.get_daily_prices(symbol, limit=max(lookback_window + 10, 40))
-        overview = self._extract_first_record(overview_payload)
-        prices = prices_payload.get("data", [])
+        overview, prices = self._fetch_live_overview_and_prices(
+            symbol,
+            price_limit=max(lookback_window + 10, 40),
+        )
 
         if not prices:
             raise ValueError("No price data returned from market API.")
@@ -416,13 +414,10 @@ class MarketDataService:
         if symbol_record is None:
             raise ValueError(f"No cached symbol data found for {symbol}.")
 
-        overview_payload = self.market_api.get_company_overview(symbol)
-        prices_payload = self.market_api.get_daily_prices(
+        overview, prices = self._fetch_live_overview_and_prices(
             symbol,
-            limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
+            price_limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
         )
-        overview = self._extract_first_record(overview_payload)
-        prices = prices_payload.get("data", [])
 
         if not prices:
             raise ValueError("No price data returned from market API.")
@@ -516,11 +511,10 @@ class MarketDataService:
         return response
 
     def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False):
-        overview_payload = self.market_api.get_company_overview(symbol)
-        prices_payload = self.market_api.get_daily_prices(symbol, limit=price_limit or max(lookback_window, 3200))
-
-        overview = self._extract_first_record(overview_payload)
-        prices = prices_payload.get("data", [])
+        overview, prices = self._fetch_live_overview_and_prices(
+            symbol,
+            price_limit=price_limit or max(lookback_window, 3200),
+        )
 
         if not prices:
             raise ValueError("No price data returned from market API.")
@@ -612,7 +606,7 @@ class MarketDataService:
                 focus_universe.append(hot_symbol)
 
         if symbol:
-            for candidate in self.TOP_50_SYMBOLS:
+            for candidate in self.top_50_symbols:
                 if candidate != symbol and candidate not in focus_universe:
                     focus_universe.append(candidate)
 
@@ -702,6 +696,17 @@ class MarketDataService:
                 break
 
         return stories
+
+    def _fetch_live_overview_and_prices(self, symbol, price_limit):
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            overview_future = executor.submit(self.market_api.get_company_overview, symbol)
+            prices_future = executor.submit(self.market_api.get_daily_prices, symbol, limit=price_limit)
+            overview_payload = overview_future.result()
+            prices_payload = prices_future.result()
+
+        overview = self._extract_first_record(overview_payload)
+        prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
+        return overview, prices
 
     def _build_google_news_link(self, symbol, title):
         query = f"{symbol} stock news {title}"

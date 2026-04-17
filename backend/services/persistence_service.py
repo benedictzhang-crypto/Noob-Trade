@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from sqlalchemy import literal
 
+from config import Config
 from extensions import db
 from models.analysis import AnalysisRun, PatternMatch
 from models.market_data import DailyIndicator, DailyPrice, PatternWindow, Symbol
@@ -23,6 +24,7 @@ class PersistenceService:
     }
     MATCH_TARGET = 20
     MATCH_CANDIDATE_POOL_SIZE = 4000
+    MATCH_SCORING_SYMBOLS = tuple(Config.MATCH_SCORING_SYMBOLS)
     HIGH_FIT_THRESHOLD = 70.0
     SUPPORTED_TIMEFRAMES = ("daily", "5day", "weekly", "2week", "monthly")
 
@@ -462,6 +464,12 @@ class PersistenceService:
             PatternWindow.timeframe == current_window.timeframe,
             PatternWindow.window_size == current_window.window_size,
         )
+
+        if self.MATCH_SCORING_SYMBOLS:
+            base_query = base_query.join(
+                Symbol,
+                Symbol.id == PatternWindow.symbol_id,
+            ).filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
 
         if getattr(current_window, "id", None) is not None:
             base_query = base_query.filter(PatternWindow.id != current_window.id)

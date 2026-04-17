@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 
 import requests
+from requests.adapters import HTTPAdapter
 
 
 class DukeMarketApiUnavailable(Exception):
@@ -27,6 +28,16 @@ class DukeMarketApiService:
         self.token = token
         self.timeout = timeout
         self.cooldown_seconds = cooldown_seconds
+        self.session = requests.Session()
+        adapter = HTTPAdapter(pool_connections=4, pool_maxsize=4)
+        self.session.mount("https://", adapter)
+        self.session.mount("http://", adapter)
+        self.session.headers.update(
+            {
+                "Authorization": f"Bearer {self.token}",
+                "Connection": "keep-alive",
+            }
+        )
 
     def is_configured(self):
         return bool(self.token)
@@ -68,11 +79,10 @@ class DukeMarketApiService:
             raise DukeMarketApiUnavailable("Market data provider is temporarily disabled after a recent connection failure.")
 
         try:
-            response = requests.get(
+            response = self.session.get(
                 f"{self.base_url}{path}",
-                headers={"Authorization": f"Bearer {self.token}"},
                 params=params,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
             response.raise_for_status()
             self.mark_available()

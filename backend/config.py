@@ -3,6 +3,15 @@ import secrets
 from pathlib import Path
 
 
+DEFAULT_MATCH_SCORING_SYMBOLS = [
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "BRK.B", "LLY", "AVGO", "JPM",
+    "V", "XOM", "UNH", "MA", "COST", "JNJ", "HD", "ORCL", "PG", "MRK",
+    "NFLX", "ABBV", "BAC", "KO", "AMD", "CVX", "PEP", "CRM", "WMT", "TMO",
+    "ACN", "CSCO", "MCD", "ABT", "IBM", "GE", "LIN", "DIS", "ADBE", "NOW",
+    "INTU", "QCOM", "CAT", "TXN", "AXP", "AMAT", "BKNG", "UBER", "GS", "SPY",
+]
+
+
 def _normalize_postgres_url(raw_url):
     if not raw_url:
         return raw_url
@@ -29,6 +38,23 @@ def _default_engine_options():
             "check_same_thread": False,
         }
     }
+
+
+def _parse_symbol_list(raw_symbols, fallback=None):
+    if not raw_symbols:
+        return list(fallback or [])
+
+    parsed = []
+    seen = set()
+
+    for item in str(raw_symbols).split(","):
+        symbol = item.strip().upper()
+        if not symbol or symbol in seen:
+            continue
+        parsed.append(symbol)
+        seen.add(symbol)
+
+    return parsed or list(fallback or [])
 
 
 def _resolve_environment():
@@ -148,6 +174,10 @@ class Config:
     DEFAULT_INTERVAL = "daily"
     DEFAULT_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
     PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B"]
+    MATCH_SCORING_SYMBOLS = _parse_symbol_list(
+        os.getenv("MATCH_SCORING_SYMBOLS"),
+        DEFAULT_MATCH_SCORING_SYMBOLS,
+    )
     MARKET_DATA_BASE_URL = os.getenv(
         "MARKET_DATA_BASE_URL",
         "https://marketdata.colab.duke.edu/api/v1"
