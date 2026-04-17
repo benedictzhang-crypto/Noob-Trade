@@ -1388,7 +1388,9 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   query.set('interval', selectedChartInterval.value)
 
   const requestUrl = `${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`
-  const response = await fetch(requestUrl)
+  const response = await secureFetch(requestUrl, {
+    timeoutMs: analysisMode === 'search' ? 12000 : 20000
+  })
 
   if (!response.ok) {
     const payload = await parseJsonResponse(

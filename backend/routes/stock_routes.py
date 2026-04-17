@@ -79,7 +79,10 @@ def _persistence_service():
 
 def _build_live_search_payload(market_data_service, symbol: str, interval: str, lookback: int, indicators: list[str]):
     symbol_code = str(symbol or "").upper().strip()
-    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=90)
+    prices_payload = market_data_service.market_api.get_daily_prices(
+        symbol_code,
+        limit=max(lookback + 10, 45),
+    )
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
     if len(prices) < 2:
         raise ValueError("No price data returned from market API.")
@@ -201,7 +204,27 @@ def get_stock(symbol):
         if analysis_mode == "search":
             market_data_service = _market_data_service()
             try:
-                return jsonify(_sanitize_response_payload(_build_live_search_payload(market_data_service, symbol, interval, lookback, indicators)))
+                symbol_code = str(symbol or "").upper().strip()
+
+                if market_data_service._has_cached_history(symbol_code):
+                    response_data = market_data_service._build_cached_db_response(
+                        symbol=symbol_code,
+                        interval=interval,
+                        lookback_window=lookback,
+                        indicators=indicators,
+                        compact_response=compact_response,
+                        apply_match_preview=False,
+                    )
+                else:
+                    response_data = _build_live_search_payload(
+                        market_data_service,
+                        symbol_code,
+                        interval,
+                        lookback,
+                        indicators,
+                    )
+
+                return jsonify(_sanitize_response_payload(response_data))
             except Exception as error:
                 current_app.logger.exception("Production live search failed for %s", symbol)
                 return jsonify(

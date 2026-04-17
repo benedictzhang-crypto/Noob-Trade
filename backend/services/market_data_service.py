@@ -1219,14 +1219,18 @@ class MarketDataService:
         return candles
 
     def _has_cached_history(self, symbol):
-        symbol_record = Symbol.query.filter_by(symbol=symbol).first()
+        symbol_record = Symbol.query.with_entities(Symbol.id).filter_by(symbol=symbol).first()
 
         if symbol_record is None:
             return False
 
-        return PatternWindow.query.filter(
-            PatternWindow.symbol_id == symbol_record.id,
-        ).count() > 0
+        return (
+            PatternWindow.query.with_entities(PatternWindow.id)
+            .filter(PatternWindow.symbol_id == symbol_record.id)
+            .limit(1)
+            .first()
+            is not None
+        )
 
     def _build_current_window_snapshot(self, prepared_candles, interval, lookback_window):
         grouped_candles = self.persistence_service._group_prepared_candles(
