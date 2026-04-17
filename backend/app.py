@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 import sqlite3
+import time
 
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
@@ -359,6 +360,28 @@ def recover_sqlite_database(app):
         return False
 
 
+def initialize_database_with_retries(app, attempts=5, delay_seconds=2):
+    last_error = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            initialize_database(app)
+            if attempt > 1:
+                app.logger.warning("Database initialization succeeded on retry %s.", attempt)
+            return
+        except Exception as error:
+            last_error = error
+            app.logger.exception(
+                "Database initialization attempt %s/%s failed.",
+                attempt,
+                attempts,
+            )
+            if attempt < attempts:
+                time.sleep(delay_seconds)
+
+    raise last_error
+
+
 def create_app():
     """Create and configure the Flask application."""
     project_root = Path(__file__).resolve().parent.parent
@@ -414,9 +437,9 @@ def create_app():
         return response
 
     try:
-        initialize_database(app)
+        initialize_database_with_retries(app)
     except Exception:
-        app.logger.exception("Database initialization failed on first attempt.")
+        app.logger.exception("Database initialization failed after retries.")
         if _is_sqlite_app(app):
             recovered = recover_sqlite_database(app)
             if recovered:
