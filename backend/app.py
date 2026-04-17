@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 import sqlite3
+import threading
 import time
 
 from flask import Flask, jsonify, request, session
@@ -382,6 +383,27 @@ def initialize_database_with_retries(app, attempts=5, delay_seconds=2):
     raise last_error
 
 
+def _start_background_database_init(app):
+    if app.config.get("_DB_INIT_STARTED"):
+        return
+
+    app.config["_DB_INIT_STARTED"] = True
+    app.config["_DB_INIT_READY"] = False
+    app.config["_DB_INIT_ERROR"] = None
+
+    def _runner():
+        try:
+            initialize_database_with_retries(app)
+            app.config["_DB_INIT_READY"] = True
+            app.config["_DB_INIT_ERROR"] = None
+        except Exception as error:
+            app.logger.exception("Background database initialization failed.")
+            app.config["_DB_INIT_READY"] = False
+            app.config["_DB_INIT_ERROR"] = str(error)
+
+    threading.Thread(target=_runner, daemon=True).start()
+
+
 def create_app():
     """Create and configure the Flask application."""
     project_root = Path(__file__).resolve().parent.parent
@@ -404,8 +426,18 @@ def create_app():
     app.register_blueprint(stock_blueprint)
     app.register_blueprint(auth_blueprint)
 
+    app.config["_DB_INIT_STARTED"] = False
+    app.config["_DB_INIT_READY"] = False
+    app.config["_DB_INIT_ERROR"] = None
+
     @app.before_request
     def apply_basic_security():
+        if request.endpoint != "stock.health_check" and str(app.config.get("ENVIRONMENT", "")).lower() == "production":
+            _start_background_database_init(app)
+            if not app.config.get("_DB_INIT_READY", False):
+                error_message = app.config.get("_DB_INIT_ERROR") or "Database is warming up. Please try again in a few seconds."
+                return jsonify({"message": error_message}), 503
+
         client_ip = (
             str(request.headers.get("X-Forwarded-For", "")).split(",")[0].strip()
             or request.remote_addr
@@ -436,15 +468,18 @@ def create_app():
         response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:5010 http://127.0.0.1:5173 http://127.0.0.1:5174;"
         return response
 
-    try:
-        initialize_database_with_retries(app)
-    except Exception:
-        app.logger.exception("Database initialization failed after retries.")
-        if _is_sqlite_app(app):
-            recovered = recover_sqlite_database(app)
-            if recovered:
-                return app
-        raise
+    if str(app.config.get("ENVIRONMENT", "")).lower() == "production":
+        _start_background_database_init(app)
+    else:
+        try:
+            initialize_database_with_retries(app)
+        except Exception:
+            app.logger.exception("Database initialization failed after retries.")
+            if _is_sqlite_app(app):
+                recovered = recover_sqlite_database(app)
+                if recovered:
+                    return app
+            raise
 
     if frontend_dist.exists():
         @app.route("/", defaults={"path": ""})
