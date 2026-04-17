@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import hmac
 import html
 import secrets
 
@@ -70,6 +71,22 @@ def _sanitize_text(value, max_length=255):
 def _configured_admin_emails():
     configured_admins = current_app.config.get("ADMIN_ACCOUNTS") or []
     return [str(item.get("email") or "").strip().lower() for item in configured_admins if item.get("email")]
+
+
+def _configured_admin_account(email):
+    normalized_email = str(email or "").strip().lower()
+    configured_admins = current_app.config.get("ADMIN_ACCOUNTS") or []
+
+    for admin in configured_admins:
+        admin_email = str(admin.get("email") or "").strip().lower()
+        if admin_email == normalized_email:
+            return {
+                "email": admin_email,
+                "password": str(admin.get("password") or ""),
+                "full_name": str(admin.get("full_name") or "").strip() or "Noob Trade Admin",
+            }
+
+    return None
 
 
 def _display_code_for_user(user):
@@ -273,6 +290,44 @@ def _consume_security_code(user, purpose, code):
 
 def _find_user_by_email(email):
     return User.query.filter_by(email=email).first()
+
+
+def _ensure_configured_admin_user(user, configured_admin):
+    updated = False
+
+    if user is None:
+        user = User(
+            full_name=configured_admin["full_name"],
+            email=configured_admin["email"],
+            password_hash=_generate_compatible_password_hash(configured_admin["password"]),
+            risk_profile="Balanced",
+            membership="Administrator",
+            role="admin",
+            email_verified=True,
+            verified_at=_utcnow(),
+        )
+        db.session.add(user)
+        db.session.commit()
+        return user
+
+    if user.full_name != configured_admin["full_name"]:
+        user.full_name = configured_admin["full_name"]
+        updated = True
+    if user.role != "admin":
+        user.role = "admin"
+        updated = True
+    if user.membership != "Administrator":
+        user.membership = "Administrator"
+        updated = True
+    if not getattr(user, "email_verified", False):
+        user.email_verified = True
+        user.verified_at = _utcnow()
+        updated = True
+
+    if updated:
+        db.session.commit()
+
+    return user
 
 
 def _validate_password_rules(password):
@@ -571,16 +626,22 @@ def _login_impl():
     if not email or not password:
         return jsonify({"message": "Please enter both email and password."}), 400
 
+    configured_admin = _configured_admin_account(email)
     user = _find_user_by_email(email)
 
-    if user is None or not verify_secret(user.password_hash, password):
-        return jsonify({"message": "Incorrect email or password."}), 401
+    if configured_admin is not None:
+        if not hmac.compare_digest(password, configured_admin["password"]):
+            return jsonify({"message": "Incorrect email or password."}), 401
+        user = _ensure_configured_admin_user(user, configured_admin)
+    else:
+        if user is None or not verify_secret(user.password_hash, password):
+            return jsonify({"message": "Incorrect email or password."}), 401
 
     is_active, error_response = _ensure_user_is_active(user)
     if not is_active:
         return error_response
 
-    if needs_rehash(user.password_hash):
+    if configured_admin is None and needs_rehash(user.password_hash):
         user.password_hash = _generate_compatible_password_hash(password)
         db.session.commit()
 
