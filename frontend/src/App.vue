@@ -1824,6 +1824,7 @@ async function submitSignIn() {
   try {
     const response = await secureFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
+      timeoutMs: 8000,
       headers: {
         'Content-Type': 'application/json'
       },
