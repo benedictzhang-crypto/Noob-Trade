@@ -174,11 +174,11 @@ class Config:
     EMAIL_FROM = os.getenv("EMAIL_FROM", "")
     ALLOW_LOCAL_EMAIL_BYPASS = os.getenv("ALLOW_LOCAL_EMAIL_BYPASS", "false").lower() == "true"
     APP_NAME = os.getenv("APP_NAME", "Noob Trade")
-    APP_BASE_URL = os.getenv("APP_BASE_URL", "http://127.0.0.1:4173")
+    APP_BASE_URL = os.getenv("APP_BASE_URL", "https://noobtrade.onrender.com")
     SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "support@noobtrade.com")
     SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "+1 (800) 555-0149")
     X_URL = os.getenv("X_URL", "https://x.com/noobtrade")
-    INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://instagram.com/noobtrade")
+    INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://noobtrade.onrender.com")
     DISCORD_URL = os.getenv("DISCORD_URL", "https://discord.gg/noobtrade")
     SQLALCHEMY_DATABASE_URI = _default_database_uri.__func__()
     SQLALCHEMY_BINDS = {
