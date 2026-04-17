@@ -1676,6 +1676,16 @@ function applyAuthenticatedState(user, message = '') {
   authMessage.value = message
 }
 
+function applyAdminUsers(users) {
+  if (!Array.isArray(users)) {
+    return
+  }
+
+  adminUsers.value = users
+  adminMessage.value = ''
+  isAdminLoading.value = false
+}
+
 async function restoreAuthenticatedSession() {
   try {
     const response = await fetch(`${API_BASE_URL}/auth/session`, {
@@ -1698,6 +1708,7 @@ async function restoreAuthenticatedSession() {
     }
 
     applyAuthenticatedState(payload.user, '')
+    applyAdminUsers(payload.adminUsers)
     return true
   } catch {
     return false
@@ -1742,6 +1753,7 @@ async function submitSignIn() {
       payload.user,
       payload.message || `Welcome back, ${payload.user.fullName}.`
     )
+    applyAdminUsers(payload.adminUsers)
     restoreAuthenticatedSession().catch(() => {})
   } catch (error) {
     authMessage.value = error.message || 'Could not sign you in right now.'

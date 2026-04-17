@@ -34,6 +34,27 @@ def _serialize_user(user, display_code=None):
     }
 
 
+def _serialized_admin_users():
+    users = User.query.order_by(User.created_at.asc()).all()
+    display_code_map = _build_display_code_map(users)
+    users = sorted(
+        users,
+        key=lambda user: (
+            0 if user.role == "admin" else 1,
+            display_code_map.get(user.id, 0),
+            user.created_at or datetime.max,
+            user.email.lower(),
+        ),
+    )
+    return [
+        {
+            **_serialize_user(user, display_code_map.get(user.id, 0)),
+            "createdAt": user.created_at.isoformat() if user.created_at else None,
+        }
+        for user in users
+    ]
+
+
 def _sanitize_text(value, max_length=255):
     return html.escape(str(value or "").strip())[:max_length]
 
@@ -144,7 +165,10 @@ def _session_response_payload():
         session.clear()
         return None
 
-    return _serialize_user(user)
+    return {
+        "user": _serialize_user(user),
+        "adminUsers": _serialized_admin_users() if user.role == "admin" else None,
+    }
 
 
 def _ensure_user_is_active(user):
@@ -574,6 +598,7 @@ def _login_impl():
             "emailNoticeSent": notice_sent,
             "emailNoticeMessage": notice_error,
             "user": _serialize_user(user),
+            "adminUsers": _serialized_admin_users() if user.role == "admin" else None,
             "csrfToken": _issue_csrf_token(),
         }
     )
@@ -586,15 +611,16 @@ def csrf_token():
 
 @auth_blueprint.route("/session", methods=["GET"])
 def auth_session():
-    user_payload = _session_response_payload()
+    session_payload = _session_response_payload()
 
-    if user_payload is None:
+    if session_payload is None:
         return jsonify({"authenticated": False, "user": None}), 401
 
     return jsonify(
         {
             "authenticated": True,
-            "user": user_payload,
+            "user": session_payload["user"],
+            "adminUsers": session_payload.get("adminUsers"),
             "csrfToken": session.get("csrf_token") or _issue_csrf_token(),
         }
     )
@@ -616,29 +642,7 @@ def list_users():
     admin_user = _get_admin_user()
     if admin_user is None:
         return jsonify({"message": "Admin access is required."}), 403
-
-    users = User.query.order_by(User.created_at.asc()).all()
-    display_code_map = _build_display_code_map(users)
-    users = sorted(
-        users,
-        key=lambda user: (
-            0 if user.role == "admin" else 1,
-            display_code_map.get(user.id, 0),
-            user.created_at or datetime.max,
-            user.email.lower(),
-        ),
-    )
-    return jsonify(
-        {
-            "users": [
-                {
-                    **_serialize_user(user, display_code_map.get(user.id, 0)),
-                    "createdAt": user.created_at.isoformat() if user.created_at else None,
-                }
-                for user in users
-            ]
-        }
-    )
+    return jsonify({"users": _serialized_admin_users()})
 
 
 @auth_blueprint.route("/users/<int:user_id>", methods=["DELETE"])
