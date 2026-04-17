@@ -46,6 +46,10 @@ def _resolve_environment():
     return "development"
 
 
+def _is_production_environment():
+    return _resolve_environment() == "production"
+
+
 class Config:
     """Simple application settings for local development."""
 
@@ -82,7 +86,7 @@ class Config:
         if configured_url:
             return _normalize_postgres_url(configured_url)
 
-        if os.getenv("APP_ENV", "development").strip().lower() == "production":
+        if _is_production_environment():
             raise RuntimeError("DATABASE_URL is required in production. NoobTrade production storage must use Postgres.")
 
         backend_dir = Path(__file__).resolve().parent
@@ -99,7 +103,7 @@ class Config:
         if configured_primary:
             return _normalize_postgres_url(configured_primary)
 
-        if os.getenv("APP_ENV", "development").strip().lower() == "production":
+        if _is_production_environment():
             raise RuntimeError("APP_DATABASE_URL or DATABASE_URL is required in production. NoobTrade production auth storage must use Postgres.")
 
         backend_dir = Path(__file__).resolve().parent
