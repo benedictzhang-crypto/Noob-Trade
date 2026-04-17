@@ -121,6 +121,53 @@ def _display_code_for_user(user):
     return 0
 
 
+def _build_display_code_map(users):
+    configured_admins = _configured_admin_emails()
+    display_code_map = {}
+
+    regular_users = [
+        user
+        for user in users
+        if getattr(user, "role", "user") != "admin"
+    ]
+    regular_users = sorted(
+        regular_users,
+        key=lambda user: (
+            user.created_at or datetime.max,
+            user.id or 0,
+            str(user.email or "").lower(),
+        ),
+    )
+
+    for user in users:
+        normalized_email = str(user.email or "").strip().lower()
+        if user.role == "admin" and normalized_email in configured_admins:
+            display_code_map[user.id] = configured_admins.index(normalized_email) + 1
+
+    for index, regular_user in enumerate(regular_users, start=101):
+        display_code_map[regular_user.id] = index
+
+    return display_code_map
+
+
+def _serialize_user_with_display_code(user, display_code):
+    return {
+        "id": user.id,
+        "displayCode": display_code,
+        "fullName": user.full_name,
+        "email": user.email,
+        "riskProfile": user.risk_profile,
+        "membership": user.membership,
+        "joinedAt": user.created_at.strftime("%B %Y") if user.created_at else "Recent",
+        "role": user.role,
+        "isAdmin": user.role == "admin",
+        "emailVerified": bool(getattr(user, "email_verified", False)),
+        "isDisabled": bool(getattr(user, "is_disabled", False)),
+        "disabledAt": user.disabled_at.isoformat() if getattr(user, "disabled_at", None) else None,
+        "disabledReason": getattr(user, "disabled_reason", None),
+    }
+
+
 def _get_admin_user():
     admin_email = str(session.get("user_email", "")).strip().lower()
 
@@ -735,11 +782,12 @@ def list_users():
         )
 
     users = User.query.order_by(User.created_at.asc()).all()
+    display_code_map = _build_display_code_map(users)
     users = sorted(
         users,
         key=lambda user: (
             0 if user.role == "admin" else 1,
-            _display_code_for_user(user),
+            display_code_map.get(user.id, 0),
             user.created_at or datetime.max,
             user.email.lower(),
         ),
@@ -748,7 +796,7 @@ def list_users():
         {
             "users": [
                 {
-                    **_serialize_user(user),
+                    **_serialize_user_with_display_code(user, display_code_map.get(user.id, 0)),
                     "createdAt": user.created_at.isoformat() if user.created_at else None,
                 }
                 for user in users

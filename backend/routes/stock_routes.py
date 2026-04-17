@@ -69,7 +69,7 @@ def _to_int(value, default=0):
 
 def _build_live_search_payload(market_data_service: MarketDataService, symbol: str, interval: str, lookback: int, indicators: list[str]):
     symbol_code = str(symbol or "").upper().strip()
-    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=120)
+    prices_payload = market_data_service.market_api.get_daily_prices(symbol_code, limit=90)
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
     if len(prices) < 2:
         raise ValueError("No price data returned from market API.")
