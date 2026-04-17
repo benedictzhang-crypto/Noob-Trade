@@ -397,7 +397,12 @@ class PersistenceService:
         ranked_matches = []
     
         for candidate in candidate_windows:
-            score = self.quant_scoring_service.score_match(current_window, candidate, selected_indicators)
+            score = self.quant_scoring_service.score_match(
+                current_window,
+                candidate,
+                selected_indicators,
+                include_breakdown=False,
+            )
             future_stats_5d = self._cached_forward_extremes(candidate, trading_days=5)
             score["future_stats_5d"] = future_stats_5d
             score["future_return_5d"] = future_stats_5d.get("maxUpPct")
@@ -414,11 +419,14 @@ class PersistenceService:
             symbol.id: symbol.symbol
             for symbol in Symbol.query.filter(Symbol.id.in_(matched_symbol_ids)).all()
         } if matched_symbol_ids else {}
+        historical_candle_lookup = self._build_match_candles_map(
+            [matched_window for matched_window, _ in top_matches]
+        )
     
         response_matches = []
     
         for rank_no, (matched_window, score) in enumerate(top_matches, start=1):
-            historical_candles = self._build_match_candles(matched_window)
+            historical_candles = historical_candle_lookup.get(matched_window.id, [])
             match_future_stats_5d = score.get("future_stats_5d") or self._empty_forward_stat()
             if persist_matches and analysis_run_id is not None:
                 pattern_match = PatternMatch(
@@ -452,12 +460,45 @@ class PersistenceService:
                     "quantMaxScore": score["max_score"],
                     "quantFullMaxScore": score["full_scale_max_score"],
                     "quantSelectedPercent": score["selected_score_percent"],
-                    "scoreBreakdown": score["breakdown"],
+                    "scoreBreakdown": score.get("breakdown", []),
                     "historicalCandles": historical_candles,
                 }
             )
     
         return response_matches
+
+    def _build_match_candles_map(self, window_records):
+        if not window_records:
+            return {}
+
+        symbol_ids = {window.symbol_id for window in window_records if window.symbol_id is not None}
+        start_dates = [window.start_date for window in window_records if window.start_date is not None]
+        end_dates = [window.end_date for window in window_records if window.end_date is not None]
+
+        if not symbol_ids or not start_dates or not end_dates:
+            return {}
+
+        price_records = DailyPrice.query.filter(
+            DailyPrice.symbol_id.in_(symbol_ids),
+            DailyPrice.trade_date >= min(start_dates),
+            DailyPrice.trade_date <= max(end_dates),
+        ).order_by(
+            DailyPrice.symbol_id.asc(),
+            DailyPrice.trade_date.asc(),
+        ).all()
+
+        records_by_symbol = {}
+        for record in price_records:
+            records_by_symbol.setdefault(record.symbol_id, []).append(record)
+
+        candle_lookup = {}
+        for window in window_records:
+            candle_lookup[window.id] = self._serialize_match_candles(
+                window,
+                records_by_symbol.get(window.symbol_id, []),
+            )
+
+        return candle_lookup
 
     def _candidate_window_ids(self, current_window, selected_indicators):
         base_query = PatternWindow.query.with_entities(PatternWindow.id).filter(
@@ -859,16 +900,27 @@ class PersistenceService:
     
     def _build_match_candles(self, window_record):
         group_size = self.TIMEFRAME_GROUP_SIZES.get(window_record.timeframe, 1)
-        bars_to_collect = max(window_record.window_size * group_size, group_size)
         price_records = DailyPrice.query.filter(
             DailyPrice.symbol_id == window_record.symbol_id,
+            DailyPrice.trade_date >= window_record.start_date,
             DailyPrice.trade_date <= window_record.end_date,
-        ).order_by(DailyPrice.trade_date.desc()).limit(bars_to_collect).all()
-    
+        ).order_by(DailyPrice.trade_date.asc()).all()
+
+        return self._serialize_match_candles(window_record, price_records, group_size=group_size)
+
+    def _serialize_match_candles(self, window_record, price_records, group_size=None):
         if not price_records:
             return []
-    
-        ordered_records = sorted(price_records, key=lambda record: record.trade_date)
+
+        ordered_records = [
+            record for record in price_records
+            if record.trade_date is not None
+        ]
+
+        if not ordered_records:
+            return []
+
+        group_size = group_size or self.TIMEFRAME_GROUP_SIZES.get(window_record.timeframe, 1)
         prepared_candles = [
             {
                 "trade_date": record.trade_date,

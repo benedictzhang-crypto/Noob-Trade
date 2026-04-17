@@ -761,6 +761,7 @@ class MarketDataService:
                 current_window,
                 candidate_record,
                 indicators,
+                include_breakdown=False,
             )
 
             candidates.append(

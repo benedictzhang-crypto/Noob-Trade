@@ -109,7 +109,7 @@ class QuantScoringService:
     def get_weight(self, indicator_name):
         return self.WEIGHT_BY_INDICATOR.get(self.normalize_indicator_name(indicator_name), 0)
 
-    def score_match(self, current_window, candidate_window, indicators):
+    def score_match(self, current_window, candidate_window, indicators, include_breakdown=True):
         selected_indicators = self.normalize_indicator_names(indicators)
         current_snapshot = self._indicator_snapshot(current_window)
         candidate_snapshot = self._indicator_snapshot(candidate_window)
@@ -118,7 +118,7 @@ class QuantScoringService:
         total_full = 0
         total_weight = 0
         total_soft_similarity = 0.0
-        breakdown = []
+        breakdown = [] if include_breakdown else None
 
         for indicator_name in selected_indicators:
             current_value = current_snapshot.get(indicator_name)
@@ -134,18 +134,19 @@ class QuantScoringService:
             total_weight += weight
             total_soft_similarity += soft_similarity * weight
 
-            breakdown.append(
-                {
-                    "indicator": indicator_name,
-                    "currentValue": self._round_number(current_value),
-                    "historicalValue": self._round_number(candidate_value),
-                    "gapPercent": round(sim_pct, 4),
-                    "score": score,
-                    "maxScore": full_score,
-                    "weight": weight,
-                    "softSimilarity": round(soft_similarity * 100, 2),
-                }
-            )
+            if include_breakdown:
+                breakdown.append(
+                    {
+                        "indicator": indicator_name,
+                        "currentValue": self._round_number(current_value),
+                        "historicalValue": self._round_number(candidate_value),
+                        "gapPercent": round(sim_pct, 4),
+                        "score": score,
+                        "maxScore": full_score,
+                        "weight": weight,
+                        "softSimilarity": round(soft_similarity * 100, 2),
+                    }
+                )
 
         fit_ratio = (total_score / total_full) if total_full else 0.0
         indicator_fit_ratio = (total_soft_similarity / total_weight) if total_weight else 0.0
@@ -170,7 +171,7 @@ class QuantScoringService:
             "full_scale_max_score": sum(self.FULL_SCORE_BY_INDICATOR.values()),
             "weight_ratio": round(weight_ratio, 6),
             "weight_penalty": round(weight_penalty, 6),
-            "breakdown": breakdown,
+            "breakdown": breakdown or [],
             "is_bullish": bool(candidate_window.return_pct is not None and float(candidate_window.return_pct) > 0),
         }
 

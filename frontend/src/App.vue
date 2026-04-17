@@ -1389,7 +1389,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
 
   const requestUrl = `${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`
   const response = await secureFetch(requestUrl, {
-    timeoutMs: analysisMode === 'search' ? 12000 : 20000
+    timeoutMs: analysisMode === 'search' ? 12000 : 35000
   })
 
   if (!response.ok) {
