@@ -89,6 +89,28 @@ def _configured_admin_account(email):
     return None
 
 
+def _serialized_configured_admin_user(configured_admin):
+    configured_admins = _configured_admin_emails()
+    normalized_email = str(configured_admin.get("email") or "").strip().lower()
+    display_code = configured_admins.index(normalized_email) + 1 if normalized_email in configured_admins else 1
+
+    return {
+        "id": display_code,
+        "displayCode": display_code,
+        "fullName": str(configured_admin.get("full_name") or "").strip() or "Noob Trade Admin",
+        "email": normalized_email,
+        "riskProfile": "Balanced",
+        "membership": "Administrator",
+        "joinedAt": "Configured",
+        "role": "admin",
+        "isAdmin": True,
+        "emailVerified": True,
+        "isDisabled": False,
+        "disabledAt": None,
+        "disabledReason": None,
+    }
+
+
 def _display_code_for_user(user):
     normalized_email = str(user.email or "").strip().lower()
     configured_admins = _configured_admin_emails()
@@ -137,6 +159,14 @@ def _get_admin_user():
     if not admin_email:
         return None
 
+    session_snapshot = session.get("user_snapshot")
+    if (
+        isinstance(session_snapshot, dict)
+        and str(session_snapshot.get("email") or "").strip().lower() == admin_email
+        and bool(session_snapshot.get("isAdmin"))
+    ):
+        return session_snapshot
+
     user = User.query.filter_by(email=admin_email).first()
     if user is None or user.role != "admin":
         return None
@@ -177,11 +207,30 @@ def _session_user_payload(user):
     }
 
 
+def _session_user_payload_from_serialized_user(user):
+    return {
+        "user_id": user.get("id"),
+        "user_email": user.get("email"),
+        "user_role": user.get("role"),
+    }
+
+
 def _session_response_payload():
     session_email = str(session.get("user_email", "")).strip().lower()
 
     if not session_email:
         return None
+
+    session_snapshot = session.get("user_snapshot")
+    if (
+        isinstance(session_snapshot, dict)
+        and str(session_snapshot.get("email") or "").strip().lower() == session_email
+        and bool(session_snapshot.get("isAdmin"))
+    ):
+        return {
+            "user": session_snapshot,
+            "adminUsers": None,
+        }
 
     user = _find_user_by_email(session_email)
     if user is None:
@@ -619,21 +668,37 @@ def _login_impl():
         return jsonify({"message": "Please enter both email and password."}), 400
 
     configured_admin = _configured_admin_account(email)
-    user = _find_user_by_email(email)
-
     if configured_admin is not None:
         if not hmac.compare_digest(password, configured_admin["password"]):
             return jsonify({"message": "Incorrect email or password."}), 401
-        user = _ensure_configured_admin_user(user, configured_admin)
-    else:
-        if user is None or not verify_secret(user.password_hash, password):
-            return jsonify({"message": "Incorrect email or password."}), 401
+        serialized_user = _serialized_configured_admin_user(configured_admin)
+
+        session.clear()
+        session.update(_session_user_payload_from_serialized_user(serialized_user))
+        session["user_snapshot"] = serialized_user
+
+        return jsonify(
+            {
+                "code": 200,
+                "message": f"Welcome back, {serialized_user['fullName']}.",
+                "emailNoticeSent": False,
+                "emailNoticeMessage": None,
+                "user": serialized_user,
+                "adminUsers": None,
+                "csrfToken": _issue_csrf_token(),
+            }
+        )
+
+    user = _find_user_by_email(email)
+
+    if user is None or not verify_secret(user.password_hash, password):
+        return jsonify({"message": "Incorrect email or password."}), 401
 
     is_active, error_response = _ensure_user_is_active(user)
     if not is_active:
         return error_response
 
-    if configured_admin is None and needs_rehash(user.password_hash):
+    if needs_rehash(user.password_hash):
         user.password_hash = _generate_compatible_password_hash(password)
         db.session.commit()
 
@@ -648,6 +713,7 @@ def _login_impl():
 
     session.clear()
     session.update(_session_user_payload(user))
+    session.pop("user_snapshot", None)
 
     message = f"Welcome back, {user.full_name}."
     notice_sent = False
@@ -728,7 +794,8 @@ def delete_user(user_id):
     if target_user.role == "admin":
         return jsonify({"message": "Admin accounts cannot be deleted from this panel."}), 400
 
-    if target_user.email == admin_user.email:
+    admin_email = getattr(admin_user, "email", None) if not isinstance(admin_user, dict) else admin_user.get("email")
+    if target_user.email == admin_email:
         return jsonify({"message": "You cannot delete your own admin account."}), 400
 
     db.session.delete(target_user)
