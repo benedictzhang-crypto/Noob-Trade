@@ -19,8 +19,11 @@ def verify_secret(stored_hash, candidate_secret):
     except VerifyMismatchError:
         return False
     except (InvalidHash, VerificationError):
-        # Backward compatibility for previously stored Werkzeug hashes.
-        return check_password_hash(stored_hash, candidate_secret)
+        try:
+            # Backward compatibility for previously stored Werkzeug hashes.
+            return check_password_hash(stored_hash, candidate_secret)
+        except (TypeError, ValueError):
+            return False
 
 
 def needs_rehash(stored_hash):

@@ -17,7 +17,17 @@ def _utcnow():
 
 
 def _coerce_utc_datetime(value):
-    if value is None:
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        try:
+            value = datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+    if not isinstance(value, datetime):
         return None
 
     if value.tzinfo is None:
