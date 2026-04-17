@@ -569,17 +569,6 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
-  const isTradePage = activePage.value === 'Trade'
-  const isLiveLoading = isTradePage && isAuthenticated.value && (isSearching.value || isGenerating.value)
-
-  if (isLiveLoading) {
-    return {
-      label: 'Live API',
-      description: `Loading live market data for ${symbolInput.value.trim().toUpperCase() || activeSymbol.value || 'current symbol'}...`,
-      tone: 'live'
-    }
-  }
-
   if (stockResponse.value.dataSource === 'live') {
     return {
       label: 'Live API',
@@ -597,9 +586,9 @@ const dataSourceMeta = computed(() => {
   }
 
   return {
-    label: isTradePage && isAuthenticated.value ? 'Live API' : 'Mock Data',
-    description: isTradePage && isAuthenticated.value ? 'Waiting for live market data.' : 'Fallback sample feed',
-    tone: isTradePage && isAuthenticated.value ? 'live' : 'mock'
+    label: 'Mock Data',
+    description: 'Fallback sample feed',
+    tone: 'mock'
   }
 })
 
@@ -1589,26 +1578,6 @@ watch(
 )
 
 watch(
-  () => [activePage.value, isAuthenticated.value],
-  async ([page, authenticated]) => {
-    if (page !== 'Trade' || !authenticated) {
-      return
-    }
-
-    if (isSearching.value || isGenerating.value) {
-      return
-    }
-
-    if (stockResponse.value?.dataSource === 'live' && stockResponse.value?.stock?.symbol === activeSymbol.value) {
-      return
-    }
-
-    await runSearch('search')
-  },
-  { immediate: true }
-)
-
-watch(
   () => [isAuthenticated.value, portfolioSymbols.value.join('|')],
   ([authenticated]) => {
     if (!authenticated || !portfolioSymbols.value.length) {
@@ -1676,6 +1645,32 @@ function buildHourlySocialFeed(symbol, refreshKey) {
 function buildXSearchLink(symbol, postText) {
   const query = `${symbol} stock ${postText}`
   return `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=live`
+}
+
+function loadCachedAdminUsers() {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const raw = window.localStorage.getItem('noobtrade.adminUsersCache')
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveCachedAdminUsers(users) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem('noobtrade.adminUsersCache', JSON.stringify(Array.isArray(users) ? users : []))
+  } catch {
+    // Ignore cache write failures.
+  }
 }
 
 async function parseJsonResponse(response, fallbackMessage) {
@@ -2065,6 +2060,11 @@ async function loadAdminUsers() {
     return
   }
 
+  const cachedUsers = loadCachedAdminUsers()
+  if (cachedUsers.length) {
+    adminUsers.value = cachedUsers
+  }
+
   isAdminLoading.value = true
   adminMessage.value = ''
 
@@ -2082,8 +2082,12 @@ async function loadAdminUsers() {
     }
 
     adminUsers.value = payload.users || []
+    saveCachedAdminUsers(adminUsers.value)
   } catch (error) {
     adminMessage.value = error.message || 'Could not load registered users right now.'
+    if (!adminUsers.value.length && cachedUsers.length) {
+      adminUsers.value = cachedUsers
+    }
   } finally {
     isAdminLoading.value = false
   }
