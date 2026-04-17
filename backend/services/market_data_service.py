@@ -72,26 +72,60 @@ class MarketDataService:
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
         summary_only = str(analysis_mode or "full").lower() != "full"
 
-        if is_production and self._has_cached_history(symbol_code):
-            try:
-                return self._build_cached_db_response(
-                    symbol=symbol_code,
-                    interval=interval,
-                    lookback_window=lookback_window,
-                    indicators=indicators,
-                    compact_response=compact_response,
-                    apply_match_preview=not summary_only,
-                )
-            except Exception:
-                logger.warning(
-                    "Production cached database response failed for %s.",
-                    symbol_code,
-                    exc_info=True,
-                )
-                raise
-
         if is_production:
-            raise ValueError(f"{symbol_code} is not available in the production cache yet.")
+            if self.market_api.is_configured() and self.market_api.is_available():
+                try:
+                    response = self._build_live_current_vs_cached_response(
+                        symbol=symbol_code,
+                        interval=interval,
+                        lookback_window=lookback_window,
+                        indicators=indicators,
+                        compact_response=compact_response,
+                    )
+
+                    if summary_only:
+                        return response
+
+                    try:
+                        return self.persistence_service.apply_cached_match_preview(response)
+                    except Exception:
+                        logger.warning(
+                            "Production cached match preview failed for %s; returning live response.",
+                            symbol_code,
+                            exc_info=True,
+                        )
+                        return response
+                except DukeMarketApiUnavailable:
+                    logger.warning(
+                        "Production live market data provider is unavailable for %s; falling back to cached history when possible.",
+                        symbol_code,
+                        exc_info=True,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Production live generate failed for %s; falling back to cached history when possible.",
+                        symbol_code,
+                        exc_info=True,
+                    )
+
+            if self._has_cached_history(symbol_code):
+                try:
+                    return self._build_cached_db_response(
+                        symbol=symbol_code,
+                        interval=interval,
+                        lookback_window=lookback_window,
+                        indicators=indicators,
+                        compact_response=compact_response,
+                        apply_match_preview=not summary_only,
+                    )
+                except Exception:
+                    logger.warning(
+                        "Production cached database response failed for %s.",
+                        symbol_code,
+                        exc_info=True,
+                    )
+
+            raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
         if self.market_api.is_configured() and self.market_api.is_available() and self._has_cached_history(symbol_code):
             try:
@@ -409,11 +443,6 @@ class MarketDataService:
         }
 
     def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None):
-        symbol_record = Symbol.query.filter_by(symbol=symbol).first()
-
-        if symbol_record is None:
-            raise ValueError(f"No cached symbol data found for {symbol}.")
-
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
