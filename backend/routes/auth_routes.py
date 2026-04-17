@@ -34,9 +34,17 @@ def _serialize_user(user, display_code=None):
     }
 
 
+def _serialize_user_with_display_code(user, display_code_map):
+    return _serialize_user(user, display_code_map.get(user.id, 0))
+
+
 def _serialized_admin_users():
     users = User.query.order_by(User.created_at.asc()).all()
     display_code_map = _build_display_code_map(users)
+    return _serialize_admin_users_with_map(users, display_code_map)
+
+
+def _serialize_admin_users_with_map(users, display_code_map):
     users = sorted(
         users,
         key=lambda user: (
@@ -48,7 +56,7 @@ def _serialized_admin_users():
     )
     return [
         {
-            **_serialize_user(user, display_code_map.get(user.id, 0)),
+            **_serialize_user_with_display_code(user, display_code_map),
             "createdAt": user.created_at.isoformat() if user.created_at else None,
         }
         for user in users
@@ -165,9 +173,17 @@ def _session_response_payload():
         session.clear()
         return None
 
+    if user.role == "admin":
+        users = User.query.order_by(User.created_at.asc()).all()
+        display_code_map = _build_display_code_map(users)
+        return {
+            "user": _serialize_user_with_display_code(user, display_code_map),
+            "adminUsers": _serialize_admin_users_with_map(users, display_code_map),
+        }
+
     return {
         "user": _serialize_user(user),
-        "adminUsers": _serialized_admin_users() if user.role == "admin" else None,
+        "adminUsers": None,
     }
 
 
@@ -591,14 +607,23 @@ def _login_impl():
         elif notice_error:
             message = f"Welcome back, {user.full_name}. Login notice email is unavailable right now."
 
+    serialized_user = _serialize_user(user)
+    admin_users = None
+
+    if user.role == "admin":
+        users = User.query.order_by(User.created_at.asc()).all()
+        display_code_map = _build_display_code_map(users)
+        serialized_user = _serialize_user_with_display_code(user, display_code_map)
+        admin_users = _serialize_admin_users_with_map(users, display_code_map)
+
     return jsonify(
         {
             "code": 200,
             "message": message,
             "emailNoticeSent": notice_sent,
             "emailNoticeMessage": notice_error,
-            "user": _serialize_user(user),
-            "adminUsers": _serialized_admin_users() if user.role == "admin" else None,
+            "user": serialized_user,
+            "adminUsers": admin_users,
             "csrfToken": _issue_csrf_token(),
         }
     )

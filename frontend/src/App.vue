@@ -1755,7 +1755,6 @@ async function submitSignIn() {
       payload.message || `Welcome back, ${payload.user.fullName}.`
     )
     applyAdminUsers(payload.adminUsers)
-    restoreAuthenticatedSession().catch(() => {})
   } catch (error) {
     authMessage.value = error.message || 'Could not sign you in right now.'
   }
