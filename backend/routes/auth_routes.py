@@ -44,11 +44,11 @@ def _utcnow():
     return datetime.utcnow()
 
 
-def _serialize_user(user):
-    display_code = _display_code_for_user(user)
+def _serialize_user(user, display_code=None):
+    resolved_display_code = _display_code_for_user(user) if display_code is None else display_code
     return {
         "id": user.id,
-        "displayCode": display_code,
+        "displayCode": resolved_display_code,
         "fullName": user.full_name,
         "email": user.email,
         "riskProfile": user.risk_profile,
@@ -148,24 +148,6 @@ def _build_display_code_map(users):
         display_code_map[regular_user.id] = index
 
     return display_code_map
-
-
-def _serialize_user_with_display_code(user, display_code):
-    return {
-        "id": user.id,
-        "displayCode": display_code,
-        "fullName": user.full_name,
-        "email": user.email,
-        "riskProfile": user.risk_profile,
-        "membership": user.membership,
-        "joinedAt": user.created_at.strftime("%B %Y") if user.created_at else "Recent",
-        "role": user.role,
-        "isAdmin": user.role == "admin",
-        "emailVerified": bool(getattr(user, "email_verified", False)),
-        "isDisabled": bool(getattr(user, "is_disabled", False)),
-        "disabledAt": user.disabled_at.isoformat() if getattr(user, "disabled_at", None) else None,
-        "disabledReason": getattr(user, "disabled_reason", None),
-    }
 
 
 def _get_admin_user():
@@ -796,7 +778,7 @@ def list_users():
         {
             "users": [
                 {
-                    **_serialize_user_with_display_code(user, display_code_map.get(user.id, 0)),
+                    **_serialize_user(user, display_code_map.get(user.id, 0)),
                     "createdAt": user.created_at.isoformat() if user.created_at else None,
                 }
                 for user in users

@@ -95,61 +95,6 @@ class MarketDataService:
         if is_production:
             raise ValueError(f"{symbol_code} is not available in the production cache yet.")
 
-        if (
-            is_production
-            and compact_response
-            and self.market_api.is_configured()
-            and self.market_api.is_available()
-            and self._has_cached_history(symbol_code)
-        ):
-            try:
-                return self._build_production_compact_response(
-                    symbol=symbol_code,
-                    interval=interval,
-                    lookback_window=lookback_window,
-                    indicators=indicators,
-                )
-            except DukeMarketApiUnavailable:
-                logger.warning(
-                    "Production compact Duke snapshot is unavailable for %s; falling back.",
-                    symbol_code,
-                    exc_info=True,
-                )
-            except Exception:
-                logger.warning(
-                    "Production compact Duke snapshot failed for %s; falling back.",
-                    symbol_code,
-                    exc_info=True,
-                )
-
-        if (
-            is_production
-            and self.market_api.is_configured()
-            and self.market_api.is_available()
-            and self._has_cached_history(symbol_code)
-        ):
-            try:
-                return self._build_live_current_vs_cached_response(
-                    symbol=symbol_code,
-                    interval=interval,
-                    lookback_window=lookback_window,
-                    indicators=indicators,
-                    compact_response=compact_response,
-                    price_limit=self.PRODUCTION_SNAPSHOT_PRICE_LIMIT,
-                )
-            except DukeMarketApiUnavailable:
-                logger.warning(
-                    "Production cached live snapshot provider is unavailable for %s; falling back.",
-                    symbol_code,
-                    exc_info=True,
-                )
-            except Exception:
-                logger.warning(
-                    "Production cached live snapshot failed for %s and the service is falling back.",
-                    symbol_code,
-                    exc_info=True,
-                )
-
         if self.market_api.is_configured() and self.market_api.is_available() and self._has_cached_history(symbol_code):
             try:
                 return self._build_live_current_vs_cached_response(
