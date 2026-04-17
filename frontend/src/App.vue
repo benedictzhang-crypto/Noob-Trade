@@ -1653,21 +1653,49 @@ async function ensureCsrfToken() {
   return csrfToken.value
 }
 
+async function fetchFreshCsrfToken() {
+  csrfToken.value = ''
+  return ensureCsrfToken()
+}
+
 async function secureFetch(url, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
-  const headers = {
-    ...(options.headers || {})
+  const needsCsrf = method !== 'GET' && method !== 'HEAD'
+
+  async function performRequest(forceFreshToken = false) {
+    const headers = {
+      ...(options.headers || {})
+    }
+
+    if (needsCsrf) {
+      headers['X-CSRF-Token'] = forceFreshToken
+        ? await fetchFreshCsrfToken()
+        : await ensureCsrfToken()
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+      credentials: 'same-origin'
+    })
   }
 
-  if (method !== 'GET' && method !== 'HEAD') {
-    headers['X-CSRF-Token'] = await ensureCsrfToken()
+  let response = await performRequest(false)
+
+  if (needsCsrf && response.status === 403) {
+    let payload = null
+    try {
+      payload = await response.clone().json()
+    } catch {
+      payload = null
+    }
+
+    if (payload?.message === 'CSRF validation failed.') {
+      response = await performRequest(true)
+    }
   }
 
-  return fetch(url, {
-    ...options,
-    headers,
-    credentials: 'same-origin'
-  })
+  return response
 }
 
 function applyAuthenticatedState(user, message = '') {
