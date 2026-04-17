@@ -8,6 +8,7 @@ import PredictionSummary from './components/PredictionSummary.vue'
 import SearchBar from './components/SearchBar.vue'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
@@ -62,6 +63,7 @@ const cashBalance = ref(86420)
 const adminUsers = ref([])
 const adminMessage = ref('')
 const isAdminLoading = ref(false)
+const hasAdminUsersCache = ref(false)
 const signInForm = ref({
   email: '',
   password: ''
@@ -738,6 +740,62 @@ onBeforeUnmount(() => {
   }
 })
 
+function readAdminUsersCache() {
+  if (typeof window === 'undefined') {
+    return []
+  }
+
+  try {
+    const rawValue = window.sessionStorage.getItem(ADMIN_USERS_CACHE_KEY)
+    if (!rawValue) {
+      return []
+    }
+
+    const parsed = JSON.parse(rawValue)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeAdminUsersCache(users) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.setItem(ADMIN_USERS_CACHE_KEY, JSON.stringify(Array.isArray(users) ? users : []))
+  } catch {
+    // Ignore storage failures in private browsing or restricted environments.
+  }
+}
+
+function clearAdminUsersCache() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.sessionStorage.removeItem(ADMIN_USERS_CACHE_KEY)
+  } catch {
+    // Ignore storage failures in private browsing or restricted environments.
+  }
+}
+
+function restoreAdminUsersFromCache() {
+  const cachedUsers = readAdminUsersCache()
+  hasAdminUsersCache.value = cachedUsers.length > 0
+
+  if (cachedUsers.length > 0) {
+    adminUsers.value = cachedUsers
+    adminMessage.value = ''
+    isAdminLoading.value = false
+    return true
+  }
+
+  return false
+}
+
 async function triggerInstall() {
   installMessage.value = ''
 
@@ -1158,7 +1216,7 @@ function navigateTo(page) {
     }
 
     if (normalizedPage === 'Admin' && currentUser.value?.isAdmin) {
-      loadAdminUsers()
+      loadAdminUsers({ silent: hasAdminUsersCache.value })
     }
   }
 }
@@ -1682,6 +1740,8 @@ function applyAdminUsers(users) {
   }
 
   adminUsers.value = users
+  hasAdminUsersCache.value = users.length > 0
+  writeAdminUsersCache(users)
   adminMessage.value = ''
   isAdminLoading.value = false
 }
@@ -1708,7 +1768,12 @@ async function restoreAuthenticatedSession() {
     }
 
     applyAuthenticatedState(payload.user, '')
-    applyAdminUsers(payload.adminUsers)
+    if (payload.user?.isAdmin) {
+      restoreAdminUsersFromCache()
+      loadAdminUsers({ silent: hasAdminUsersCache.value }).catch(() => {})
+    } else {
+      applyAdminUsers([])
+    }
     return true
   } catch {
     return false
@@ -1727,7 +1792,7 @@ async function submitSignIn() {
     const response = await secureFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       skipCsrf: true,
-      timeoutMs: 8000,
+      timeoutMs: 20000,
       headers: {
         'Content-Type': 'application/json'
       },
@@ -1754,7 +1819,12 @@ async function submitSignIn() {
       payload.user,
       payload.message || `Welcome back, ${payload.user.fullName}.`
     )
-    applyAdminUsers(payload.adminUsers)
+    if (payload.user?.isAdmin) {
+      restoreAdminUsersFromCache()
+      loadAdminUsers({ silent: hasAdminUsersCache.value }).catch(() => {})
+    } else {
+      applyAdminUsers([])
+    }
   } catch (error) {
     authMessage.value = error.message || 'Could not sign you in right now.'
   }
@@ -1958,18 +2028,22 @@ async function submitPasswordReset() {
   }
 }
 
-async function loadAdminUsers() {
+async function loadAdminUsers(options = {}) {
   if (!currentUser.value?.isAdmin) {
     adminMessage.value = 'Admin access is required.'
     return
   }
 
-  isAdminLoading.value = true
-  adminMessage.value = ''
+  const silent = Boolean(options.silent)
+
+  if (!silent) {
+    isAdminLoading.value = true
+    adminMessage.value = ''
+  }
 
   try {
     const response = await secureFetch(`${API_BASE_URL}/auth/users`, {
-      timeoutMs: 8000
+      timeoutMs: 20000
     })
     const payload = await parseJsonResponse(
       response,
@@ -1980,7 +2054,7 @@ async function loadAdminUsers() {
       throw new Error(payload.message || 'Could not load registered users.')
     }
 
-    adminUsers.value = payload.users || []
+    applyAdminUsers(payload.users || [])
   } catch (error) {
     adminMessage.value = error.message || 'Could not load registered users right now.'
   } finally {
@@ -2153,11 +2227,13 @@ function signOut() {
   activePage.value = 'Home'
   authMessage.value = ''
   adminUsers.value = []
+  hasAdminUsersCache.value = false
   adminMessage.value = ''
   pendingAdminStatusUpdates.value = {}
   pendingAdminPasswordResets.value = {}
   adminPasswordResetDrafts.value = {}
   csrfToken.value = ''
+  clearAdminUsersCache()
   signInForm.value = {
     email: '',
     password: ''
