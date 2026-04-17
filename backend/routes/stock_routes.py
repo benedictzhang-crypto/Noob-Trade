@@ -204,27 +204,7 @@ def get_stock(symbol):
         if analysis_mode == "search":
             market_data_service = _market_data_service()
             try:
-                symbol_code = str(symbol or "").upper().strip()
-
-                if market_data_service._has_cached_history(symbol_code):
-                    response_data = market_data_service._build_cached_db_response(
-                        symbol=symbol_code,
-                        interval=interval,
-                        lookback_window=lookback,
-                        indicators=indicators,
-                        compact_response=compact_response,
-                        apply_match_preview=False,
-                    )
-                else:
-                    response_data = _build_live_search_payload(
-                        market_data_service,
-                        symbol_code,
-                        interval,
-                        lookback,
-                        indicators,
-                    )
-
-                return jsonify(_sanitize_response_payload(response_data))
+                return jsonify(_sanitize_response_payload(_build_live_search_payload(market_data_service, symbol, interval, lookback, indicators)))
             except Exception as error:
                 current_app.logger.exception("Production live search failed for %s", symbol)
                 return jsonify(
