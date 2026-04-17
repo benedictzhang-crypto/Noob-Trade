@@ -1606,7 +1606,7 @@ async function fetchFreshCsrfToken() {
 
 async function secureFetch(url, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
-  const needsCsrf = method !== 'GET' && method !== 'HEAD'
+  const needsCsrf = !options.skipCsrf && method !== 'GET' && method !== 'HEAD'
   const timeoutMs = Number(options.timeoutMs || 0) > 0 ? Number(options.timeoutMs) : 12000
 
   async function performRequest(forceFreshToken = false) {
@@ -1726,6 +1726,7 @@ async function submitSignIn() {
   try {
     const response = await secureFetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
+      skipCsrf: true,
       timeoutMs: 8000,
       headers: {
         'Content-Type': 'application/json'
