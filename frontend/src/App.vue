@@ -11,6 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
+const publicNavPages = ['Home', 'Sign In', 'Register']
 const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
 
 const activePage = ref('Home')
@@ -417,9 +418,21 @@ const socialPostTemplates = [
   'Watching whether {symbol} stays orderly. Good setups usually look obvious before they look exciting.'
 ]
 
-const visiblePages = computed(() => {
+const accessiblePages = computed(() => {
   if (!isAuthenticated.value) {
     return publicPages
+  }
+
+  if (currentUser.value?.isAdmin) {
+    return [...authenticatedPages, 'Admin']
+  }
+
+  return authenticatedPages
+})
+
+const visiblePages = computed(() => {
+  if (!isAuthenticated.value) {
+    return publicNavPages
   }
 
   if (currentUser.value?.isAdmin) {
@@ -1207,7 +1220,7 @@ function toggleIndicator(indicatorName) {
 function navigateTo(page) {
   const normalizedPage = page === 'Analysis' ? 'Trade' : page
 
-  if (visiblePages.value.includes(normalizedPage)) {
+  if (accessiblePages.value.includes(normalizedPage)) {
     activePage.value = normalizedPage
     authMessage.value = ''
 
@@ -2339,7 +2352,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     },
     setPage(page) {
       const normalizedPage = page === 'Analysis' ? 'Trade' : page
-      if (visiblePages.value.includes(normalizedPage)) {
+      if (accessiblePages.value.includes(normalizedPage)) {
         activePage.value = normalizedPage
       }
     },
