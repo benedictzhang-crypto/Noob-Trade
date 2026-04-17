@@ -1721,6 +1721,7 @@ async function fetchFreshCsrfToken() {
 async function secureFetch(url, options = {}) {
   const method = String(options.method || 'GET').toUpperCase()
   const needsCsrf = method !== 'GET' && method !== 'HEAD'
+  const timeoutMs = Number(options.timeoutMs || 0) > 0 ? Number(options.timeoutMs) : 12000
 
   async function performRequest(forceFreshToken = false) {
     const headers = {
@@ -1733,14 +1734,31 @@ async function secureFetch(url, options = {}) {
         : await ensureCsrfToken()
     }
 
-    return fetch(url, {
-      ...options,
-      headers,
-      credentials: 'same-origin'
-    })
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      return await fetch(url, {
+        ...options,
+        headers,
+        credentials: 'same-origin',
+        signal: controller.signal,
+      })
+    } finally {
+      window.clearTimeout(timeoutId)
+    }
   }
 
-  let response = await performRequest(false)
+  let response
+
+  try {
+    response = await performRequest(false)
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('The request took too long. Please try again.')
+    }
+    throw error
+  }
 
   if (needsCsrf && response.status === 403) {
     let payload = null
@@ -1751,7 +1769,14 @@ async function secureFetch(url, options = {}) {
     }
 
     if (payload?.message === 'CSRF validation failed.') {
-      response = await performRequest(true)
+      try {
+        response = await performRequest(true)
+      } catch (error) {
+        if (error?.name === 'AbortError') {
+          throw new Error('The request took too long. Please try again.')
+        }
+        throw error
+      }
     }
   }
 
@@ -2044,8 +2069,13 @@ async function loadAdminUsers() {
   adminMessage.value = ''
 
   try {
-    const response = await secureFetch(`${API_BASE_URL}/auth/users`)
-    const payload = await response.json()
+    const response = await secureFetch(`${API_BASE_URL}/auth/users`, {
+      timeoutMs: 8000
+    })
+    const payload = await parseJsonResponse(
+      response,
+      'Could not load registered users right now.'
+    )
 
     if (!response.ok) {
       throw new Error(payload.message || 'Could not load registered users.')
