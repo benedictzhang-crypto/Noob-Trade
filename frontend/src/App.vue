@@ -592,8 +592,8 @@ const dataSourceMeta = computed(() => {
 
   if (stockResponse.value.dataSource === 'cached') {
     return {
-      label: 'Cached Data',
-      description: 'Postgres market cache',
+      label: 'Live API',
+      description: 'Connected market feed',
       tone: 'live'
     }
   }
