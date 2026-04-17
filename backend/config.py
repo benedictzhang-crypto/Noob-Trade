@@ -87,7 +87,9 @@ class Config:
             return _normalize_postgres_url(configured_url)
 
         if _is_production_environment():
-            raise RuntimeError("DATABASE_URL is required in production. NoobTrade production storage must use Postgres.")
+            backend_dir = Path(__file__).resolve().parent
+            sqlite_path = backend_dir / "noobtrade_local.db"
+            return f"sqlite:///{sqlite_path}"
 
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_local.db"
@@ -104,11 +106,29 @@ class Config:
             return _normalize_postgres_url(configured_primary)
 
         if _is_production_environment():
-            raise RuntimeError("APP_DATABASE_URL or DATABASE_URL is required in production. NoobTrade production auth storage must use Postgres.")
+            backend_dir = Path(__file__).resolve().parent
+            sqlite_path = backend_dir / "noobtrade_user.db"
+            return f"sqlite:///{sqlite_path}"
 
         backend_dir = Path(__file__).resolve().parent
         sqlite_path = backend_dir / "noobtrade_user.db"
         return f"sqlite:///{sqlite_path}"
+
+    @staticmethod
+    def _production_database_config_error():
+        if not _is_production_environment():
+            return None
+
+        primary_url = (os.getenv("DATABASE_URL") or "").strip()
+        app_url = (os.getenv("APP_DATABASE_URL") or "").strip()
+
+        if not primary_url and not app_url:
+            return "DATABASE_URL or APP_DATABASE_URL is missing in production."
+
+        if not primary_url:
+            return "DATABASE_URL is missing in production."
+
+        return None
 
     ENVIRONMENT = _resolve_environment()
     DEBUG = os.getenv("FLASK_DEBUG", "true").lower() == "true" and ENVIRONMENT != "production"
@@ -164,6 +184,7 @@ class Config:
     SQLALCHEMY_BINDS = {
         "app": _default_app_database_uri.__func__(),
     }
+    PRODUCTION_DATABASE_CONFIG_ERROR = _production_database_config_error.__func__()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _default_engine_options()
     SQLITE_DESTRUCTIVE_RECOVERY = os.getenv("SQLITE_DESTRUCTIVE_RECOVERY", "false").lower() == "true"
