@@ -65,6 +65,12 @@ const adminUsers = ref([])
 const adminMessage = ref('')
 const isAdminLoading = ref(false)
 const hasAdminUsersCache = ref(false)
+const adminUserCountLabel = computed(() => {
+  if (isAdminLoading.value && !hasAdminUsersCache.value && adminUsers.value.length === 0) {
+    return 'Loading...'
+  }
+  return `${adminUsers.value.length} total`
+})
 const signInForm = ref({
   email: '',
   password: ''
@@ -3476,7 +3482,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
       <section class="table-surface">
         <div class="table-header">
-          <h2>Registered Users</h2>
+          <h2>Registered Users ({{ adminUserCountLabel }})</h2>
           <button class="topbar-button secondary" @click="loadAdminUsers">Refresh</button>
         </div>
 
