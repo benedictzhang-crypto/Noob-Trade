@@ -287,6 +287,12 @@ def get_pro_signal(symbol):
     lookback = int(payload.get("lookback") or current_app.config["DEFAULT_LOOKBACK"])
     current_price = payload.get("currentPrice")
     raw_indicators = payload.get("indicators") or current_app.config["DEFAULT_INDICATORS"]
+    deep_history = bool(payload.get("deepHistory"))
+    raw_candidate_limit = payload.get("candidateLimit")
+    try:
+        candidate_limit = int(raw_candidate_limit) if raw_candidate_limit is not None else None
+    except (TypeError, ValueError):
+        candidate_limit = None
 
     market_data_service = _market_data_service()
 
@@ -297,6 +303,8 @@ def get_pro_signal(symbol):
             lookback_window=lookback,
             current_price=current_price,
             indicators=raw_indicators if isinstance(raw_indicators, list) else raw_indicators.split(","),
+            deep_history=deep_history,
+            candidate_limit=candidate_limit,
         )
         return jsonify(response_data)
     except Exception as error:

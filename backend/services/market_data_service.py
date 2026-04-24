@@ -45,6 +45,7 @@ class MarketDataService:
     PRODUCTION_MATCH_CANDLE_LIMIT = 120
     PRODUCTION_MATCH_STEP = 3
     PRODUCTION_MATCH_TARGET = 6
+    PRO_SIGNAL_DEEP_CANDIDATE_LIMIT = 2000
 
     def __init__(self, config):
         self.config = config
@@ -228,16 +229,24 @@ class MarketDataService:
         self.MARKET_NEWS_CACHE[cache_key] = collected[:limit]
         return collected[:limit]
 
-    def get_cached_pro_signal(self, symbol, interval="daily", lookback_window=30, current_price=None, indicators=None):
+    def get_cached_pro_signal(
+        self,
+        symbol,
+        interval="daily",
+        lookback_window=30,
+        current_price=None,
+        indicators=None,
+        deep_history=False,
+        candidate_limit=None,
+    ):
         symbol_code = symbol.upper()
         symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
 
         if symbol_record is None:
             raise ValueError(f"No cached symbol data found for {symbol_code}.")
 
-        price_records = DailyPrice.query.filter(
-            DailyPrice.symbol_id == symbol_record.id,
-        ).order_by(DailyPrice.trade_date.asc()).limit(self.PRODUCTION_MATCH_CANDLE_LIMIT).all()
+        price_limit = max(self.PRODUCTION_PRICE_LIMIT, lookback_window + self.LIVE_FORWARD_DAYS + 10)
+        price_records = self._load_cached_daily_prices(symbol_record, limit=price_limit)
 
         if len(price_records) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
             raise ValueError(f"Not enough cached price history for {symbol_code}.")
@@ -265,16 +274,29 @@ class MarketDataService:
 
         selected_indicators = indicators or ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
         current_price_value = self._to_float(current_price) if current_price is not None else self._to_float(daily_candles[-1]["close"])
-        live_match_summary = self._build_live_match_summary(
-            symbol=symbol_code,
-            interval=interval,
-            lookback_window=lookback_window,
-            daily_candles=daily_candles,
-            current_price=current_price_value,
-            last_date=daily_candles[-1]["date"] if daily_candles else None,
-            indicators=selected_indicators,
-            compact_response=True,
-        )
+        if deep_history:
+            live_match_summary = self._build_deep_pro_signal_summary(
+                symbol=symbol_code,
+                interval=interval,
+                lookback_window=lookback_window,
+                daily_candles=daily_candles,
+                current_price=current_price_value,
+                last_date=daily_candles[-1]["date"] if daily_candles else None,
+                indicators=selected_indicators,
+                compact_response=True,
+                candidate_limit=candidate_limit,
+            )
+        else:
+            live_match_summary = self._build_live_match_summary(
+                symbol=symbol_code,
+                interval=interval,
+                lookback_window=lookback_window,
+                daily_candles=daily_candles,
+                current_price=current_price_value,
+                last_date=daily_candles[-1]["date"] if daily_candles else None,
+                indicators=selected_indicators,
+                compact_response=True,
+            )
 
         return {
             "status": "ok",
@@ -878,6 +900,142 @@ class MarketDataService:
                 for match in matched_patterns
             ]
         return response
+
+    def _build_deep_pro_signal_summary(
+        self,
+        symbol,
+        interval,
+        lookback_window,
+        daily_candles,
+        current_price,
+        last_date,
+        indicators,
+        compact_response=False,
+        candidate_limit=None,
+    ):
+        prepared_candles = self.persistence_service._prepare_candles(daily_candles)
+        current_window = self._build_current_window_snapshot(prepared_candles, interval, lookback_window)
+        if current_window is None or current_window.end_date is None:
+            return self._empty_live_match_summary(interval, last_date, current_price)
+
+        max_candidates = max(20, int(candidate_limit or self.PRO_SIGNAL_DEEP_CANDIDATE_LIMIT))
+        candidate_windows = self._load_recent_pro_signal_candidates(current_window, max_candidates)
+        matched_patterns = self._rank_pro_signal_candidates(
+            current_window=current_window,
+            candidate_windows=candidate_windows,
+            indicators=indicators,
+            compact_response=compact_response,
+        )
+        if not matched_patterns:
+            return self._empty_live_match_summary(interval, last_date, current_price)
+
+        probability_summary = self.persistence_service._build_future_probability_summary(
+            matched_patterns,
+            indicators,
+        )
+        average_return = probability_summary["average_return"]
+        average_drawdown = probability_summary["average_drawdown"]
+        response = {
+            "probabilityOfIncrease": probability_summary["probability_percent"],
+            "probabilityOfDecrease": probability_summary["probability_of_decrease"],
+            "avgReturn": average_return,
+            "maxDrawdown": average_drawdown,
+            "matchedPatternsCount": len(matched_patterns),
+            "matchedHistoricalPatterns": [] if compact_response else matched_patterns,
+            "quantConfidence": probability_summary["historical_confidence"],
+            "signalClassification": probability_summary["signal"],
+            "futureFiveDayProbabilities": probability_summary["future_five_day_probabilities"],
+            "recommendedSellPrice": round(current_price * (1 + max(average_return or 0, 0) / 100), 2),
+            "recommendedSellDate": self._estimate_sell_date_from_last_date(interval, last_date),
+            "stopLossPrice": round(current_price * (1 + min(average_drawdown or 0, 0) / 100), 2),
+        }
+        if compact_response:
+            response["highFitHistoricalPaths"] = []
+        else:
+            response["highFitHistoricalPaths"] = [
+                {
+                    "label": match["patternName"],
+                    "fitScore": match["matchScore"],
+                    "status": f"{match['symbol']} ended on {match['date']} | +5D hi {self._format_signed_percent(match.get('futureReturn5d'))} | -5D lo {self._format_signed_percent(match.get('futureDrawdown5d'))}",
+                }
+                for match in matched_patterns
+            ]
+        return response
+
+    def _load_recent_pro_signal_candidates(self, current_window, limit):
+        query = PatternWindow.query.filter(
+            PatternWindow.timeframe == current_window.timeframe,
+            PatternWindow.window_size == current_window.window_size,
+        )
+        if self.top_50_symbols:
+            query = query.join(
+                Symbol,
+                Symbol.id == PatternWindow.symbol_id,
+            ).filter(Symbol.symbol.in_(self.top_50_symbols))
+        if getattr(current_window, "end_date", None) is not None:
+            query = query.filter(PatternWindow.end_date < current_window.end_date)
+
+        return query.order_by(
+            PatternWindow.end_date.desc(),
+            PatternWindow.id.desc(),
+        ).limit(limit).all()
+
+    def _rank_pro_signal_candidates(self, current_window, candidate_windows, indicators, compact_response=False):
+        if not candidate_windows:
+            return []
+
+        ranked_matches = []
+        for candidate in candidate_windows:
+            score = self.persistence_service.quant_scoring_service.score_match(
+                current_window,
+                candidate,
+                indicators,
+                include_breakdown=False,
+            )
+            future_stats_5d = self.persistence_service._cached_forward_extremes(candidate, trading_days=5)
+            score["future_stats_5d"] = future_stats_5d
+            score["future_return_5d"] = future_stats_5d.get("maxUpPct")
+            score["future_drawdown_5d"] = future_stats_5d.get("maxDownPct")
+            score["is_future_bullish"] = (
+                score["future_return_5d"] is not None and score["future_return_5d"] >= 0.5
+            )
+            ranked_matches.append((candidate, score))
+
+        ranked_matches.sort(key=lambda item: item[1]["selected_score_percent"], reverse=True)
+        top_matches = self.persistence_service._select_match_bundles(ranked_matches)
+        matched_windows = [matched_window for matched_window, _ in top_matches]
+        matched_symbol_ids = [matched_window.symbol_id for matched_window in matched_windows]
+        symbol_lookup = {
+            symbol.id: symbol.symbol
+            for symbol in Symbol.query.filter(Symbol.id.in_(matched_symbol_ids)).all()
+        } if matched_symbol_ids else {}
+        candle_lookup = {}
+        if not compact_response:
+            candle_lookup = self.persistence_service._build_match_candles_map(matched_windows)
+
+        response_matches = []
+        for matched_window, score in top_matches:
+            future_stats = score.get("future_stats_5d") or self._empty_forward_stat()
+            response_matches.append(
+                {
+                    "patternName": self.persistence_service._build_pattern_label(matched_window),
+                    "matchScore": round(score["selected_score_percent"], 2),
+                    "date": matched_window.end_date.isoformat(),
+                    "symbol": symbol_lookup.get(matched_window.symbol_id, "N/A"),
+                    "timeframe": matched_window.timeframe,
+                    "windowSize": matched_window.window_size,
+                    "returnPct": self.persistence_service._to_response_number(matched_window.return_pct),
+                    "maxDrawdown": self.persistence_service._to_response_number(matched_window.max_drawdown),
+                    "futureReturn5d": self.persistence_service._to_response_number(score["future_return_5d"]),
+                    "futureDrawdown5d": self.persistence_service._to_response_number(score["future_drawdown_5d"]),
+                    "isFutureBullish": score["is_future_bullish"],
+                    "futureStats5d": future_stats,
+                    "quantSelectedPercent": score["selected_score_percent"],
+                    "historicalCandles": candle_lookup.get(matched_window.id, []),
+                }
+            )
+
+        return response_matches
 
     def _empty_live_match_summary(self, interval, last_date, current_price):
         return {
