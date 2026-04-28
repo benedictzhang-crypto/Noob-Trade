@@ -488,7 +488,10 @@ def create_app():
             or "unknown"
         )
         rate_limit_key = f"{client_ip}:{request.endpoint or request.path}:{request.method}"
-        limit = 20 if request.method in {"POST", "PUT", "PATCH", "DELETE"} else 120
+        if request.endpoint == "stock.get_pro_signal":
+            limit = 240
+        else:
+            limit = 20 if request.method in {"POST", "PUT", "PATCH", "DELETE"} else 120
         window_seconds = 60
 
         if not rate_limit_service.allow(rate_limit_key, limit=limit, window_seconds=window_seconds):
