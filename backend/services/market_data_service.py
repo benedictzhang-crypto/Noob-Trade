@@ -235,6 +235,7 @@ class MarketDataService:
         interval="daily",
         lookback_window=30,
         current_price=None,
+        daily_candles_override=None,
         indicators=None,
         deep_history=False,
         candidate_limit=None,
@@ -246,23 +247,29 @@ class MarketDataService:
             raise ValueError(f"No cached symbol data found for {symbol_code}.")
 
         price_limit = max(self.PRODUCTION_PRICE_LIMIT, lookback_window + self.LIVE_FORWARD_DAYS + 10)
-        price_records = self._load_cached_daily_prices(symbol_record, limit=price_limit)
+        minimum_candle_count = lookback_window + self.LIVE_FORWARD_DAYS + 1
+        daily_candles = self._normalize_external_daily_candles(daily_candles_override)
 
-        if len(price_records) < lookback_window + self.LIVE_FORWARD_DAYS + 1:
-            raise ValueError(f"Not enough cached price history for {symbol_code}.")
+        if len(daily_candles) < minimum_candle_count:
+            price_records = self._load_cached_daily_prices(symbol_record, limit=price_limit)
 
-        daily_candles = [
-            {
-                "date": record.trade_date.isoformat(),
-                "open": self._to_float(record.open),
-                "high": self._to_float(record.high),
-                "low": self._to_float(record.low),
-                "close": self._to_float(record.close),
-                "volume": self._to_int(record.volume or 0),
-            }
-            for record in price_records
-            if record.trade_date is not None
-        ]
+            if len(price_records) < minimum_candle_count:
+                raise ValueError(f"Not enough cached price history for {symbol_code}.")
+
+            daily_candles = [
+                {
+                    "date": record.trade_date.isoformat(),
+                    "open": self._to_float(record.open),
+                    "high": self._to_float(record.high),
+                    "low": self._to_float(record.low),
+                    "close": self._to_float(record.close),
+                    "volume": self._to_int(record.volume or 0),
+                }
+                for record in price_records
+                if record.trade_date is not None
+            ]
+        else:
+            daily_candles = daily_candles[-price_limit:]
 
         if current_price is not None and daily_candles:
             live_price = self._to_float(current_price)
@@ -306,6 +313,42 @@ class MarketDataService:
             "currentPrice": current_price_value,
             "patternAnalysis": live_match_summary,
         }
+
+    def _normalize_external_daily_candles(self, daily_candles):
+        if not isinstance(daily_candles, list):
+            return []
+
+        normalized = []
+        seen_dates = set()
+
+        for candle in daily_candles:
+            if not isinstance(candle, dict):
+                continue
+
+            trade_date = str(candle.get("date") or "").strip()
+            if not trade_date:
+                continue
+
+            if "T" in trade_date:
+                trade_date = trade_date.split("T", 1)[0]
+
+            if trade_date in seen_dates:
+                continue
+
+            normalized.append(
+                {
+                    "date": trade_date,
+                    "open": self._to_float(candle.get("open")),
+                    "high": self._to_float(candle.get("high")),
+                    "low": self._to_float(candle.get("low")),
+                    "close": self._to_float(candle.get("close")),
+                    "volume": self._to_int(candle.get("volume", 0)),
+                }
+            )
+            seen_dates.add(trade_date)
+
+        normalized.sort(key=lambda item: item.get("date") or "")
+        return normalized
 
     def _build_cached_db_response(
         self,

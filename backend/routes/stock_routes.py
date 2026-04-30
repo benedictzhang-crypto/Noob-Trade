@@ -286,6 +286,7 @@ def get_pro_signal(symbol):
     interval = str(payload.get("interval") or "daily")
     lookback = int(payload.get("lookback") or current_app.config["DEFAULT_LOOKBACK"])
     current_price = payload.get("currentPrice")
+    daily_candles = payload.get("dailyCandles")
     raw_indicators = payload.get("indicators") or current_app.config["DEFAULT_INDICATORS"]
     deep_history = bool(payload.get("deepHistory"))
     raw_candidate_limit = payload.get("candidateLimit")
@@ -302,6 +303,7 @@ def get_pro_signal(symbol):
             interval=interval,
             lookback_window=lookback,
             current_price=current_price,
+            daily_candles_override=daily_candles,
             indicators=raw_indicators if isinstance(raw_indicators, list) else raw_indicators.split(","),
             deep_history=deep_history,
             candidate_limit=candidate_limit,
