@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import hmac
 import html
+import re
 import secrets
 
 from flask import Blueprint, current_app, jsonify, request, session
@@ -10,6 +11,7 @@ from services.email_service import EmailService
 from services.security_service import hash_secret, needs_rehash, verify_secret
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9]+$")
 
 
 def _utcnow():
@@ -409,6 +411,16 @@ def _validate_password_rules(password):
     return None
 
 
+def _validate_username_rules(username):
+    if not username:
+        return "Please enter a username."
+    if len(username) > 120:
+        return "Please keep your username within 120 characters."
+    if not USERNAME_PATTERN.fullmatch(username):
+        return "Username must use only English letters and numbers."
+    return None
+
+
 def _client_ip():
     forwarded_for = str(request.headers.get("X-Forwarded-For", "")).strip()
     if forwarded_for:
@@ -499,7 +511,11 @@ def register():
     risk_profile = str(payload.get("riskProfile", "Balanced")).strip() or "Balanced"
 
     if not full_name or not email or not password:
-        return jsonify({"message": "Please complete name, email, and password."}), 400
+        return jsonify({"message": "Please complete username, email, and password."}), 400
+
+    username_error = _validate_username_rules(full_name)
+    if username_error:
+        return jsonify({"message": username_error}), 400
 
     if "@" not in email or "." not in email.split("@")[-1]:
         return jsonify({"message": "Please enter a valid email address."}), 400

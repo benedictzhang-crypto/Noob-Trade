@@ -996,7 +996,7 @@ function createInitialTransactions() {
 
 function createDemoUser(override = {}) {
   return {
-    fullName: 'example noob trade',
+    fullName: 'NoobTrade123',
     email: 'demo@noobtrade.app',
     riskProfile: 'Balanced',
     membership: 'Regular User',
@@ -1947,7 +1947,13 @@ async function submitEmailVerification() {
 
 async function submitRegistration() {
   if (!registrationForm.value.fullName || !registrationForm.value.email || !registrationForm.value.password) {
-    authMessage.value = 'Please complete name, email, and password to create the account.'
+    authMessage.value = 'Please complete username, email, and password to create the account.'
+    return
+  }
+
+  const normalizedUsername = registrationForm.value.fullName.trim()
+  if (!/^[A-Za-z0-9]+$/.test(normalizedUsername)) {
+    authMessage.value = 'Username must use only English letters and numbers.'
     return
   }
 
@@ -1960,7 +1966,7 @@ async function submitRegistration() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        fullName: registrationForm.value.fullName,
+        fullName: normalizedUsername,
         email: registrationForm.value.email,
         password: registrationForm.value.password
       })
@@ -2519,8 +2525,15 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
             <div class="auth-form-grid two-columns">
               <label class="auth-field">
-                <span>Full Name</span>
-                <input v-model="registrationForm.fullName" type="text" placeholder="example noob trade" />
+                <span>Username</span>
+                <input
+                  v-model="registrationForm.fullName"
+                  type="text"
+                  placeholder="NoobTrade123"
+                  inputmode="latin"
+                  autocomplete="username"
+                />
+                <small class="auth-field-hint">Use only English letters and numbers.</small>
               </label>
               <label class="auth-field">
                 <span>Email</span>
