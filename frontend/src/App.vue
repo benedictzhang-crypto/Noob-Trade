@@ -12,7 +12,8 @@ const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
-const authenticatedPages = ['Dashboard', 'Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
+const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
+const tradeWorkspacePages = ['Stock Trade', 'Crypto Trade']
 
 const activePage = ref('Home')
 const isAuthenticated = ref(false)
@@ -65,6 +66,8 @@ const adminUsers = ref([])
 const adminMessage = ref('')
 const isAdminLoading = ref(false)
 const hasAdminUsersCache = ref(false)
+const isTradeWorkspacePage = computed(() => tradeWorkspacePages.includes(activePage.value))
+const activeTradeWorkspaceLabel = computed(() => (activePage.value === 'Crypto Trade' ? 'Crypto Trade' : 'Stock Trade'))
 const adminUserCountLabel = computed(() => {
   if (isAdminLoading.value && !hasAdminUsersCache.value && adminUsers.value.length === 0) {
     return 'Loading...'
@@ -1224,7 +1227,7 @@ function toggleIndicator(indicatorName) {
 }
 
 function navigateTo(page) {
-  const normalizedPage = page === 'Analysis' ? 'Trade' : page
+  const normalizedPage = page === 'Analysis' ? 'Stock Trade' : page
 
   if (accessiblePages.value.includes(normalizedPage)) {
     activePage.value = normalizedPage
@@ -1376,7 +1379,7 @@ function openAnalysis(symbol = activeSymbol.value) {
   }
 
   symbolInput.value = symbol
-  activePage.value = 'Trade'
+  activePage.value = 'Stock Trade'
 
   if (symbol !== activeSymbol.value) {
     runSearch()
@@ -1463,7 +1466,7 @@ async function runSearch(source = 'search') {
     stockResponse.value = data
     activeSymbol.value = data.stock.symbol
     symbolInput.value = data.stock.symbol
-    activePage.value = 'Trade'
+    activePage.value = 'Stock Trade'
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -2363,7 +2366,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       }
     },
     setPage(page) {
-      const normalizedPage = page === 'Analysis' ? 'Trade' : page
+      const normalizedPage = page === 'Analysis' ? 'Stock Trade' : page
       if (accessiblePages.value.includes(normalizedPage)) {
         activePage.value = normalizedPage
       }
@@ -2825,17 +2828,17 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </section>
     </main>
 
-    <main v-else-if="activePage === 'Trade'" class="dashboard-layout">
+    <main v-else-if="isTradeWorkspacePage" class="dashboard-layout">
       <section class="column panel left-panel">
         <div class="panel-topbar brand-bar">
           <div class="brand-mark">
-            <span class="brand-title trade-title">Trade</span>
+            <span class="brand-title trade-title">{{ activeTradeWorkspaceLabel }}</span>
           </div>
           <button class="menu-button" type="button">≡</button>
         </div>
 
         <div class="search-block">
-          <h1>Noob Trade Desk</h1>
+          <h1>{{ activeTradeWorkspaceLabel }} Desk</h1>
           <p class="page-lead">
             Search a symbol, evaluate pattern context, compare historical matches, and decide whether to buy or sell.
           </p>
@@ -2873,7 +2876,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="column panel center-panel">
         <div class="panel-topbar">
           <div class="panel-heading-group">
-            <h2>{{ activeSymbol }} Trade Setup</h2>
+            <h2>{{ activeSymbol }} {{ activeTradeWorkspaceLabel }} Setup</h2>
             <span class="source-pill" :class="`source-pill--${dataSourceMeta.tone}`">
               {{ dataSourceMeta.label }}
             </span>
@@ -3130,7 +3133,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <article class="table-surface portfolio-table-card">
           <div class="table-header">
             <h2>Open Positions</h2>
-            <button class="chip" @click="navigateTo('Trade')">Open Trade</button>
+            <button class="chip" @click="navigateTo('Stock Trade')">Open Stock Trade</button>
           </div>
           <div class="data-table">
             <div class="data-row data-head portfolio-holdings-head">
