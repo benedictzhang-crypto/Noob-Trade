@@ -194,6 +194,14 @@ const exploreRankings = {
   ]
 }
 
+const cryptoExploreRows = [
+  { symbol: 'BTC', name: 'Bitcoin', category: 'Store of Value', price: '$103,420.50', notional: '$2.04T', change: '+2.84%', tone: 'positive' },
+  { symbol: 'ETH', name: 'Ethereum', category: 'Smart Contracts', price: '$4,920.40', notional: '$592.1B', change: '+2.18%', tone: 'positive' },
+  { symbol: 'OKB', name: 'OKB', category: 'Exchange Token', price: '$68.42', notional: '$4.1B', change: '+3.07%', tone: 'positive' },
+  { symbol: 'SOL', name: 'Solana', category: 'Layer 1', price: '$224.15', notional: '$106.8B', change: '+4.31%', tone: 'positive' },
+  { symbol: 'BNB', name: 'BNB', category: 'Exchange Token', price: '$734.60', notional: '$102.9B', change: '+1.44%', tone: 'positive' }
+]
+
 const reportHighlights = [
   { title: 'Weekly Trade Review', value: '12 orders', detail: '4 wins · 3 losses · 5 open' },
   { title: 'Pattern Accuracy', value: '67%', detail: 'Last 30 closed simulations' },
@@ -539,6 +547,20 @@ const filteredExploreRows = computed(() => {
   }
 
   return allExploreRows.value.filter((row) => {
+    const symbol = String(row.symbol || '').toUpperCase()
+    const name = String(row.name || '').toUpperCase()
+    const category = String(row.category || '').toUpperCase()
+    return symbol.includes(query) || name.includes(query) || category.includes(query)
+  })
+})
+const filteredCryptoExploreRows = computed(() => {
+  const query = exploreSearchQuery.value.trim().toUpperCase()
+
+  if (!query) {
+    return cryptoExploreRows
+  }
+
+  return cryptoExploreRows.filter((row) => {
     const symbol = String(row.symbol || '').toUpperCase()
     const name = String(row.name || '').toUpperCase()
     const category = String(row.category || '').toUpperCase()
@@ -1581,6 +1603,19 @@ function openAnalysis(symbol = activeSymbol.value) {
   if (symbol !== activeSymbol.value) {
     runSearch()
   }
+}
+
+function openCryptoAnalysis(symbol = cryptoResponse.value.stock.symbol) {
+  if (!isAuthenticated.value) {
+    activePage.value = 'Sign In'
+    authMessage.value = 'Please sign in first to access the crypto trade workspace.'
+    return
+  }
+
+  const cleanedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
+  cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
+  symbolInput.value = cleanedSymbol
+  activePage.value = 'Crypto Trade'
 }
 
 function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
@@ -3193,10 +3228,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </section>
 
       <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' }">
-        <article class="table-surface">
+        <article class="table-surface explore-market-panel">
           <div class="table-header">
-            <h2>{{ exploreSearchQuery ? 'Search Results' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</h2>
-            <span class="section-chip">Ranked</span>
+            <h2>Stock</h2>
+            <span class="section-chip">{{ exploreSearchQuery ? 'Search Results' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</span>
           </div>
 
           <div class="data-table">
@@ -3238,26 +3273,37 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
         </article>
 
-        <article v-if="exploreViewMode !== 'full'" class="table-surface explore-sidecard">
+        <article v-if="exploreViewMode !== 'full'" class="table-surface explore-market-panel crypto-explore-panel">
           <div class="table-header">
-            <h2>Board Context</h2>
-            <span class="section-chip">Snapshot</span>
+            <h2>Crypto</h2>
+            <span class="section-chip">Ranked</span>
           </div>
-          <div class="dashboard-card-grid">
-            <div class="dashboard-mini-card">
-              <span>Current focus</span>
-              <strong>{{ activeSymbol }}</strong>
-              <small>Search any ticker, then star it into your dashboard.</small>
+
+          <div class="data-table">
+            <div class="data-row data-head explore-head crypto-explore-head">
+              <span>Symbol</span>
+              <span>Name</span>
+              <span>Category</span>
+              <span>Price</span>
+              <span>Market Value</span>
+              <span>1D</span>
             </div>
-            <div class="dashboard-mini-card">
-              <span>Saved stars</span>
-              <strong>{{ starredSymbols.length }}</strong>
-              <small>Your dashboard watchlist updates from this board.</small>
-            </div>
-            <div class="dashboard-mini-card">
-              <span>Best next step</span>
-              <strong>Open full board</strong>
-              <small>Use the full-board button when you want a long scrollable list instead of a short ranked panel.</small>
+            <div
+              v-for="row in filteredCryptoExploreRows"
+              :key="`crypto-${row.symbol}`"
+              class="data-row explore-row crypto-explore-row"
+            >
+              <button
+                class="watchlist-link explore-symbol-link"
+                @click="openCryptoAnalysis(row.symbol)"
+              >
+                {{ row.symbol }}
+              </button>
+              <span>{{ row.name }}</span>
+              <span>{{ row.category }}</span>
+              <span>{{ row.price }}</span>
+              <span>{{ row.notional }}</span>
+              <strong :class="row.tone">{{ row.change }}</strong>
             </div>
           </div>
         </article>

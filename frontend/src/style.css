@@ -2647,7 +2647,7 @@ select {
 
 .explore-layout {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -2665,6 +2665,11 @@ select {
 .explore-head,
 .explore-row {
   grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 0.55fr;
+}
+
+.crypto-explore-head,
+.crypto-explore-row {
+  grid-template-columns: 0.8fr 1.2fr 1fr 0.9fr 0.9fr 0.7fr;
 }
 
 .explore-symbol-link {
