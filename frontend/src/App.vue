@@ -60,6 +60,7 @@ const indicators = ref([
 ])
 
 const stockResponse = ref(createDefaultResponse())
+const cryptoResponse = ref(createCryptoWorkspaceResponse())
 const currentUser = ref(null)
 const cashBalance = ref(86420)
 const adminUsers = ref([])
@@ -68,6 +69,17 @@ const isAdminLoading = ref(false)
 const hasAdminUsersCache = ref(false)
 const isTradeWorkspacePage = computed(() => tradeWorkspacePages.includes(activePage.value))
 const activeTradeWorkspaceLabel = computed(() => (activePage.value === 'Crypto Trade' ? 'Crypto Trade' : 'Stock Trade'))
+const activeTradeResponse = computed(() => (activePage.value === 'Crypto Trade' ? cryptoResponse.value : stockResponse.value))
+const displayedTradeSymbol = computed(() => activeTradeResponse.value?.stock?.symbol || activeSymbol.value)
+const tradeSearchPlaceholder = computed(() => (
+  activePage.value === 'Crypto Trade' ? 'Enter Crypto Ticker (e.g. BTC)' : 'Enter Ticker (e.g. AAPL)'
+))
+const tradeSearchLoadingLabel = computed(() => (
+  activePage.value === 'Crypto Trade' ? 'Loading crypto data for' : 'Loading stock data for'
+))
+const tradePopularSymbols = computed(() => (
+  activePage.value === 'Crypto Trade' ? ['BTC', 'ETH', 'OKB', 'SOL'] : ['AAPL', 'TSLA', 'NVDA', 'SPY']
+))
 const adminUserCountLabel = computed(() => {
   if (isAdminLoading.value && !hasAdminUsersCache.value && adminUsers.value.length === 0) {
     return 'Loading...'
@@ -452,8 +464,8 @@ const visiblePages = computed(() => {
 })
 const selectedIndicators = computed(() => indicators.value.filter((indicator) => indicator.active))
 const appliedIndicatorSet = computed(() => new Set(
-  stockResponse.value?.request?.indicators
-  || stockResponse.value?.patternAnalysis?.selectedIndicators
+  activeTradeResponse.value?.request?.indicators
+  || activeTradeResponse.value?.patternAnalysis?.selectedIndicators
   || []
 ))
 const appliedIndicators = computed(() => indicators.value
@@ -591,7 +603,15 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
-  if (stockResponse.value.dataSource === 'live') {
+  if (activeTradeResponse.value.dataSource === 'crypto-mock') {
+    return {
+      label: 'Crypto Preview',
+      description: 'Crypto framework placeholder',
+      tone: 'mock'
+    }
+  }
+
+  if (activeTradeResponse.value.dataSource === 'live') {
     return {
       label: 'Live API',
       description: 'Connected market feed',
@@ -599,7 +619,7 @@ const dataSourceMeta = computed(() => {
     }
   }
 
-  if (stockResponse.value.dataSource === 'cached') {
+  if (activeTradeResponse.value.dataSource === 'cached') {
     return {
       label: 'Live API',
       description: 'Connected market feed',
@@ -980,6 +1000,171 @@ function createDefaultResponse() {
   }
 }
 
+function createCryptoWorkspaceResponse(symbol = 'BTC') {
+  const normalizedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
+  const cryptoLookup = {
+    BTC: {
+      companyName: 'Bitcoin',
+      sector: 'Crypto',
+      industry: 'Store of Value',
+      currentPrice: 103420.5,
+      previousClose: 101980.2,
+      open: 102215.8,
+      volume: 928450,
+      week52High: 109880.0,
+      week52Low: 58740.0
+    },
+    ETH: {
+      companyName: 'Ethereum',
+      sector: 'Crypto',
+      industry: 'Smart Contracts',
+      currentPrice: 4920.4,
+      previousClose: 4848.8,
+      open: 4866.1,
+      volume: 1456200,
+      week52High: 5362.0,
+      week52Low: 2214.5
+    },
+    OKB: {
+      companyName: 'OKB',
+      sector: 'Crypto',
+      industry: 'Exchange Token',
+      currentPrice: 68.42,
+      previousClose: 66.91,
+      open: 67.15,
+      volume: 382100,
+      week52High: 74.8,
+      week52Low: 38.2
+    },
+    SOL: {
+      companyName: 'Solana',
+      sector: 'Crypto',
+      industry: 'Layer 1',
+      currentPrice: 224.15,
+      previousClose: 217.03,
+      open: 218.7,
+      volume: 1183600,
+      week52High: 259.4,
+      week52Low: 97.85
+    }
+  }
+  const selected = cryptoLookup[normalizedSymbol] || {
+    companyName: `${normalizedSymbol} Crypto`,
+    sector: 'Crypto',
+    industry: 'Digital Asset',
+    currentPrice: 100.0,
+    previousClose: 98.4,
+    open: 99.1,
+    volume: 250000,
+    week52High: 132.0,
+    week52Low: 42.0
+  }
+
+  return {
+    dataSource: 'crypto-mock',
+    request: {
+      symbol: normalizedSymbol,
+      interval: 'daily',
+      indicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol']
+    },
+    stock: {
+      symbol: normalizedSymbol,
+      ...selected
+    },
+    patternAnalysis: {
+      selectedIndicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol'],
+      probabilityOfIncrease: 88,
+      probabilityOfDecrease: 46,
+      avgReturn: 8.4,
+      maxDrawdown: -6.2,
+      matchedPatternsCount: 18,
+      quantConfidence: 0.84,
+      signalClassification: 'Crypto Momentum Bias',
+      futureFiveDayProbabilities: {
+        up: [
+          { threshold: 1, probability: 88 },
+          { threshold: 5, probability: 71 },
+          { threshold: 10, probability: 38 }
+        ],
+        down: [
+          { threshold: 1, probability: 46 },
+          { threshold: 5, probability: 24 },
+          { threshold: 10, probability: 9 }
+        ]
+      },
+      recommendedSellPrice: Number((selected.currentPrice * 1.061).toFixed(2)),
+      recommendedSellDate: 'Within 5 trading days',
+      stopLossPrice: Number((selected.currentPrice * 0.958).toFixed(2)),
+      matchedHistoricalPatterns: [
+        {
+          patternName: 'CRYPTO 30-bar setup',
+          matchScore: 90,
+          date: '2026-04-18',
+          symbol: normalizedSymbol,
+          timeframe: 'daily',
+          windowSize: 30,
+          returnPct: 9.12,
+          maxDrawdown: -5.4
+        },
+        {
+          patternName: 'CRYPTO 30-bar setup',
+          matchScore: 84,
+          date: '2026-03-27',
+          symbol: 'ETH',
+          timeframe: 'daily',
+          windowSize: 30,
+          returnPct: 7.31,
+          maxDrawdown: -6.1
+        },
+        {
+          patternName: 'CRYPTO 30-bar setup',
+          matchScore: 79,
+          date: '2026-02-14',
+          symbol: 'OKB',
+          timeframe: 'daily',
+          windowSize: 30,
+          returnPct: 5.88,
+          maxDrawdown: -4.7
+        }
+      ],
+      highFitHistoricalPaths: [
+        { label: `${normalizedSymbol} continuation path`, fitScore: 90, status: `${normalizedSymbol} ended on 2026-04-18` },
+        { label: 'ETH breakout path', fitScore: 84, status: 'ETH ended on 2026-03-27' },
+        { label: 'OKB exchange path', fitScore: 79, status: 'OKB ended on 2026-02-14' }
+      ]
+    },
+    chartData: {
+      series: {
+        daily: [
+          { date: '2026-04-28', open: selected.currentPrice * 0.95, high: selected.currentPrice * 0.98, low: selected.currentPrice * 0.93, close: selected.currentPrice * 0.97, volume: selected.volume * 0.92 },
+          { date: '2026-04-29', open: selected.currentPrice * 0.97, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.95, close: selected.currentPrice * 0.98, volume: selected.volume * 0.95 },
+          { date: '2026-04-30', open: selected.currentPrice * 0.98, high: selected.currentPrice * 1.0, low: selected.currentPrice * 0.96, close: selected.currentPrice * 0.99, volume: selected.volume * 0.97 },
+          { date: '2026-05-01', open: selected.currentPrice * 0.99, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.98, close: selected.currentPrice, volume: selected.volume }
+        ],
+        '5day': [
+          { date: '2026-04-25', open: selected.currentPrice * 0.92, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.9, close: selected.currentPrice * 0.97, volume: selected.volume * 4.2 },
+          { date: '2026-05-01', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 4.5 }
+        ],
+        weekly: [
+          { date: '2026-W17', open: selected.currentPrice * 0.9, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.88, close: selected.currentPrice * 0.97, volume: selected.volume * 7.1 },
+          { date: '2026-W18', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 7.4 }
+        ],
+        '2week': [
+          { date: '2026-H1', open: selected.currentPrice * 0.88, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.84, close: selected.currentPrice * 0.96, volume: selected.volume * 12.8 },
+          { date: '2026-H2', open: selected.currentPrice * 0.96, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.93, close: selected.currentPrice, volume: selected.volume * 13.1 }
+        ],
+        monthly: [
+          { date: '2026-01', open: selected.currentPrice * 0.74, high: selected.currentPrice * 0.81, low: selected.currentPrice * 0.7, close: selected.currentPrice * 0.78, volume: selected.volume * 22 },
+          { date: '2026-02', open: selected.currentPrice * 0.78, high: selected.currentPrice * 0.89, low: selected.currentPrice * 0.75, close: selected.currentPrice * 0.86, volume: selected.volume * 24 },
+          { date: '2026-03', open: selected.currentPrice * 0.86, high: selected.currentPrice * 0.95, low: selected.currentPrice * 0.82, close: selected.currentPrice * 0.91, volume: selected.volume * 26 },
+          { date: '2026-04', open: selected.currentPrice * 0.91, high: selected.currentPrice, low: selected.currentPrice * 0.88, close: selected.currentPrice * 0.97, volume: selected.volume * 28 },
+          { date: '2026-05', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 19 }
+        ]
+      }
+    }
+  }
+}
+
 function createInitialHoldings() {
   return [
     { accountName: 'Main Account', addedMonth: '2025-10', symbol: 'AAPL', name: 'Apple Inc.', shares: 120, costBasis: 176.2, thesis: 'Rebound candidate', risk: 'Low' },
@@ -1232,6 +1417,13 @@ function navigateTo(page) {
   if (accessiblePages.value.includes(normalizedPage)) {
     activePage.value = normalizedPage
     authMessage.value = ''
+    errorMessage.value = ''
+
+    if (normalizedPage === 'Crypto Trade') {
+      symbolInput.value = cryptoResponse.value.stock.symbol
+    } else if (normalizedPage === 'Stock Trade') {
+      symbolInput.value = activeSymbol.value
+    }
 
     if (normalizedPage === 'Reset Password') {
       resetPasswordRequestForm.value.email = resetPasswordForm.value.email || resetPasswordRequestForm.value.email
@@ -1245,6 +1437,11 @@ function navigateTo(page) {
 
 function selectPopularSymbol(symbol) {
   symbolInput.value = symbol
+  if (activePage.value === 'Crypto Trade') {
+    cryptoResponse.value = createCryptoWorkspaceResponse(symbol)
+    errorMessage.value = ''
+    return
+  }
   runSearch()
 }
 
@@ -1435,12 +1632,16 @@ async function runSearch(source = 'search') {
   const cleanedSymbol = symbolInput.value.trim().toUpperCase()
 
   if (!cleanedSymbol) {
-    errorMessage.value = 'Please enter a stock symbol before searching.'
+    errorMessage.value = activePage.value === 'Crypto Trade'
+      ? 'Please enter a crypto ticker before searching.'
+      : 'Please enter a stock symbol before searching.'
     return
   }
 
-  if (!/^[A-Z]{1,10}$/.test(cleanedSymbol)) {
-    errorMessage.value = 'Please enter a valid symbol using letters only, such as AAPL.'
+  if (!/^[A-Z0-9]{1,10}$/.test(cleanedSymbol)) {
+    errorMessage.value = activePage.value === 'Crypto Trade'
+      ? 'Please enter a valid crypto ticker using letters or numbers, such as BTC or OKB.'
+      : 'Please enter a valid symbol using letters only, such as AAPL.'
     return
   }
 
@@ -1457,6 +1658,22 @@ async function runSearch(source = 'search') {
     isSearching.value = true
   }
   errorMessage.value = ''
+
+  if (activePage.value === 'Crypto Trade') {
+    cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
+    symbolInput.value = cleanedSymbol
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
+    if (isGenerateAction) {
+      isGenerating.value = false
+    } else {
+      isSearching.value = false
+    }
+    return
+  }
 
   try {
     const data = await fetchStockAnalysis(cleanedSymbol, {
@@ -2852,6 +3069,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             v-model="symbolInput"
             :error-message="errorMessage"
             :is-loading="isSearching"
+            :placeholder="tradeSearchPlaceholder"
+            :loading-label="tradeSearchLoadingLabel"
+            :popular-symbols="tradePopularSymbols"
             @search="runSearch('search')"
             @select-popular="selectPopularSymbol"
           />
@@ -2876,7 +3096,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="column panel center-panel">
         <div class="panel-topbar">
           <div class="panel-heading-group">
-            <h2>{{ activeSymbol }} {{ activeTradeWorkspaceLabel }} Setup</h2>
+            <h2>{{ displayedTradeSymbol }} {{ activeTradeWorkspaceLabel }} Setup</h2>
             <span class="source-pill" :class="`source-pill--${dataSourceMeta.tone}`">
               {{ dataSourceMeta.label }}
             </span>
@@ -2885,13 +3105,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <ChartPanel
           :active-indicators="appliedIndicators"
-          :active-symbol="activeSymbol"
-          :chart-data="stockResponse.chartData"
+          :active-symbol="displayedTradeSymbol"
+          :chart-data="activeTradeResponse.chartData"
           :chart-intervals="chartIntervals"
-          :company-name="stockResponse.stock.companyName"
-          :industry="stockResponse.stock.industry"
+          :company-name="activeTradeResponse.stock.companyName"
+          :industry="activeTradeResponse.stock.industry"
           :selected-interval="selectedChartInterval"
-          :sector="stockResponse.stock.sector"
+          :sector="activeTradeResponse.stock.sector"
           @update:selected-interval="selectedChartInterval = $event"
         />
 
@@ -2906,7 +3126,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="column panel right-panel">
         <div class="panel-topbar">
           <div class="panel-heading-group">
-            <h2>{{ activeSymbol }} Forecast</h2>
+            <h2>{{ displayedTradeSymbol }} Forecast</h2>
             <span class="source-pill" :class="`source-pill--${dataSourceMeta.tone}`">
               {{ dataSourceMeta.label }}
             </span>
@@ -2915,14 +3135,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <PredictionSummary
           :format-percent="formatPercent"
-          :request-data="stockResponse.request"
-          :stock-data="stockResponse.stock"
-          :analysis-data="stockResponse.patternAnalysis"
+          :request-data="activeTradeResponse.request"
+          :stock-data="activeTradeResponse.stock"
+          :analysis-data="activeTradeResponse.patternAnalysis"
         />
 
         <MatchedPatterns
-          :matched-patterns="stockResponse.patternAnalysis.matchedHistoricalPatterns"
-          :high-fit-paths="stockResponse.patternAnalysis.highFitHistoricalPaths"
+          :matched-patterns="activeTradeResponse.patternAnalysis.matchedHistoricalPatterns"
+          :high-fit-paths="activeTradeResponse.patternAnalysis.highFitHistoricalPaths"
           @open-replay="openHistoricalReplay"
         />
 

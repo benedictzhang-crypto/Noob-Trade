@@ -1,8 +1,20 @@
 <script setup>
-defineProps({
+const props = defineProps({
   modelValue: {
     type: String,
     required: true
+  },
+  placeholder: {
+    type: String,
+    default: 'Enter Ticker (e.g. AAPL)'
+  },
+  loadingLabel: {
+    type: String,
+    default: 'Loading stock data for'
+  },
+  popularSymbols: {
+    type: Array,
+    default: () => ['AAPL', 'TSLA', 'NVDA', 'SPY']
   },
   isLoading: {
     type: Boolean,
@@ -29,31 +41,35 @@ function selectPopular(symbol) {
   <div>
     <div class="search-form">
       <input
-        :value="modelValue"
+        :value="props.modelValue"
         class="symbol-input"
         type="text"
-        placeholder="Enter Ticker (e.g. AAPL)"
+        :placeholder="props.placeholder"
         @input="updateValue"
         @keyup.enter="$emit('search')"
       />
-      <button class="search-button" :disabled="isLoading" @click="$emit('search')">
-        {{ isLoading ? 'Loading...' : 'Search' }}
+      <button class="search-button" :disabled="props.isLoading" @click="$emit('search')">
+        {{ props.isLoading ? 'Loading...' : 'Search' }}
       </button>
     </div>
 
-    <p v-if="errorMessage" class="status-message error-message">
-      {{ errorMessage }}
+    <p v-if="props.errorMessage" class="status-message error-message">
+      {{ props.errorMessage }}
     </p>
-    <p v-else-if="isLoading" class="status-message loading-message">
-      Loading stock data for {{ modelValue || 'selected symbol' }}...
+    <p v-else-if="props.isLoading" class="status-message loading-message">
+      {{ props.loadingLabel }} {{ props.modelValue || 'selected symbol' }}...
     </p>
 
     <p class="popular-row">
       Popular:
-      <button class="popular-link" @click="selectPopular('AAPL')">AAPL</button>
-      <button class="popular-link" @click="selectPopular('TSLA')">TSLA</button>
-      <button class="popular-link" @click="selectPopular('NVDA')">NVDA</button>
-      <button class="popular-link" @click="selectPopular('SPY')">SPY</button>
+      <button
+        v-for="symbol in props.popularSymbols"
+        :key="symbol"
+        class="popular-link"
+        @click="selectPopular(symbol)"
+      >
+        {{ symbol }}
+      </button>
     </p>
   </div>
 </template>
