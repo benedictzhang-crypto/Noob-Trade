@@ -16,12 +16,12 @@ const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfol
 const tradeWorkspacePages = ['Stock Trade', 'Crypto Trade']
 const voiceCommandExamples = [
   'Open Stock Trade',
+  'Scroll down',
   'Enable MACD and Bollinger',
   'Generate AAPL',
   'Scan watchlist 60 percent',
   'Search BTC',
-  'Go to Portfolio',
-  'Confirm / Cancel'
+  'Go to Portfolio'
 ]
 const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
 const voiceSymbolAliases = {
@@ -71,8 +71,8 @@ const voiceIntervalAliases = [
 ]
 const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue']
 const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind']
-const voiceEnablePhrases = ['enable', 'select', 'turn on', 'check', 'add', 'use']
-const voiceDisablePhrases = ['disable', 'unselect', 'turn off', 'uncheck', 'remove', 'drop']
+const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'switch on', 'check', 'tick', 'add', 'use', 'include']
+const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude']
 
 const activePage = ref('Home')
 const isAuthenticated = ref(false)
@@ -1926,7 +1926,9 @@ function extractVoiceSymbol(command) {
 
   const commandWords = new Set([
     'generate', 'search', 'analyze', 'analyse', 'run', 'for', 'stock', 'crypto', 'ticker', 'symbol',
-    'quote', 'price', 'open', 'go', 'to', 'page', 'trade', 'look', 'up', 'show', 'the', 'a'
+    'quote', 'price', 'open', 'go', 'to', 'page', 'trade', 'look', 'up', 'down', 'top', 'bottom',
+    'scroll', 'scrolling', 'move', 'screen', 'little', 'bit', 'more', 'less', 'back', 'forward',
+    'show', 'the', 'a'
   ])
   const tokens = command.split(' ').filter(Boolean)
 
@@ -1949,6 +1951,69 @@ function extractVoiceProbability(command, fallback = watchlistScanThreshold.valu
 
   const numericToken = command.match(/\b(\d{1,3}(?:\.\d+)?)\b/)
   return numericToken ? normalizeProbabilityThreshold(numericToken[1]) : normalizeProbabilityThreshold(fallback)
+}
+
+function getScrollDistance(command) {
+  if (includesVoicePhrase(command, ['a little', 'little bit', 'small scroll'])) {
+    return 0.36
+  }
+
+  if (includesVoicePhrase(command, ['a lot', 'big scroll', 'far down', 'far up'])) {
+    return 0.95
+  }
+
+  return 0.68
+}
+
+function runVoiceScreenControl(command) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const distance = Math.max(220, window.innerHeight * getScrollDistance(command))
+  const smoothScrollBy = (top) => window.scrollBy({ top, left: 0, behavior: 'smooth' })
+
+  if (includesVoicePhrase(command, ['scroll down', 'scrolling down', 'move down', 'page down', 'go down', 'down the page'])) {
+    smoothScrollBy(distance)
+    return 'Scrolling down.'
+  }
+
+  if (includesVoicePhrase(command, ['scroll up', 'scrolling up', 'move up', 'page up', 'go up', 'up the page'])) {
+    smoothScrollBy(-distance)
+    return 'Scrolling up.'
+  }
+
+  if (includesVoicePhrase(command, ['scroll to top', 'go to top', 'back to top', 'top of page', 'top of the page'])) {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    return 'Going to the top.'
+  }
+
+  if (includesVoicePhrase(command, ['scroll to bottom', 'go to bottom', 'bottom of page', 'bottom of the page'])) {
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
+    return 'Going to the bottom.'
+  }
+
+  if (includesVoicePhrase(command, ['go back', 'back page', 'previous page'])) {
+    window.history.back()
+    return 'Going back.'
+  }
+
+  if (includesVoicePhrase(command, ['minimize ai', 'shrink ai', 'hide ai', 'close panel', 'close ai panel'])) {
+    minimizeVoiceAssistantPanel()
+    return 'AI panel minimized. I can keep listening if AI Mode is still on.'
+  }
+
+  if (includesVoicePhrase(command, ['open ai panel', 'show ai panel', 'expand ai', 'open assistant'])) {
+    openVoiceAssistantPanel()
+    return 'AI panel opened.'
+  }
+
+  if (includesVoicePhrase(command, ['turn off ai', 'disable ai mode', 'stop ai mode'])) {
+    disableVoiceAssistant()
+    return 'AI Mode is off.'
+  }
+
+  return ''
 }
 
 function routeVoiceSymbol(symbol) {
@@ -2056,6 +2121,10 @@ function buildConversationalReply(command) {
     return getAssistantContextSummary()
   }
 
+  if (includesVoicePhrase(command, ['scroll', 'scrolling', 'move down', 'move up', 'page down', 'page up'])) {
+    return 'I can control the screen. Try saying scroll down, scroll up, go to top, or go to bottom.'
+  }
+
   if (includesVoicePhrase(command, ['what symbol', 'current symbol', 'which ticker', 'what ticker'])) {
     const symbol = activeTradeResponse.value?.stock?.symbol || activeSymbol.value
     return `The current ticker is ${symbol}. Say Generate ${symbol} if you want me to run the full analysis.`
@@ -2072,8 +2141,12 @@ function buildConversationalReply(command) {
     return 'Say Generate followed by a ticker, like Generate AAPL. I will switch to the right workspace and run it.'
   }
 
+  if (includesVoicePhrase(command, ['indicator', 'indicators', 'select', 'unselect', 'choose', 'remove'])) {
+    return 'I can select or remove indicators. Try select MACD and Bollinger, unselect EMA, choose RSI, or remove volume.'
+  }
+
   if (includesVoicePhrase(command, ['what can you do', 'help', 'commands'])) {
-    return 'I can chat, open pages, select indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.'
+    return 'I can chat, scroll the screen, open pages, select or unselect indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.'
   }
 
   if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice'])) {
@@ -2144,9 +2217,25 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
+  const screenControlReply = runVoiceScreenControl(command)
+  if (screenControlReply) {
+    setVoiceStatus(screenControlReply, { speak: true, transcript: rawTranscript })
+    return
+  }
+
   if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
     setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['reset indicators', 'default indicators', 'restore indicators'])) {
+    const defaultSelected = new Set(['MA', 'EMA', 'MACD', 'BOLL', 'VOL'])
+    indicators.value = indicators.value.map((indicator) => ({
+      ...indicator,
+      active: defaultSelected.has(String(indicator.name).toUpperCase())
+    }))
+    setVoiceStatus('Indicators reset to the default Noob Trade selection.', { speak: true, transcript: rawTranscript })
     return
   }
 
@@ -2186,7 +2275,7 @@ async function handleVoiceCommand(rawTranscript) {
       return
     }
 
-    if (includesVoicePhrase(command, voiceEnablePhrases)) {
+    if (includesVoicePhrase(command, voiceEnablePhrases) || includesVoicePhrase(command, ['indicator', 'indicators'])) {
       setIndicatorActive(mentionedIndicators, true)
       setVoiceStatus(`${mentionedIndicators.join(', ')} turned on.`, { speak: true, transcript: rawTranscript })
       return
