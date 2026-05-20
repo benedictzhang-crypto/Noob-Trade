@@ -1750,6 +1750,20 @@ function toggleVoiceAssistant() {
   enableVoiceAssistant()
 }
 
+function openVoiceAssistantPanel() {
+  voiceAssistantOpen.value = true
+  initializeVoiceAssistant()
+  refreshPreferredVoice()
+
+  if (!voiceAssistantEnabled.value) {
+    voiceStatus.value = 'AI Mode is off. Turn it on when you want hands-free help.'
+  }
+}
+
+function minimizeVoiceAssistantPanel() {
+  voiceAssistantOpen.value = false
+}
+
 function enableVoiceAssistant() {
   if (!isAuthenticated.value) {
     setVoiceStatus('Please sign in before using AI Mode.', { speak: true })
@@ -1774,7 +1788,6 @@ function enableVoiceAssistant() {
 
 function disableVoiceAssistant() {
   voiceAssistantEnabled.value = false
-  voiceAssistantOpen.value = false
   voicePendingAction.value = null
   clearVoiceRestartTimer()
   stopVoiceListening()
@@ -4736,14 +4749,15 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
     <aside v-if="isAuthenticated" class="voice-assistant" :class="{ open: voiceAssistantOpen, enabled: voiceAssistantEnabled }">
       <button
+        v-if="!voiceAssistantOpen"
         class="voice-fab"
         type="button"
         :aria-expanded="voiceAssistantOpen"
         aria-controls="voice-assistant-panel"
-        @click="toggleVoiceAssistant"
+        @click="openVoiceAssistantPanel"
       >
         <span class="voice-fab-orb" :class="{ listening: voiceListening, enabled: voiceAssistantEnabled }"></span>
-        <span>{{ voiceAssistantEnabled ? 'AI On' : 'AI' }}</span>
+        <span>AI</span>
       </button>
 
       <section
@@ -4757,7 +4771,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span class="section-chip">AI Voice Mode</span>
             <h2>Noob AI Assistant</h2>
           </div>
-          <span class="voice-state" :class="{ active: voiceListening }">{{ voiceActionLabel }}</span>
+          <div class="voice-header-actions">
+            <span class="voice-state" :class="{ active: voiceListening }">{{ voiceActionLabel }}</span>
+            <button class="voice-minimize-button" type="button" @click="minimizeVoiceAssistantPanel">Shrink</button>
+          </div>
         </div>
 
         <p class="voice-disclaimer">
