@@ -450,6 +450,7 @@ def create_app():
     """Create and configure the Flask application."""
     project_root = Path(__file__).resolve().parent.parent
     frontend_dist = project_root / "frontend" / "dist"
+    ampli_lab_dist = project_root / "backend" / "ampli_lab_site"
     static_folder = str(frontend_dist) if frontend_dist.exists() else None
 
     app = Flask(__name__, static_folder=static_folder, static_url_path="")
@@ -474,9 +475,20 @@ def create_app():
     app.config["_DB_INIT_READY"] = False
     app.config["_DB_INIT_ERROR"] = None
 
+    def _is_ampli_lab_host():
+        host = request.host.split(":", 1)[0].lower()
+        return host in {"amplialpha.net", "www.amplialpha.net"}
+
     @app.before_request
     def apply_basic_security():
-        if request.endpoint != "stock.health_check" and str(app.config.get("ENVIRONMENT", "")).lower() == "production":
+        is_public_ready_endpoint = request.endpoint in {
+            "stock.health_check",
+            "serve_ampli_lab",
+        }
+        if request.endpoint == "serve_frontend" and _is_ampli_lab_host():
+            is_public_ready_endpoint = True
+
+        if not is_public_ready_endpoint and str(app.config.get("ENVIRONMENT", "")).lower() == "production":
             _start_background_database_init(app)
             if not app.config.get("_DB_INIT_READY", False):
                 error_message = app.config.get("_DB_INIT_ERROR") or "Database is warming up. Please try again in a few seconds."
@@ -528,10 +540,31 @@ def create_app():
                     return app
             raise
 
+    if ampli_lab_dist.exists():
+        @app.route("/amplialpha/", defaults={"path": ""})
+        @app.route("/amplialpha/<path:path>")
+        @app.route("/ampli-lab/", defaults={"path": ""})
+        @app.route("/ampli-lab/<path:path>")
+        def serve_ampli_lab(path):
+            requested_path = ampli_lab_dist / path
+
+            if path and requested_path.exists() and requested_path.is_file():
+                return send_from_directory(ampli_lab_dist, path)
+
+            return send_from_directory(ampli_lab_dist, "index.html")
+
     if frontend_dist.exists():
         @app.route("/", defaults={"path": ""})
         @app.route("/<path:path>")
         def serve_frontend(path):
+            if _is_ampli_lab_host() and ampli_lab_dist.exists():
+                requested_path = ampli_lab_dist / path
+
+                if path and requested_path.exists() and requested_path.is_file():
+                    return send_from_directory(ampli_lab_dist, path)
+
+                return send_from_directory(ampli_lab_dist, "index.html")
+
             requested_path = frontend_dist / path
 
             if path and requested_path.exists() and requested_path.is_file():
