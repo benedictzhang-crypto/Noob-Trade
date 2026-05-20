@@ -102,6 +102,7 @@ const csrfToken = ref('')
 const analysisCache = ref({})
 const portfolioSparklineSeries = ref({})
 const voiceAssistantOpen = ref(false)
+const voiceAssistantEnabled = ref(false)
 const voiceListening = ref(false)
 const voiceSupported = ref(false)
 const voiceStatus = ref('Voice assistant ready.')
@@ -110,10 +111,13 @@ const voicePendingAction = ref(null)
 const voiceRecognition = ref(null)
 const voiceCommandLog = ref([])
 const voicePreferredVoiceName = ref('System voice')
+const voiceIsSpeaking = ref(false)
+const voiceInputDraft = ref('')
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
 let voiceVoicesChangedHandler = null
+let voiceRestartTimer = null
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -732,8 +736,17 @@ const voiceActionLabel = computed(() => {
     return 'Searching'
   }
 
-  return voiceListening.value ? 'Listening' : 'Voice ready'
+  if (voiceIsSpeaking.value) {
+    return 'Speaking'
+  }
+
+  if (voiceListening.value) {
+    return 'Listening'
+  }
+
+  return voiceAssistantEnabled.value ? 'AI mode on' : 'AI mode off'
 })
+const voiceChatTimeline = computed(() => [...voiceCommandLog.value].reverse())
 
 const holdingsWithMetrics = computed(() => {
   const totalMarketValue = holdings.value.reduce((sum, holding) => sum + (holding.shares * getTrackedPrice(holding.symbol)), 0)
@@ -890,6 +903,7 @@ onBeforeUnmount(() => {
   }
 
   stopVoiceListening()
+  clearVoiceRestartTimer()
 
   if (voiceVoicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.removeEventListener?.('voiceschanged', voiceVoicesChangedHandler)
@@ -1550,31 +1564,39 @@ function initializeVoiceAssistant() {
 
   const recognition = new SpeechRecognitionConstructor()
   recognition.lang = 'en-US'
-  recognition.continuous = false
+  recognition.continuous = true
   recognition.interimResults = false
   recognition.maxAlternatives = 1
 
   recognition.onstart = () => {
     voiceListening.value = true
-    voiceStatus.value = 'Listening for an English command...'
+    voiceStatus.value = 'AI Mode is listening. Speak naturally.'
   }
 
   recognition.onend = () => {
     voiceListening.value = false
+    scheduleVoiceRestart()
   }
 
   recognition.onerror = (event) => {
     voiceListening.value = false
     const errorName = event?.error || 'voice error'
     if (errorName === 'not-allowed') {
+      voiceAssistantEnabled.value = false
       setVoiceStatus('Microphone permission is blocked. Please allow microphone access for Noob Trade.', { speak: false })
       return
     }
-    setVoiceStatus(`Voice input stopped: ${errorName}.`, { speak: false })
+
+    if (errorName !== 'no-speech' && errorName !== 'aborted') {
+      setVoiceStatus(`Voice input paused: ${errorName}. I will keep trying while AI Mode is on.`, { speak: false })
+    }
+
+    scheduleVoiceRestart(900)
   }
 
   recognition.onresult = (event) => {
     const transcript = Array.from(event.results || [])
+      .slice(event.resultIndex || 0)
       .map((result) => result?.[0]?.transcript || '')
       .join(' ')
       .trim()
@@ -1593,6 +1615,36 @@ function initializeVoiceAssistant() {
 function refreshPreferredVoice() {
   const voice = getPreferredVoice()
   voicePreferredVoiceName.value = voice?.name || 'System voice'
+}
+
+function clearVoiceRestartTimer() {
+  if (voiceRestartTimer) {
+    window.clearTimeout(voiceRestartTimer)
+    voiceRestartTimer = null
+  }
+}
+
+function scheduleVoiceRestart(delayMs = 550) {
+  if (
+    typeof window === 'undefined'
+    || !voiceAssistantEnabled.value
+    || !voiceRecognition.value
+    || voiceListening.value
+    || voiceIsSpeaking.value
+  ) {
+    return
+  }
+
+  clearVoiceRestartTimer()
+  voiceRestartTimer = window.setTimeout(() => {
+    voiceRestartTimer = null
+
+    if (!voiceAssistantEnabled.value || voiceListening.value || voiceIsSpeaking.value) {
+      return
+    }
+
+    startVoiceListening({ silent: true })
+  }, delayMs)
 }
 
 function getPreferredVoice() {
@@ -1633,6 +1685,14 @@ function speakVoice(text) {
     return
   }
 
+  if (voiceRecognition.value && voiceListening.value) {
+    try {
+      voiceRecognition.value.stop()
+    } catch {
+      // Recognition may already be stopped while the assistant is answering.
+    }
+  }
+
   const utterance = new SpeechSynthesisUtterance(text)
   const preferredVoice = getPreferredVoice()
 
@@ -1647,6 +1707,17 @@ function speakVoice(text) {
   utterance.rate = 0.94
   utterance.pitch = 1.08
   utterance.volume = 0.88
+  utterance.onstart = () => {
+    voiceIsSpeaking.value = true
+  }
+  utterance.onend = () => {
+    voiceIsSpeaking.value = false
+    scheduleVoiceRestart(420)
+  }
+  utterance.onerror = () => {
+    voiceIsSpeaking.value = false
+    scheduleVoiceRestart(420)
+  }
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(utterance)
 }
@@ -1671,18 +1742,48 @@ function setVoiceStatus(message, { speak = false, transcript = '' } = {}) {
 }
 
 function toggleVoiceAssistant() {
-  voiceAssistantOpen.value = !voiceAssistantOpen.value
-
-  if (voiceAssistantOpen.value) {
-    initializeVoiceAssistant()
-    refreshPreferredVoice()
-    setVoiceStatus('Voice assistant ready. Try: Generate AAPL, enable MACD, or open Portfolio.', { speak: false })
-  } else {
-    stopVoiceListening()
+  if (voiceAssistantEnabled.value) {
+    disableVoiceAssistant()
+    return
   }
+
+  enableVoiceAssistant()
 }
 
-function startVoiceListening() {
+function enableVoiceAssistant() {
+  if (!isAuthenticated.value) {
+    setVoiceStatus('Please sign in before using AI Mode.', { speak: true })
+    return
+  }
+
+  voiceAssistantOpen.value = true
+  voiceAssistantEnabled.value = true
+  initializeVoiceAssistant()
+  refreshPreferredVoice()
+
+  if (!voiceSupported.value || !voiceRecognition.value) {
+    voiceAssistantEnabled.value = false
+    setVoiceStatus('Voice chat needs browser microphone support. Please try Chrome or Edge over HTTPS.', { speak: true })
+    return
+  }
+
+  const greeting = 'AI Mode is on. You can talk naturally. Try: Generate AAPL, explain RSI, or open Portfolio.'
+  setVoiceStatus(greeting, { speak: true })
+  scheduleVoiceRestart(900)
+}
+
+function disableVoiceAssistant() {
+  voiceAssistantEnabled.value = false
+  voiceAssistantOpen.value = false
+  voicePendingAction.value = null
+  clearVoiceRestartTimer()
+  stopVoiceListening()
+  window.speechSynthesis?.cancel()
+  voiceIsSpeaking.value = false
+  voiceStatus.value = 'AI Mode is off. Manual controls stay available.'
+}
+
+function startVoiceListening({ silent = false } = {}) {
   if (!isAuthenticated.value) {
     setVoiceStatus('Please sign in before using voice control.', { speak: true })
     return
@@ -1699,7 +1800,9 @@ function startVoiceListening() {
     window.speechSynthesis?.cancel()
     voiceRecognition.value.start()
   } catch {
-    setVoiceStatus('I am already listening. Say a command now.', { speak: false })
+    if (!silent) {
+      setVoiceStatus('I am already listening. Say a command now.', { speak: false })
+    }
   }
 }
 
@@ -1829,7 +1932,7 @@ function routeVoiceSymbol(symbol) {
   symbolInput.value = normalizedSymbol
 }
 
-async function runVoiceAnalysis(source, symbol = '') {
+async function runVoiceAnalysis(source, symbol = '', transcript = '') {
   const normalizedSymbol = resolveVoiceSymbol(symbol) || String(symbolInput.value || activeSymbol.value).trim().toUpperCase()
 
   if (normalizedSymbol) {
@@ -1839,8 +1942,17 @@ async function runVoiceAnalysis(source, symbol = '') {
   }
 
   const actionLabel = source === 'generate' ? 'Generating' : 'Searching'
-  setVoiceStatus(`${actionLabel} ${symbolInput.value.trim().toUpperCase() || activeSymbol.value}.`, { speak: true })
+  const workingSymbol = symbolInput.value.trim().toUpperCase() || activeSymbol.value
+  setVoiceStatus(`${actionLabel} ${workingSymbol}.`, { speak: true, transcript })
   await runSearch(source)
+
+  if (errorMessage.value) {
+    setVoiceStatus(errorMessage.value, { speak: true, transcript })
+    return
+  }
+
+  const finishedSymbol = activeTradeResponse.value?.stock?.symbol || workingSymbol
+  setVoiceStatus(`${finishedSymbol} is ready. I loaded the latest analysis workspace for you.`, { speak: true, transcript })
 }
 
 function queueVoiceAction(action) {
@@ -1869,6 +1981,90 @@ function cancelVoiceAction() {
   setVoiceStatus('Cancelled.', { speak: true })
 }
 
+function getIndicatorExplanation(command) {
+  const explanations = {
+    MA: 'MA is a moving average. It smooths price so you can see trend direction more clearly.',
+    EMA: 'EMA is an exponential moving average. It reacts faster than a simple moving average.',
+    MACD: 'MACD compares fast and slow moving averages. It helps spot momentum shifts.',
+    BOLL: 'Bollinger Bands show whether price is stretched compared with recent volatility.',
+    RSI: 'RSI measures overbought or oversold pressure on a zero to one hundred scale.',
+    Vol: 'Volume shows trading activity. It helps confirm whether a move has real participation.',
+    KDJ: 'KDJ is a momentum oscillator. It is useful for short-term turning point context.',
+    OI: 'Open interest tracks active derivative contracts. It can show whether participation is expanding.',
+    OBV: 'OBV is on balance volume. It estimates whether volume is flowing with buyers or sellers.'
+  }
+  const indicatorName = findVoiceIndicators(command)[0]
+  return indicatorName ? explanations[indicatorName] : ''
+}
+
+function getAssistantContextSummary() {
+  const selected = getSelectedIndicators()
+  const symbol = activeTradeResponse.value?.stock?.symbol || activeSymbol.value
+  return `You are on ${activePage.value}. Current symbol is ${symbol}. Selected indicators are ${selected.length ? selected.join(', ') : 'none'}.`
+}
+
+function buildConversationalReply(command) {
+  const indicatorExplanation = getIndicatorExplanation(command)
+
+  if (indicatorExplanation && includesVoicePhrase(command, ['what is', 'explain', 'tell me about', 'how does'])) {
+    return indicatorExplanation
+  }
+
+  if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon'])) {
+    return 'Hi, I am here. You can talk normally, and I will either answer or operate the page for you.'
+  }
+
+  if (includesVoicePhrase(command, ['thank you', 'thanks', 'nice', 'great'])) {
+    return 'Anytime. I am staying in AI Mode, so you can keep talking or use the page manually.'
+  }
+
+  if (includesVoicePhrase(command, ['where am i', 'what page', 'current page', 'where are we'])) {
+    return getAssistantContextSummary()
+  }
+
+  if (includesVoicePhrase(command, ['what symbol', 'current symbol', 'which ticker', 'what ticker'])) {
+    const symbol = activeTradeResponse.value?.stock?.symbol || activeSymbol.value
+    return `The current ticker is ${symbol}. Say Generate ${symbol} if you want me to run the full analysis.`
+  }
+
+  if (includesVoicePhrase(command, ['which indicators', 'selected indicators', 'what indicators', 'indicators are on'])) {
+    const selected = getSelectedIndicators()
+    return selected.length
+      ? `Selected indicators are ${selected.join(', ')}. You can say enable RSI, disable EMA, or only MACD and Bollinger.`
+      : 'No indicators are selected. You can say enable all indicators, or enable MACD and Bollinger.'
+  }
+
+  if (includesVoicePhrase(command, ['how to generate', 'how do i generate', 'how can i generate'])) {
+    return 'Say Generate followed by a ticker, like Generate AAPL. I will switch to the right workspace and run it.'
+  }
+
+  if (includesVoicePhrase(command, ['what can you do', 'help', 'commands'])) {
+    return 'I can chat, open pages, select indicators, switch intervals, search tickers, and run Generate. I cannot place trades or give investment advice.'
+  }
+
+  if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice'])) {
+    return 'I cannot give investment advice. I can help you open the analysis, explain indicators, and show the model output so you can review it.'
+  }
+
+  const maybeSymbol = extractVoiceSymbol(command)
+  if (maybeSymbol) {
+    return `I heard ${maybeSymbol}. If you want action, say Search ${maybeSymbol} or Generate ${maybeSymbol}.`
+  }
+
+  return 'I am listening, but I am not sure what action you want. You can ask a question, or say something like Generate AAPL, open Crypto Trade, or enable MACD.'
+}
+
+async function submitVoiceTextCommand() {
+  const draft = voiceInputDraft.value.trim()
+
+  if (!draft) {
+    return
+  }
+
+  voiceInputDraft.value = ''
+  await handleVoiceCommand(draft)
+}
+
 async function handleVoiceCommand(rawTranscript) {
   const command = normalizeVoiceText(rawTranscript)
   voiceTranscript.value = rawTranscript
@@ -1891,7 +2087,7 @@ async function handleVoiceCommand(rawTranscript) {
   }
 
   if (includesVoicePhrase(command, ['help', 'what can you do', 'commands'])) {
-    setVoiceStatus('Try: open Stock Trade, select MACD, clear indicators, generate AAPL, search BTC, or log out.', {
+    setVoiceStatus(buildConversationalReply(command), {
       speak: true,
       transcript: rawTranscript
     })
@@ -1955,12 +2151,18 @@ async function handleVoiceCommand(rawTranscript) {
   }
 
   if (includesVoicePhrase(command, ['generate', 'run analysis', 'analyze', 'analyse'])) {
-    await runVoiceAnalysis('generate', extractVoiceSymbol(command))
+    await runVoiceAnalysis('generate', extractVoiceSymbol(command), rawTranscript)
     return
   }
 
   if (includesVoicePhrase(command, ['search', 'look up', 'quote', 'price'])) {
-    await runVoiceAnalysis('search', extractVoiceSymbol(command))
+    await runVoiceAnalysis('search', extractVoiceSymbol(command), rawTranscript)
+    return
+  }
+
+  const naturalSymbol = extractVoiceSymbol(command)
+  if (naturalSymbol && includesVoicePhrase(command, ['show', 'check', 'open', 'load', 'what about'])) {
+    await runVoiceAnalysis('search', naturalSymbol, rawTranscript)
     return
   }
 
@@ -1971,7 +2173,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  setVoiceStatus('I did not match that command yet. Try Generate AAPL, enable RSI, or open Markets.', {
+  setVoiceStatus(buildConversationalReply(command), {
     speak: true,
     transcript: rawTranscript
   })
@@ -2390,7 +2592,9 @@ watch(isAuthenticated, (authenticated) => {
   }
 
   stopVoiceListening()
+  clearVoiceRestartTimer()
   voiceAssistantOpen.value = false
+  voiceAssistantEnabled.value = false
   voicePendingAction.value = null
 })
 
@@ -4530,7 +4734,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </div>
     </div>
 
-    <aside v-if="isAuthenticated" class="voice-assistant" :class="{ open: voiceAssistantOpen }">
+    <aside v-if="isAuthenticated" class="voice-assistant" :class="{ open: voiceAssistantOpen, enabled: voiceAssistantEnabled }">
       <button
         class="voice-fab"
         type="button"
@@ -4538,8 +4742,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         aria-controls="voice-assistant-panel"
         @click="toggleVoiceAssistant"
       >
-        <span class="voice-fab-orb" :class="{ listening: voiceListening }"></span>
-        <span>AI</span>
+        <span class="voice-fab-orb" :class="{ listening: voiceListening, enabled: voiceAssistantEnabled }"></span>
+        <span>{{ voiceAssistantEnabled ? 'AI On' : 'AI' }}</span>
       </button>
 
       <section
@@ -4557,25 +4761,38 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
 
         <p class="voice-disclaimer">
-          English voice control for navigation, indicators, Search, and Generate. No voice trading orders or investment advice.
+          AI Mode listens continuously while on. You can still use every manual control. No voice trading orders or investment advice.
         </p>
 
+        <button
+          class="voice-mode-toggle"
+          type="button"
+          :class="{ enabled: voiceAssistantEnabled }"
+          @click="toggleVoiceAssistant"
+        >
+          <span class="voice-switch-track">
+            <span class="voice-switch-thumb"></span>
+          </span>
+          <span>
+            <strong>{{ voiceAssistantEnabled ? 'AI Mode On' : 'AI Mode Off' }}</strong>
+            <small>{{ voiceAssistantEnabled ? 'Listening and chatting automatically' : 'Manual mode only' }}</small>
+          </span>
+        </button>
+
         <div class="voice-command-box" aria-live="polite">
-          <small>Last heard</small>
-          <strong>{{ voiceTranscript || 'Tap Listen, then say a command.' }}</strong>
-          <p>{{ voiceStatus }}</p>
+          <small>Assistant status</small>
+          <strong>{{ voiceStatus }}</strong>
+          <p>{{ voiceTranscript ? `Heard: ${voiceTranscript}` : 'Say a question or command in English.' }}</p>
         </div>
 
-        <div class="voice-actions">
-          <button
-            class="topbar-button"
-            type="button"
-            :disabled="voiceListening || isSearching || isGenerating"
-            @click="startVoiceListening"
-          >
-            {{ voiceListening ? 'Listening...' : 'Listen' }}
-          </button>
-          <button class="topbar-button secondary" type="button" @click="stopVoiceListening">Stop</button>
+        <div class="voice-text-input">
+          <input
+            v-model="voiceInputDraft"
+            type="text"
+            placeholder="Type a question or command..."
+            @keyup.enter="submitVoiceTextCommand"
+          />
+          <button class="topbar-button secondary" type="button" @click="submitVoiceTextCommand">Send</button>
         </div>
 
         <div v-if="voicePendingAction" class="voice-confirm-card">
@@ -4596,11 +4813,20 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <span>{{ voiceSupported ? 'Browser voice enabled' : 'Use Chrome or Edge for mic control' }}</span>
         </div>
 
-        <div v-if="voiceCommandLog.length" class="voice-log">
-          <div v-for="item in voiceCommandLog" :key="`${item.time}-${item.transcript}`" class="voice-log-item">
-            <span>{{ item.time }}</span>
-            <strong>{{ item.transcript }}</strong>
-            <small>{{ item.response }}</small>
+        <div class="voice-log">
+          <div v-if="!voiceChatTimeline.length" class="voice-log-empty">
+            <strong>Noob AI</strong>
+            <small>Turn AI Mode on and talk naturally. I can answer questions or operate the page.</small>
+          </div>
+          <div v-for="item in voiceChatTimeline" :key="`${item.time}-${item.transcript}-${item.response}`" class="voice-chat-turn">
+            <div class="voice-bubble user">
+              <span>You · {{ item.time }}</span>
+              <strong>{{ item.transcript }}</strong>
+            </div>
+            <div class="voice-bubble assistant">
+              <span>Noob AI</span>
+              <strong>{{ item.response }}</strong>
+            </div>
           </div>
         </div>
       </section>
