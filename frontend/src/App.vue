@@ -18,6 +18,7 @@ const voiceCommandExamples = [
   'Open Stock Trade',
   'Enable MACD and Bollinger',
   'Generate AAPL',
+  'Scan watchlist 60 percent',
   'Search BTC',
   'Go to Portfolio',
   'Confirm / Cancel'
@@ -101,6 +102,11 @@ const replayInterval = ref('daily')
 const csrfToken = ref('')
 const analysisCache = ref({})
 const portfolioSparklineSeries = ref({})
+const watchlistScanThreshold = ref(60)
+const isWatchlistScanning = ref(false)
+const watchlistScanResults = ref([])
+const watchlistScanMessage = ref('')
+const watchlistScanScannedAt = ref('')
 const voiceAssistantOpen = ref(false)
 const voiceAssistantEnabled = ref(false)
 const voiceListening = ref(false)
@@ -679,6 +685,10 @@ const dashboardWatchlistRows = computed(() => {
       }
     })
 })
+const sortedWatchlistScanResults = computed(() => {
+  return [...watchlistScanResults.value].sort((left, right) => right.probability - left.probability)
+})
+const watchlistScanThresholdLabel = computed(() => `${normalizeProbabilityThreshold(watchlistScanThreshold.value).toFixed(0)}%`)
 const mobileNavPages = computed(() => visiblePages.value)
 const isAppleMobile = computed(() => {
   if (typeof navigator === 'undefined') {
@@ -1930,6 +1940,17 @@ function extractVoiceSymbol(command) {
   return ''
 }
 
+function extractVoiceProbability(command, fallback = watchlistScanThreshold.value) {
+  const explicitPercent = command.match(/(\d{1,3}(?:\.\d+)?)\s*(percent|per cent|%)/)
+
+  if (explicitPercent) {
+    return normalizeProbabilityThreshold(explicitPercent[1])
+  }
+
+  const numericToken = command.match(/\b(\d{1,3}(?:\.\d+)?)\b/)
+  return numericToken ? normalizeProbabilityThreshold(numericToken[1]) : normalizeProbabilityThreshold(fallback)
+}
+
 function routeVoiceSymbol(symbol) {
   const normalizedSymbol = String(symbol || '').trim().toUpperCase()
   if (!normalizedSymbol) {
@@ -2052,7 +2073,7 @@ function buildConversationalReply(command) {
   }
 
   if (includesVoicePhrase(command, ['what can you do', 'help', 'commands'])) {
-    return 'I can chat, open pages, select indicators, switch intervals, search tickers, and run Generate. I cannot place trades or give investment advice.'
+    return 'I can chat, open pages, select indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.'
   }
 
   if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice'])) {
@@ -2126,6 +2147,22 @@ async function handleVoiceCommand(rawTranscript) {
   if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
     setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (command.includes('scan') && includesVoicePhrase(command, ['watchlist', 'starred', 'stars', 'favorites', 'self selected', 'self-selected'])) {
+    const threshold = extractVoiceProbability(command)
+    watchlistScanThreshold.value = threshold
+    navigateTo('Dashboard')
+    setVoiceStatus(`Scanning your starred watchlist for probabilities at or above ${threshold.toFixed(0)} percent.`, {
+      speak: true,
+      transcript: rawTranscript
+    })
+    await scanStarredWatchlist()
+    setVoiceStatus(watchlistScanMessage.value || 'Watchlist scan is complete.', {
+      speak: true,
+      transcript: rawTranscript
+    })
     return
   }
 
@@ -2224,6 +2261,127 @@ function selectPopularSymbol(symbol) {
     return
   }
   runSearch()
+}
+
+function normalizeProbabilityThreshold(value) {
+  const numericValue = Number(value)
+
+  if (!Number.isFinite(numericValue)) {
+    return 60
+  }
+
+  return Math.min(Math.max(numericValue, 0), 100)
+}
+
+function getAnalysisUpsideProbability(data) {
+  const directProbability = Number(data?.patternAnalysis?.probabilityOfIncrease)
+
+  if (Number.isFinite(directProbability)) {
+    return directProbability
+  }
+
+  const ladder = data?.patternAnalysis?.futureFiveDayProbabilities?.up || []
+  const onePercentHit = ladder.find((item) => Number(item.threshold) === 1)
+  const ladderProbability = Number(onePercentHit?.probability)
+
+  return Number.isFinite(ladderProbability) ? ladderProbability : 0
+}
+
+function formatScanTimestamp(date = new Date()) {
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+async function runLimitedTasks(items, worker, limit = 4) {
+  const results = []
+  let nextIndex = 0
+
+  async function runWorker() {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+
+      try {
+        results[currentIndex] = {
+          status: 'fulfilled',
+          value: await worker(items[currentIndex], currentIndex)
+        }
+      } catch (error) {
+        results[currentIndex] = {
+          status: 'rejected',
+          reason: error
+        }
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => runWorker())
+  await Promise.all(workers)
+  return results
+}
+
+async function scanStarredWatchlist() {
+  if (isWatchlistScanning.value) {
+    return
+  }
+
+  const threshold = normalizeProbabilityThreshold(watchlistScanThreshold.value)
+  watchlistScanThreshold.value = threshold
+  const symbols = [...new Set(starredSymbols.value.map((symbol) => String(symbol || '').trim().toUpperCase()).filter(Boolean))]
+
+  if (!symbols.length) {
+    watchlistScanResults.value = []
+    watchlistScanMessage.value = 'Star stocks first, then run a scan.'
+    return
+  }
+
+  isWatchlistScanning.value = true
+  watchlistScanResults.value = []
+  watchlistScanMessage.value = `Scanning ${symbols.length} saved stocks with Generate logic...`
+
+  try {
+    const scanResults = await runLimitedTasks(symbols, async (symbol) => {
+      const data = await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+      const probability = getAnalysisUpsideProbability(data)
+      const currentPrice = Number(data?.stock?.currentPrice)
+
+      return {
+        symbol,
+        probability,
+        price: Number.isFinite(currentPrice) ? formatCurrency(currentPrice) : '--',
+        signal: data?.patternAnalysis?.signalClassification || 'Generated',
+        matchedCount: Number(data?.patternAnalysis?.matchedPatternsCount || data?.patternAnalysis?.matchedHistoricalPatterns?.length || 0),
+        dataSource: data?.dataSource || 'live'
+      }
+    })
+
+    const passedResults = []
+    const failedSymbols = []
+
+    scanResults.forEach((result, index) => {
+      const symbol = symbols[index]
+
+      if (result?.status !== 'fulfilled') {
+        failedSymbols.push(symbol)
+        return
+      }
+
+      if (result.value.probability >= threshold) {
+        passedResults.push(result.value)
+      }
+    })
+
+    watchlistScanResults.value = passedResults.sort((left, right) => right.probability - left.probability)
+    watchlistScanScannedAt.value = formatScanTimestamp()
+
+    const passedLabel = `${watchlistScanResults.value.length}/${symbols.length} passed >= ${threshold.toFixed(0)}%`
+    watchlistScanMessage.value = failedSymbols.length
+      ? `${passedLabel}. ${failedSymbols.length} symbol${failedSymbols.length === 1 ? '' : 's'} could not be scanned.`
+      : `${passedLabel}.`
+  } catch (error) {
+    watchlistScanMessage.value = error?.message || 'Watchlist scan could not finish right now.'
+  } finally {
+    isWatchlistScanning.value = false
+  }
 }
 
 function savePortfolioHolding() {
@@ -3770,6 +3928,30 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <h2>Self-Selected Stocks</h2>
             <span class="section-chip">{{ starredSymbols.length }} saved</span>
           </div>
+          <form class="watchlist-scan-bar" @submit.prevent="scanStarredWatchlist">
+            <label class="watchlist-scan-input">
+              <span>Minimum upside probability</span>
+              <span class="percent-input-shell">
+                <input
+                  v-model.number="watchlistScanThreshold"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  inputmode="decimal"
+                  aria-label="Minimum probability threshold"
+                />
+                <strong>%</strong>
+              </span>
+            </label>
+            <button class="topbar-button" type="submit" :disabled="isWatchlistScanning || !dashboardWatchlistRows.length">
+              {{ isWatchlistScanning ? 'Scanning...' : 'Scan' }}
+            </button>
+          </form>
+          <p v-if="watchlistScanMessage" class="watchlist-scan-message">
+            {{ watchlistScanMessage }}
+            <span v-if="watchlistScanScannedAt">Last scan {{ watchlistScanScannedAt }}</span>
+          </p>
           <div v-if="dashboardWatchlistRows.length" class="data-table">
             <div class="data-row data-head dashboard-watchlist-head">
               <span>Symbol</span>
@@ -3794,6 +3976,34 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
           <div v-else class="empty-state empty-state--compact">
             Star stocks in Explore and they will appear here as your self-selected list.
+          </div>
+          <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
+            <div class="table-header compact">
+              <h3>Generated Matches</h3>
+              <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
+            </div>
+            <div class="data-table">
+              <div class="data-row data-head watchlist-scan-head">
+                <span>Rank</span>
+                <span>Symbol</span>
+                <span>Upside Probability</span>
+                <span>Price</span>
+                <span>Signal</span>
+              </div>
+              <div
+                v-for="(result, index) in sortedWatchlistScanResults"
+                :key="`scan-${result.symbol}`"
+                class="data-row watchlist-scan-row"
+              >
+                <span>#{{ index + 1 }}</span>
+                <button class="watchlist-link explore-symbol-link" @click="openAnalysis(result.symbol)">
+                  {{ result.symbol }}
+                </button>
+                <strong class="positive">{{ result.probability.toFixed(2) }}%</strong>
+                <span>{{ result.price }}</span>
+                <span>{{ result.signal }}</span>
+              </div>
+            </div>
           </div>
         </article>
 

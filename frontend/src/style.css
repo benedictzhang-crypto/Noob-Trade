@@ -2639,6 +2639,90 @@ select {
   grid-template-columns: 1.1fr 1fr 1fr 1.2fr;
 }
 
+.table-header.compact {
+  margin: 16px 0 10px;
+}
+
+.table-header.compact h3 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.watchlist-scan-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 138, 0, 0.12);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 138, 0, 0.1), transparent 32%),
+    rgba(255, 255, 255, 0.74);
+}
+
+.watchlist-scan-input {
+  display: grid;
+  gap: 6px;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.percent-input-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(24, 24, 27, 0.08);
+  border-radius: 999px;
+  background: white;
+}
+
+.percent-input-shell input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 11px 12px;
+  color: var(--text-main);
+  font-weight: 800;
+  background: transparent;
+}
+
+.percent-input-shell strong {
+  padding: 0 13px 0 8px;
+  color: var(--accent-strong);
+  font-weight: 900;
+}
+
+.watchlist-scan-message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.watchlist-scan-message span {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.watchlist-scan-results {
+  margin-top: 14px;
+}
+
+.watchlist-scan-head,
+.watchlist-scan-row {
+  grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1.2fr;
+}
+
 .explore-hero {
   background:
     radial-gradient(circle at top left, rgba(255, 138, 0, 0.12), transparent 36%),
@@ -3286,8 +3370,20 @@ select {
   .explore-head,
   .explore-row,
   .dashboard-watchlist-head,
-  .dashboard-watchlist-row {
+  .dashboard-watchlist-row,
+  .watchlist-scan-head,
+  .watchlist-scan-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .watchlist-scan-bar,
+  .watchlist-scan-message {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .watchlist-scan-message {
+    display: grid;
   }
 
   .portfolio-adjust-cell {
