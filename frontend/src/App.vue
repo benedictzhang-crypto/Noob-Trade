@@ -14,6 +14,64 @@ const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Passw
 const publicNavPages = ['Home', 'Sign In', 'Register']
 const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
 const tradeWorkspacePages = ['Stock Trade', 'Crypto Trade']
+const voiceCommandExamples = [
+  'Open Stock Trade',
+  'Enable MACD and Bollinger',
+  'Generate AAPL',
+  'Search BTC',
+  'Go to Portfolio',
+  'Confirm / Cancel'
+]
+const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
+const voiceSymbolAliases = {
+  apple: 'AAPL',
+  tesla: 'TSLA',
+  nvidia: 'NVDA',
+  microsoft: 'MSFT',
+  amazon: 'AMZN',
+  meta: 'META',
+  google: 'GOOGL',
+  alphabet: 'GOOGL',
+  bitcoin: 'BTC',
+  ethereum: 'ETH',
+  solana: 'SOL',
+  'o k b': 'OKB',
+  okb: 'OKB',
+  spy: 'SPY'
+}
+const voiceIndicatorAliases = [
+  { name: 'MA', phrases: ['ma', 'm a', 'moving average', 'moving averages'] },
+  { name: 'EMA', phrases: ['ema', 'e m a', 'exponential moving average'] },
+  { name: 'MACD', phrases: ['macd', 'm a c d'] },
+  { name: 'BOLL', phrases: ['boll', 'bollinger', 'bollinger band', 'bollinger bands'] },
+  { name: 'RSI', phrases: ['rsi', 'r s i'] },
+  { name: 'Vol', phrases: ['vol', 'volume'] },
+  { name: 'KDJ', phrases: ['kdj', 'k d j'] },
+  { name: 'OI', phrases: ['oi', 'o i', 'open interest'] },
+  { name: 'OBV', phrases: ['obv', 'o b v', 'on balance volume'] }
+]
+const voicePageAliases = [
+  { page: 'Crypto Trade', phrases: ['crypto trade', 'crypto', 'crypto analysis'] },
+  { page: 'Stock Trade', phrases: ['stock trade', 'stock analysis', 'analysis', 'trade page', 'trade'] },
+  { page: 'Dashboard', phrases: ['dashboard', 'home dashboard'] },
+  { page: 'Portfolio', phrases: ['portfolio', 'holdings'] },
+  { page: 'Explore', phrases: ['explore', 'watchlist'] },
+  { page: 'Markets', phrases: ['markets', 'market'] },
+  { page: 'Myself', phrases: ['myself', 'profile', 'account'] },
+  { page: 'More', phrases: ['more', 'more page'] },
+  { page: 'Admin', phrases: ['admin', 'admin page'] }
+]
+const voiceIntervalAliases = [
+  { interval: 'daily', phrases: ['daily', 'day chart', 'one day'] },
+  { interval: '5day', phrases: ['five day', '5 day', 'five days', '5 days'] },
+  { interval: 'weekly', phrases: ['weekly', 'week chart', 'one week'] },
+  { interval: '2week', phrases: ['two week', '2 week', 'two weeks', '2 weeks'] },
+  { interval: 'monthly', phrases: ['monthly', 'month chart', 'one month'] }
+]
+const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue']
+const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind']
+const voiceEnablePhrases = ['enable', 'select', 'turn on', 'check', 'add', 'use']
+const voiceDisablePhrases = ['disable', 'unselect', 'turn off', 'uncheck', 'remove', 'drop']
 
 const activePage = ref('Home')
 const isAuthenticated = ref(false)
@@ -43,9 +101,19 @@ const replayInterval = ref('daily')
 const csrfToken = ref('')
 const analysisCache = ref({})
 const portfolioSparklineSeries = ref({})
+const voiceAssistantOpen = ref(false)
+const voiceListening = ref(false)
+const voiceSupported = ref(false)
+const voiceStatus = ref('Voice assistant ready.')
+const voiceTranscript = ref('')
+const voicePendingAction = ref(null)
+const voiceRecognition = ref(null)
+const voiceCommandLog = ref([])
+const voicePreferredVoiceName = ref('System voice')
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
+let voiceVoicesChangedHandler = null
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -655,6 +723,17 @@ const dataSourceMeta = computed(() => {
     tone: 'mock'
   }
 })
+const voiceActionLabel = computed(() => {
+  if (isGenerating.value) {
+    return 'Generating'
+  }
+
+  if (isSearching.value) {
+    return 'Searching'
+  }
+
+  return voiceListening.value ? 'Listening' : 'Voice ready'
+})
 
 const holdingsWithMetrics = computed(() => {
   const totalMarketValue = holdings.value.reduce((sum, holding) => sum + (holding.shares * getTrackedPrice(holding.symbol)), 0)
@@ -781,6 +860,13 @@ onMounted(() => {
   refreshFeedClock()
   feedRefreshTimer = window.setInterval(refreshFeedClock, 60 * 1000)
   loadMarketNews()
+  initializeVoiceAssistant()
+  refreshPreferredVoice()
+
+  if (typeof window !== 'undefined' && window.speechSynthesis) {
+    voiceVoicesChangedHandler = () => refreshPreferredVoice()
+    window.speechSynthesis.addEventListener?.('voiceschanged', voiceVoicesChangedHandler)
+  }
 
   beforeInstallHandler = (event) => {
     event.preventDefault()
@@ -801,6 +887,12 @@ onBeforeUnmount(() => {
 
   if (beforeInstallHandler) {
     window.removeEventListener('beforeinstallprompt', beforeInstallHandler)
+  }
+
+  stopVoiceListening()
+
+  if (voiceVoicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
+    window.speechSynthesis.removeEventListener?.('voiceschanged', voiceVoicesChangedHandler)
   }
 })
 
@@ -1433,6 +1525,458 @@ function toggleIndicator(indicatorName) {
   })
 }
 
+function getSpeechRecognitionConstructor() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null
+}
+
+function initializeVoiceAssistant() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const SpeechRecognitionConstructor = getSpeechRecognitionConstructor()
+  voiceSupported.value = Boolean(SpeechRecognitionConstructor && window.speechSynthesis)
+
+  if (!voiceSupported.value || voiceRecognition.value) {
+    if (!voiceSupported.value) {
+      voiceStatus.value = 'Voice control is not supported in this browser yet. Try Chrome or Edge over HTTPS.'
+    }
+    return
+  }
+
+  const recognition = new SpeechRecognitionConstructor()
+  recognition.lang = 'en-US'
+  recognition.continuous = false
+  recognition.interimResults = false
+  recognition.maxAlternatives = 1
+
+  recognition.onstart = () => {
+    voiceListening.value = true
+    voiceStatus.value = 'Listening for an English command...'
+  }
+
+  recognition.onend = () => {
+    voiceListening.value = false
+  }
+
+  recognition.onerror = (event) => {
+    voiceListening.value = false
+    const errorName = event?.error || 'voice error'
+    if (errorName === 'not-allowed') {
+      setVoiceStatus('Microphone permission is blocked. Please allow microphone access for Noob Trade.', { speak: false })
+      return
+    }
+    setVoiceStatus(`Voice input stopped: ${errorName}.`, { speak: false })
+  }
+
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results || [])
+      .map((result) => result?.[0]?.transcript || '')
+      .join(' ')
+      .trim()
+
+    if (transcript) {
+      handleVoiceCommand(transcript).catch((error) => {
+        console.error(error)
+        setVoiceStatus('I could not complete that command. Please try again.', { speak: true })
+      })
+    }
+  }
+
+  voiceRecognition.value = recognition
+}
+
+function refreshPreferredVoice() {
+  const voice = getPreferredVoice()
+  voicePreferredVoiceName.value = voice?.name || 'System voice'
+}
+
+function getPreferredVoice() {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    return null
+  }
+
+  const voices = window.speechSynthesis.getVoices?.() || []
+  const englishVoices = voices.filter((voice) => /^en([-_]|$)/i.test(voice.lang || ''))
+  const preferredNames = [
+    'Samantha',
+    'Victoria',
+    'Ava',
+    'Allison',
+    'Susan',
+    'Karen',
+    'Moira',
+    'Tessa',
+    'Fiona',
+    'Google US English',
+    'Microsoft Aria',
+    'Microsoft Jenny',
+    'Microsoft Zira'
+  ]
+
+  for (const preferredName of preferredNames) {
+    const matchedVoice = englishVoices.find((voice) => voice.name.toLowerCase().includes(preferredName.toLowerCase()))
+    if (matchedVoice) {
+      return matchedVoice
+    }
+  }
+
+  return englishVoices[0] || voices[0] || null
+}
+
+function speakVoice(text) {
+  if (typeof window === 'undefined' || !window.speechSynthesis || !text) {
+    return
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text)
+  const preferredVoice = getPreferredVoice()
+
+  if (preferredVoice) {
+    utterance.voice = preferredVoice
+    utterance.lang = preferredVoice.lang || 'en-US'
+    voicePreferredVoiceName.value = preferredVoice.name
+  } else {
+    utterance.lang = 'en-US'
+  }
+
+  utterance.rate = 0.94
+  utterance.pitch = 1.08
+  utterance.volume = 0.88
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utterance)
+}
+
+function setVoiceStatus(message, { speak = false, transcript = '' } = {}) {
+  voiceStatus.value = message
+
+  if (transcript || message) {
+    voiceCommandLog.value = [
+      {
+        transcript: transcript || 'Noob AI',
+        response: message,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      },
+      ...voiceCommandLog.value
+    ].slice(0, 4)
+  }
+
+  if (speak) {
+    speakVoice(message)
+  }
+}
+
+function toggleVoiceAssistant() {
+  voiceAssistantOpen.value = !voiceAssistantOpen.value
+
+  if (voiceAssistantOpen.value) {
+    initializeVoiceAssistant()
+    refreshPreferredVoice()
+    setVoiceStatus('Voice assistant ready. Try: Generate AAPL, enable MACD, or open Portfolio.', { speak: false })
+  } else {
+    stopVoiceListening()
+  }
+}
+
+function startVoiceListening() {
+  if (!isAuthenticated.value) {
+    setVoiceStatus('Please sign in before using voice control.', { speak: true })
+    return
+  }
+
+  initializeVoiceAssistant()
+
+  if (!voiceSupported.value || !voiceRecognition.value) {
+    setVoiceStatus('Voice control is not supported in this browser yet. Try Chrome or Edge over HTTPS.', { speak: true })
+    return
+  }
+
+  try {
+    window.speechSynthesis?.cancel()
+    voiceRecognition.value.start()
+  } catch {
+    setVoiceStatus('I am already listening. Say a command now.', { speak: false })
+  }
+}
+
+function stopVoiceListening() {
+  if (!voiceRecognition.value) {
+    voiceListening.value = false
+    return
+  }
+
+  try {
+    voiceRecognition.value.stop()
+  } catch {
+    // The browser throws if recognition is already stopped.
+  }
+
+  voiceListening.value = false
+}
+
+function normalizeVoiceText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9.\s-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function includesVoicePhrase(command, phrases) {
+  return phrases.some((phrase) => command.includes(phrase))
+}
+
+function findVoicePage(command) {
+  const sortedAliases = [...voicePageAliases].sort((left, right) => {
+    const leftLength = Math.max(...left.phrases.map((phrase) => phrase.length))
+    const rightLength = Math.max(...right.phrases.map((phrase) => phrase.length))
+    return rightLength - leftLength
+  })
+
+  return sortedAliases.find(({ phrases }) => includesVoicePhrase(command, phrases))?.page || null
+}
+
+function findVoiceInterval(command) {
+  return voiceIntervalAliases.find(({ phrases }) => includesVoicePhrase(command, phrases))?.interval || null
+}
+
+function findVoiceIndicators(command) {
+  return voiceIndicatorAliases
+    .filter(({ phrases }) => includesVoicePhrase(command, phrases))
+    .map(({ name }) => name)
+}
+
+function setIndicatorActive(indicatorNames, active) {
+  const selectedNames = new Set(indicatorNames)
+  indicators.value = indicators.value.map((indicator) => {
+    if (selectedNames.has(indicator.name)) {
+      return { ...indicator, active }
+    }
+
+    return indicator
+  })
+}
+
+function setOnlyVoiceIndicators(indicatorNames) {
+  const selectedNames = new Set(indicatorNames)
+  indicators.value = indicators.value.map((indicator) => ({
+    ...indicator,
+    active: selectedNames.has(indicator.name)
+  }))
+}
+
+function resolveVoiceSymbol(rawValue) {
+  const cleanedValue = normalizeVoiceText(rawValue)
+  if (!cleanedValue) {
+    return ''
+  }
+
+  if (voiceSymbolAliases[cleanedValue]) {
+    return voiceSymbolAliases[cleanedValue]
+  }
+
+  const compactValue = cleanedValue.replace(/\s+/g, '')
+  if (voiceSymbolAliases[compactValue]) {
+    return voiceSymbolAliases[compactValue]
+  }
+
+  if (/^[a-z0-9]{1,10}$/.test(compactValue)) {
+    return compactValue.toUpperCase()
+  }
+
+  return ''
+}
+
+function extractVoiceSymbol(command) {
+  for (const [alias, symbol] of Object.entries(voiceSymbolAliases)) {
+    if (command.includes(alias)) {
+      return symbol
+    }
+  }
+
+  const commandWords = new Set([
+    'generate', 'search', 'analyze', 'analyse', 'run', 'for', 'stock', 'crypto', 'ticker', 'symbol',
+    'quote', 'price', 'open', 'go', 'to', 'page', 'trade', 'look', 'up', 'show', 'the', 'a'
+  ])
+  const tokens = command.split(' ').filter(Boolean)
+
+  for (let index = tokens.length - 1; index >= 0; index -= 1) {
+    const token = tokens[index]
+    if (!commandWords.has(token) && /^[a-z0-9]{1,10}$/.test(token)) {
+      return resolveVoiceSymbol(token)
+    }
+  }
+
+  return ''
+}
+
+function routeVoiceSymbol(symbol) {
+  const normalizedSymbol = String(symbol || '').trim().toUpperCase()
+  if (!normalizedSymbol) {
+    return
+  }
+
+  if (voiceCryptoSymbols.has(normalizedSymbol)) {
+    navigateTo('Crypto Trade')
+  } else {
+    navigateTo('Stock Trade')
+  }
+
+  symbolInput.value = normalizedSymbol
+}
+
+async function runVoiceAnalysis(source, symbol = '') {
+  const normalizedSymbol = resolveVoiceSymbol(symbol) || String(symbolInput.value || activeSymbol.value).trim().toUpperCase()
+
+  if (normalizedSymbol) {
+    routeVoiceSymbol(normalizedSymbol)
+  } else if (!isTradeWorkspacePage.value) {
+    navigateTo('Stock Trade')
+  }
+
+  const actionLabel = source === 'generate' ? 'Generating' : 'Searching'
+  setVoiceStatus(`${actionLabel} ${symbolInput.value.trim().toUpperCase() || activeSymbol.value}.`, { speak: true })
+  await runSearch(source)
+}
+
+function queueVoiceAction(action) {
+  voicePendingAction.value = action
+  setVoiceStatus(action.prompt, { speak: true })
+}
+
+function confirmVoiceAction() {
+  const action = voicePendingAction.value
+
+  if (!action) {
+    setVoiceStatus('There is no pending action to confirm.', { speak: true })
+    return
+  }
+
+  voicePendingAction.value = null
+
+  if (action.type === 'signOut') {
+    signOut()
+    setVoiceStatus('Signed out safely.', { speak: true })
+  }
+}
+
+function cancelVoiceAction() {
+  voicePendingAction.value = null
+  setVoiceStatus('Cancelled.', { speak: true })
+}
+
+async function handleVoiceCommand(rawTranscript) {
+  const command = normalizeVoiceText(rawTranscript)
+  voiceTranscript.value = rawTranscript
+
+  if (!command) {
+    setVoiceStatus('I did not catch that. Please try again.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (voicePendingAction.value) {
+    if (includesVoicePhrase(command, voiceConfirmPhrases)) {
+      confirmVoiceAction()
+      return
+    }
+
+    if (includesVoicePhrase(command, voiceCancelPhrases)) {
+      cancelVoiceAction()
+      return
+    }
+  }
+
+  if (includesVoicePhrase(command, ['help', 'what can you do', 'commands'])) {
+    setVoiceStatus('Try: open Stock Trade, select MACD, clear indicators, generate AAPL, search BTC, or log out.', {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['buy ', 'sell ', 'place order', 'submit order', 'market order', 'limit order', 'short ', 'go long', 'go short'])) {
+    setVoiceStatus('Voice trading orders are disabled. I can control analysis and navigation only.', {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['sign out', 'log out', 'logout'])) {
+    queueVoiceAction({
+      type: 'signOut',
+      prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
+    })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators'])) {
+    indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
+    setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['select all indicators', 'enable all indicators', 'turn on all indicators'])) {
+    indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: true }))
+    setVoiceStatus('All indicators are on.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  const mentionedIndicators = findVoiceIndicators(command)
+  if (mentionedIndicators.length) {
+    if (command.includes('only')) {
+      setOnlyVoiceIndicators(mentionedIndicators)
+      setVoiceStatus(`Only ${mentionedIndicators.join(', ')} are selected.`, { speak: true, transcript: rawTranscript })
+      return
+    }
+
+    if (includesVoicePhrase(command, voiceDisablePhrases)) {
+      setIndicatorActive(mentionedIndicators, false)
+      setVoiceStatus(`${mentionedIndicators.join(', ')} turned off.`, { speak: true, transcript: rawTranscript })
+      return
+    }
+
+    if (includesVoicePhrase(command, voiceEnablePhrases)) {
+      setIndicatorActive(mentionedIndicators, true)
+      setVoiceStatus(`${mentionedIndicators.join(', ')} turned on.`, { speak: true, transcript: rawTranscript })
+      return
+    }
+  }
+
+  const requestedInterval = findVoiceInterval(command)
+  if (requestedInterval && includesVoicePhrase(command, ['interval', 'chart', 'time frame', 'timeframe', 'switch'])) {
+    selectedChartInterval.value = requestedInterval
+    setVoiceStatus(`Chart interval set to ${requestedInterval}.`, { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['generate', 'run analysis', 'analyze', 'analyse'])) {
+    await runVoiceAnalysis('generate', extractVoiceSymbol(command))
+    return
+  }
+
+  if (includesVoicePhrase(command, ['search', 'look up', 'quote', 'price'])) {
+    await runVoiceAnalysis('search', extractVoiceSymbol(command))
+    return
+  }
+
+  const requestedPage = findVoicePage(command)
+  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate'])) {
+    navigateTo(requestedPage)
+    setVoiceStatus(`Opened ${requestedPage}.`, { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  setVoiceStatus('I did not match that command yet. Try Generate AAPL, enable RSI, or open Markets.', {
+    speak: true,
+    transcript: rawTranscript
+  })
+}
+
 function navigateTo(page) {
   const normalizedPage = page === 'Analysis' ? 'Stock Trade' : page
 
@@ -1839,6 +2383,16 @@ watch(
   },
   { immediate: true }
 )
+
+watch(isAuthenticated, (authenticated) => {
+  if (authenticated) {
+    return
+  }
+
+  stopVoiceListening()
+  voiceAssistantOpen.value = false
+  voicePendingAction.value = null
+})
 
 watch(
   () => [stockResponse.value?.dataSource, stockResponse.value?.stock?.symbol, stockResponse.value?.chartData?.series?.daily?.length || 0],
@@ -3975,6 +4529,82 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         />
       </div>
     </div>
+
+    <aside v-if="isAuthenticated" class="voice-assistant" :class="{ open: voiceAssistantOpen }">
+      <button
+        class="voice-fab"
+        type="button"
+        :aria-expanded="voiceAssistantOpen"
+        aria-controls="voice-assistant-panel"
+        @click="toggleVoiceAssistant"
+      >
+        <span class="voice-fab-orb" :class="{ listening: voiceListening }"></span>
+        <span>AI</span>
+      </button>
+
+      <section
+        v-if="voiceAssistantOpen"
+        id="voice-assistant-panel"
+        class="voice-panel"
+        aria-label="Noob Trade voice assistant"
+      >
+        <div class="voice-panel-header">
+          <div>
+            <span class="section-chip">AI Voice Mode</span>
+            <h2>Noob AI Assistant</h2>
+          </div>
+          <span class="voice-state" :class="{ active: voiceListening }">{{ voiceActionLabel }}</span>
+        </div>
+
+        <p class="voice-disclaimer">
+          English voice control for navigation, indicators, Search, and Generate. No voice trading orders or investment advice.
+        </p>
+
+        <div class="voice-command-box" aria-live="polite">
+          <small>Last heard</small>
+          <strong>{{ voiceTranscript || 'Tap Listen, then say a command.' }}</strong>
+          <p>{{ voiceStatus }}</p>
+        </div>
+
+        <div class="voice-actions">
+          <button
+            class="topbar-button"
+            type="button"
+            :disabled="voiceListening || isSearching || isGenerating"
+            @click="startVoiceListening"
+          >
+            {{ voiceListening ? 'Listening...' : 'Listen' }}
+          </button>
+          <button class="topbar-button secondary" type="button" @click="stopVoiceListening">Stop</button>
+        </div>
+
+        <div v-if="voicePendingAction" class="voice-confirm-card">
+          <strong>Confirmation required</strong>
+          <p>{{ voicePendingAction.prompt }}</p>
+          <div class="voice-actions">
+            <button class="topbar-button" type="button" @click="confirmVoiceAction">Confirm</button>
+            <button class="topbar-button secondary" type="button" @click="cancelVoiceAction">Cancel</button>
+          </div>
+        </div>
+
+        <div class="voice-hints">
+          <span v-for="example in voiceCommandExamples" :key="example">{{ example }}</span>
+        </div>
+
+        <div class="voice-footer">
+          <span>Voice: {{ voicePreferredVoiceName }}</span>
+          <span>{{ voiceSupported ? 'Browser voice enabled' : 'Use Chrome or Edge for mic control' }}</span>
+        </div>
+
+        <div v-if="voiceCommandLog.length" class="voice-log">
+          <div v-for="item in voiceCommandLog" :key="`${item.time}-${item.transcript}`" class="voice-log-item">
+            <span>{{ item.time }}</span>
+            <strong>{{ item.transcript }}</strong>
+            <small>{{ item.response }}</small>
+          </div>
+        </div>
+      </section>
+    </aside>
 
     <div v-if="installMessage" class="install-toast">
       {{ installMessage }}
