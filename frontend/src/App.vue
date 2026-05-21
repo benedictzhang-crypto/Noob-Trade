@@ -4845,68 +4845,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
       </section>
 
-      <section class="table-surface watchlist-scan-panel explore-watchlist-scan-panel">
-        <div class="table-header">
-          <div>
-            <h2>Starred Watchlist Scan</h2>
-            <p>Scan every starred stock with Generate logic and rank only names above your probability target.</p>
-          </div>
-          <span class="section-chip">{{ starredSymbols.length }} saved</span>
-        </div>
-        <form class="watchlist-scan-bar" @submit.prevent="scanStarredWatchlist">
-          <label class="watchlist-scan-input">
-            <span>Minimum upside probability</span>
-            <span class="percent-input-shell">
-              <input
-                v-model.number="watchlistScanThreshold"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                inputmode="decimal"
-                aria-label="Minimum probability threshold"
-              />
-              <strong>%</strong>
-            </span>
-          </label>
-          <button class="topbar-button" type="submit" :disabled="isWatchlistScanning || !starredSymbols.length">
-            {{ isWatchlistScanning ? 'Scanning...' : 'Scan' }}
-          </button>
-        </form>
-        <p v-if="watchlistScanMessage" class="watchlist-scan-message">
-          {{ watchlistScanMessage }}
-          <span v-if="watchlistScanScannedAt">Last scan {{ watchlistScanScannedAt }}</span>
-        </p>
-        <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
-          <div class="table-header compact">
-            <h3>Generated Matches</h3>
-            <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
-          </div>
-          <div class="data-table">
-            <div class="data-row data-head watchlist-scan-head">
-              <span>Rank</span>
-              <span>Symbol</span>
-              <span>Upside Probability</span>
-              <span>Price</span>
-              <span>Signal</span>
-            </div>
-            <div
-              v-for="(result, index) in sortedWatchlistScanResults"
-              :key="`explore-scan-${result.symbol}`"
-              class="data-row watchlist-scan-row"
-            >
-              <span>#{{ index + 1 }}</span>
-              <button class="watchlist-link explore-symbol-link" @click="openAnalysis(result.symbol)">
-                {{ result.symbol }}
-              </button>
-              <strong class="positive">{{ result.probability.toFixed(2) }}%</strong>
-              <span>{{ result.price }}</span>
-              <span>{{ result.signal }}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' }">
         <article class="table-surface explore-market-panel">
           <div class="table-header">
