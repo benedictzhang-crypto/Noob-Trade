@@ -9,11 +9,280 @@ import SearchBar from './components/SearchBar.vue'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
+const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
-const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfolio', 'Explore', 'Markets', 'Myself', 'More']
+const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfolio', 'Explore', 'Markets', 'Settings', 'More']
 const tradeWorkspacePages = ['Stock Trade', 'Crypto Trade']
+const languageOptions = [
+  { code: 'en', label: 'English', voiceLang: 'en-US' },
+  { code: 'zh', label: '中文', voiceLang: 'zh-CN' },
+  { code: 'es', label: 'Español', voiceLang: 'es-ES' },
+  { code: 'fr', label: 'Français', voiceLang: 'fr-FR' }
+]
+const uiCopy = {
+  en: {
+    selectLanguage: 'Select your language',
+    signOut: 'Sign out',
+    installApp: 'Install App',
+    pageLabels: {
+      Home: 'Home',
+      'Sign In': 'Sign In',
+      Register: 'Register',
+      Dashboard: 'Dashboard',
+      'Stock Trade': 'Stock Trade',
+      'Crypto Trade': 'Crypto Trade',
+      Portfolio: 'Portfolio',
+      Explore: 'Explore',
+      Markets: 'Markets',
+      Settings: 'Settings',
+      More: 'More',
+      Admin: 'Admin'
+    },
+    settingsEyebrow: 'Settings',
+    settingsTitle: 'Your account at a glance',
+    settingsSubtitle: 'Review your personal account ID, registered email, language preference, and basic account status in one place.',
+    accountDetails: 'Account Details',
+    accountId: 'Account ID',
+    fullName: 'Full Name',
+    email: 'Email',
+    membership: 'Membership',
+    joined: 'Joined',
+    adminRole: 'Admin',
+    userRole: 'User',
+    notAvailable: 'Not available',
+    regularUser: 'Regular User',
+    recent: 'Recent',
+    session: 'Session',
+    currentLogin: 'Current login',
+    verified: 'Verified',
+    pendingVerification: 'Pending verification',
+    settingsNote: 'Your account stays stored in Render Postgres while market data and product features evolve.',
+    aiMode: 'AI Voice Mode',
+    aiTitle: 'Noob AI Assistant',
+    shrink: 'Shrink',
+    aiDisclaimer: 'AI Mode listens continuously while on. You can still use every manual control. No voice trading orders or investment advice.',
+    aiModeOn: 'AI Mode On',
+    aiModeOff: 'AI Mode Off',
+    aiListening: 'Listening and chatting automatically',
+    aiManual: 'Manual mode only',
+    assistantStatus: 'Assistant status',
+    heardPrefix: 'Heard',
+    sayCommand: 'Say a question or command.',
+    typeCommand: 'Type a question or command...',
+    send: 'Send',
+    confirmationRequired: 'Confirmation required',
+    confirm: 'Confirm',
+    cancel: 'Cancel',
+    voiceLabel: 'Voice',
+    voiceEnabled: 'Browser voice enabled',
+    voiceUnsupported: 'Use Chrome or Edge for mic control',
+    noobAiIntro: 'Turn AI Mode on and talk naturally. I can answer questions or operate the page.',
+    you: 'You',
+    generating: 'Generating',
+    searching: 'Searching',
+    speaking: 'Speaking',
+    listening: 'Listening',
+    aiModeOnShort: 'AI mode on',
+    aiModeOffShort: 'AI mode off',
+  },
+  zh: {
+    selectLanguage: '选择语言',
+    signOut: '退出登录',
+    installApp: '安装应用',
+    pageLabels: {
+      Home: '首页',
+      'Sign In': '登录',
+      Register: '注册',
+      Dashboard: '仪表盘',
+      'Stock Trade': '股票分析',
+      'Crypto Trade': '加密分析',
+      Portfolio: '投资组合',
+      Explore: '探索',
+      Markets: '市场',
+      Settings: '设置',
+      More: '更多',
+      Admin: '后台'
+    },
+    settingsEyebrow: '设置',
+    settingsTitle: '你的账户信息',
+    settingsSubtitle: '在这里查看账户 ID、注册邮箱、语言偏好和基础账户状态。',
+    accountDetails: '账户详情',
+    accountId: '账户 ID',
+    fullName: '用户名',
+    email: '邮箱',
+    membership: '会员类型',
+    joined: '加入时间',
+    adminRole: '管理员',
+    userRole: '用户',
+    notAvailable: '暂无',
+    regularUser: '普通用户',
+    recent: '最近',
+    session: '会话',
+    currentLogin: '当前登录',
+    verified: '已验证',
+    pendingVerification: '等待验证',
+    settingsNote: '用户账户存储在 Render Postgres，市场数据和产品功能可以独立更新。',
+    aiMode: 'AI 语音模式',
+    aiTitle: 'Noob AI 助手',
+    shrink: '缩小',
+    aiDisclaimer: 'AI 模式开启后会持续听取指令。你仍然可以手动操作。不会语音下单，也不构成投资建议。',
+    aiModeOn: 'AI 模式开启',
+    aiModeOff: 'AI 模式关闭',
+    aiListening: '正在自动听取和回复',
+    aiManual: '仅手动操作',
+    assistantStatus: '助手状态',
+    heardPrefix: '听到',
+    sayCommand: '说一个问题或指令。',
+    typeCommand: '输入问题或指令...',
+    send: '发送',
+    confirmationRequired: '需要确认',
+    confirm: '确认',
+    cancel: '取消',
+    voiceLabel: '声音',
+    voiceEnabled: '浏览器语音已启用',
+    voiceUnsupported: '建议使用 Chrome 或 Edge 开启麦克风',
+    noobAiIntro: '打开 AI 模式后可以自然说话。我可以回答问题，也可以帮你操作页面。',
+    you: '你',
+    generating: '生成中',
+    searching: '搜索中',
+    speaking: '正在回答',
+    listening: '正在聆听',
+    aiModeOnShort: 'AI 已开启',
+    aiModeOffShort: 'AI 已关闭',
+  },
+  es: {
+    selectLanguage: 'Selecciona tu idioma',
+    signOut: 'Cerrar sesión',
+    installApp: 'Instalar app',
+    pageLabels: {
+      Home: 'Inicio',
+      'Sign In': 'Iniciar sesión',
+      Register: 'Registro',
+      Dashboard: 'Panel',
+      'Stock Trade': 'Acciones',
+      'Crypto Trade': 'Cripto',
+      Portfolio: 'Portafolio',
+      Explore: 'Explorar',
+      Markets: 'Mercados',
+      Settings: 'Configuración',
+      More: 'Más',
+      Admin: 'Admin'
+    },
+    settingsEyebrow: 'Configuración',
+    settingsTitle: 'Tu cuenta de un vistazo',
+    settingsSubtitle: 'Revisa tu ID, correo registrado, idioma y estado básico de cuenta.',
+    accountDetails: 'Detalles de cuenta',
+    accountId: 'ID de cuenta',
+    fullName: 'Nombre',
+    email: 'Correo',
+    membership: 'Membresía',
+    joined: 'Fecha de registro',
+    adminRole: 'Admin',
+    userRole: 'Usuario',
+    notAvailable: 'No disponible',
+    regularUser: 'Usuario regular',
+    recent: 'Reciente',
+    session: 'Sesión',
+    currentLogin: 'Inicio actual',
+    verified: 'Verificado',
+    pendingVerification: 'Verificación pendiente',
+    settingsNote: 'Tu cuenta se guarda en Render Postgres mientras evolucionan los datos y funciones.',
+    aiMode: 'Modo de voz AI',
+    aiTitle: 'Asistente Noob AI',
+    shrink: 'Reducir',
+    aiDisclaimer: 'AI Mode escucha continuamente cuando está activado. También puedes usar controles manuales. Sin órdenes de trading ni asesoría financiera.',
+    aiModeOn: 'AI Mode activado',
+    aiModeOff: 'AI Mode desactivado',
+    aiListening: 'Escuchando y respondiendo automáticamente',
+    aiManual: 'Solo modo manual',
+    assistantStatus: 'Estado del asistente',
+    heardPrefix: 'Escuché',
+    sayCommand: 'Di una pregunta o comando.',
+    typeCommand: 'Escribe una pregunta o comando...',
+    send: 'Enviar',
+    confirmationRequired: 'Confirmación requerida',
+    confirm: 'Confirmar',
+    cancel: 'Cancelar',
+    voiceLabel: 'Voz',
+    voiceEnabled: 'Voz del navegador activada',
+    voiceUnsupported: 'Usa Chrome o Edge para el micrófono',
+    noobAiIntro: 'Activa AI Mode y habla naturalmente. Puedo responder o controlar la página.',
+    you: 'Tú',
+    generating: 'Generando',
+    searching: 'Buscando',
+    speaking: 'Hablando',
+    listening: 'Escuchando',
+    aiModeOnShort: 'AI activado',
+    aiModeOffShort: 'AI desactivado',
+  },
+  fr: {
+    selectLanguage: 'Choisir la langue',
+    signOut: 'Se déconnecter',
+    installApp: 'Installer',
+    pageLabels: {
+      Home: 'Accueil',
+      'Sign In': 'Connexion',
+      Register: 'Inscription',
+      Dashboard: 'Tableau',
+      'Stock Trade': 'Actions',
+      'Crypto Trade': 'Crypto',
+      Portfolio: 'Portefeuille',
+      Explore: 'Explorer',
+      Markets: 'Marchés',
+      Settings: 'Paramètres',
+      More: 'Plus',
+      Admin: 'Admin'
+    },
+    settingsEyebrow: 'Paramètres',
+    settingsTitle: 'Votre compte en un coup d’oeil',
+    settingsSubtitle: 'Consultez votre ID, votre e-mail, votre langue et le statut du compte.',
+    accountDetails: 'Détails du compte',
+    accountId: 'ID du compte',
+    fullName: 'Nom complet',
+    email: 'E-mail',
+    membership: 'Abonnement',
+    joined: 'Inscription',
+    adminRole: 'Admin',
+    userRole: 'Utilisateur',
+    notAvailable: 'Non disponible',
+    regularUser: 'Utilisateur standard',
+    recent: 'Récent',
+    session: 'Session',
+    currentLogin: 'Connexion actuelle',
+    verified: 'Vérifié',
+    pendingVerification: 'Vérification en attente',
+    settingsNote: 'Votre compte reste dans Render Postgres pendant l’évolution des données et fonctions.',
+    aiMode: 'Mode vocal IA',
+    aiTitle: 'Assistant Noob AI',
+    shrink: 'Réduire',
+    aiDisclaimer: 'Le mode IA écoute en continu lorsqu’il est activé. Les contrôles manuels restent disponibles. Pas d’ordres de trading ni de conseil financier.',
+    aiModeOn: 'Mode IA activé',
+    aiModeOff: 'Mode IA désactivé',
+    aiListening: 'Écoute et réponse automatiques',
+    aiManual: 'Mode manuel uniquement',
+    assistantStatus: 'État de l’assistant',
+    heardPrefix: 'Entendu',
+    sayCommand: 'Posez une question ou donnez une commande.',
+    typeCommand: 'Écrire une question ou commande...',
+    send: 'Envoyer',
+    confirmationRequired: 'Confirmation requise',
+    confirm: 'Confirmer',
+    cancel: 'Annuler',
+    voiceLabel: 'Voix',
+    voiceEnabled: 'Voix du navigateur activée',
+    voiceUnsupported: 'Utilisez Chrome ou Edge pour le micro',
+    noobAiIntro: 'Activez le mode IA et parlez naturellement. Je peux répondre ou contrôler la page.',
+    you: 'Vous',
+    generating: 'Génération',
+    searching: 'Recherche',
+    speaking: 'Réponse',
+    listening: 'Écoute',
+    aiModeOnShort: 'IA activée',
+    aiModeOffShort: 'IA désactivée',
+  }
+}
 const voiceCommandExamples = [
   'Open Stock Trade',
   'Scroll down',
@@ -41,26 +310,26 @@ const voiceSymbolAliases = {
   spy: 'SPY'
 }
 const voiceIndicatorAliases = [
-  { name: 'MA', phrases: ['ma', 'm a', 'moving average', 'moving averages'] },
-  { name: 'EMA', phrases: ['ema', 'e m a', 'exponential moving average'] },
+  { name: 'MA', phrases: ['ma', 'm a', 'moving average', 'moving averages', '均线', '移动平均', 'media movil', 'moyenne mobile'] },
+  { name: 'EMA', phrases: ['ema', 'e m a', 'exponential moving average', '指数均线', '指数移动平均', 'media exponencial', 'moyenne exponentielle'] },
   { name: 'MACD', phrases: ['macd', 'm a c d'] },
-  { name: 'BOLL', phrases: ['boll', 'bollinger', 'bollinger band', 'bollinger bands'] },
-  { name: 'RSI', phrases: ['rsi', 'r s i'] },
-  { name: 'Vol', phrases: ['vol', 'volume'] },
+  { name: 'BOLL', phrases: ['boll', 'bollinger', 'bollinger band', 'bollinger bands', '布林', '布林带', 'bandas de bollinger', 'bandes de bollinger'] },
+  { name: 'RSI', phrases: ['rsi', 'r s i', '相对强弱', 'fuerza relativa', 'force relative'] },
+  { name: 'Vol', phrases: ['vol', 'volume', '成交量', '量能', 'volumen'] },
   { name: 'KDJ', phrases: ['kdj', 'k d j'] },
-  { name: 'OI', phrases: ['oi', 'o i', 'open interest'] },
-  { name: 'OBV', phrases: ['obv', 'o b v', 'on balance volume'] }
+  { name: 'OI', phrases: ['oi', 'o i', 'open interest', '未平仓量', 'interes abierto', 'intérêt ouvert'] },
+  { name: 'OBV', phrases: ['obv', 'o b v', 'on balance volume', '能量潮', 'balance volume'] }
 ]
 const voicePageAliases = [
-  { page: 'Crypto Trade', phrases: ['crypto trade', 'crypto', 'crypto analysis'] },
-  { page: 'Stock Trade', phrases: ['stock trade', 'stock analysis', 'analysis', 'trade page', 'trade'] },
-  { page: 'Dashboard', phrases: ['dashboard', 'home dashboard'] },
-  { page: 'Portfolio', phrases: ['portfolio', 'holdings'] },
-  { page: 'Explore', phrases: ['explore', 'watchlist'] },
-  { page: 'Markets', phrases: ['markets', 'market'] },
-  { page: 'Myself', phrases: ['myself', 'profile', 'account'] },
-  { page: 'More', phrases: ['more', 'more page'] },
-  { page: 'Admin', phrases: ['admin', 'admin page'] }
+  { page: 'Crypto Trade', phrases: ['crypto trade', 'crypto', 'crypto analysis', '加密', '加密分析', '虚拟货币', 'cripto', 'criptomonedas', 'crypto monnaie', 'cryptomonnaie'] },
+  { page: 'Stock Trade', phrases: ['stock trade', 'stock analysis', 'analysis', 'trade page', 'trade', '股票分析', '股票', 'acciones', 'accion', 'análisis de acciones', 'analyse actions', 'actions'] },
+  { page: 'Dashboard', phrases: ['dashboard', 'home dashboard', '仪表盘', '面板', 'panel', 'tableau'] },
+  { page: 'Portfolio', phrases: ['portfolio', 'holdings', '投资组合', '持仓', 'portafolio', 'cartera', 'portefeuille'] },
+  { page: 'Explore', phrases: ['explore', 'watchlist', 'explorar', 'explorer', '探索', '自选'] },
+  { page: 'Markets', phrases: ['markets', 'market', '市场', 'mercados', 'mercado', 'marches', 'marchés'] },
+  { page: 'Settings', phrases: ['settings', 'setting', 'myself', 'profile', 'account', 'configuration', 'configuracion', 'ajustes', 'parametres', 'paramètres', 'reglages', 'réglages', '设置', '账户', '账号', '个人信息'] },
+  { page: 'More', phrases: ['more', 'more page', '更多', 'mas', 'más', 'plus'] },
+  { page: 'Admin', phrases: ['admin', 'admin page', '后台', '管理员'] }
 ]
 const voiceIntervalAliases = [
   { interval: 'daily', phrases: ['daily', 'day chart', 'one day'] },
@@ -69,12 +338,14 @@ const voiceIntervalAliases = [
   { interval: '2week', phrases: ['two week', '2 week', 'two weeks', '2 weeks'] },
   { interval: 'monthly', phrases: ['monthly', 'month chart', 'one month'] }
 ]
-const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue']
-const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind']
-const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'switch on', 'check', 'tick', 'add', 'use', 'include']
-const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude']
+const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue', '确认', '是的', '继续', 'sí', 'si', 'confirmar', 'oui', 'confirmer']
+const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind', '取消', '停止', '不要', 'no', 'cancelar', 'parar', 'non', 'annuler', 'arreter', 'arrêter']
+const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'switch on', 'check', 'tick', 'add', 'use', 'include', '选择', '勾选', '打开', '启用', '加入', '使用', 'seleccionar', 'elige', 'elegir', 'activar', 'agregar', 'usar', 'incluye', 'incluire', 'selectionner', 'sélectionner', 'choisir', 'activer', 'ajouter', 'utiliser', 'inclure']
+const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude', '取消', '取消勾选', '关闭', '移除', '不要', 'quitar', 'desactivar', 'remover', 'excluir', 'retirer', 'desactiver', 'désactiver', 'enlever', 'exclure']
+const voiceOnlyPhrases = ['only', 'only use', '只', '只选', '只用', '仅选择', 'solo', 'solamente', 'seulement', 'uniquement']
 
 const activePage = ref('Home')
+const uiLanguage = ref('en')
 const isAuthenticated = ref(false)
 const symbolInput = ref('AAPL')
 const activeSymbol = ref('AAPL')
@@ -158,6 +429,7 @@ const tradeSearchLoadingLabel = computed(() => (
 const tradePopularSymbols = computed(() => (
   activePage.value === 'Crypto Trade' ? ['BTC', 'ETH', 'OKB', 'SOL'] : ['AAPL', 'TSLA', 'NVDA', 'SPY']
 ))
+const activeCopy = computed(() => uiCopy[uiLanguage.value] || uiCopy.en)
 const adminUserCountLabel = computed(() => {
   if (isAdminLoading.value && !hasAdminUsersCache.value && adminUsers.value.length === 0) {
     return 'Loading...'
@@ -548,6 +820,18 @@ const visiblePages = computed(() => {
 
   return authenticatedPages
 })
+function t(key) {
+  return activeCopy.value?.[key] ?? uiCopy.en[key] ?? key
+}
+
+function formatPageLabel(page) {
+  return activeCopy.value?.pageLabels?.[page] ?? uiCopy.en.pageLabels[page] ?? page
+}
+
+function getSpeechLanguage() {
+  return languageOptions.find((language) => language.code === uiLanguage.value)?.voiceLang || 'en-US'
+}
+
 const selectedIndicators = computed(() => indicators.value.filter((indicator) => indicator.active))
 const appliedIndicatorSet = computed(() => new Set(
   activeTradeResponse.value?.request?.indicators
@@ -739,22 +1023,22 @@ const dataSourceMeta = computed(() => {
 })
 const voiceActionLabel = computed(() => {
   if (isGenerating.value) {
-    return 'Generating'
+    return t('generating')
   }
 
   if (isSearching.value) {
-    return 'Searching'
+    return t('searching')
   }
 
   if (voiceIsSpeaking.value) {
-    return 'Speaking'
+    return t('speaking')
   }
 
   if (voiceListening.value) {
-    return 'Listening'
+    return t('listening')
   }
 
-  return voiceAssistantEnabled.value ? 'AI mode on' : 'AI mode off'
+  return voiceAssistantEnabled.value ? t('aiModeOnShort') : t('aiModeOffShort')
 })
 const voiceChatTimeline = computed(() => [...voiceCommandLog.value].reverse())
 
@@ -878,6 +1162,13 @@ const reportMetrics = computed(() => {
 })
 
 onMounted(() => {
+  if (typeof window !== 'undefined') {
+    const savedLanguage = window.localStorage?.getItem(UI_LANGUAGE_KEY)
+    if (languageOptions.some((language) => language.code === savedLanguage)) {
+      uiLanguage.value = savedLanguage
+    }
+  }
+
   ensureCsrfToken().catch(() => {})
   restoreAuthenticatedSession().catch(() => {})
   refreshFeedClock()
@@ -901,6 +1192,18 @@ onMounted(() => {
 
 watch([activeSymbol, feedRefreshKey], () => {
   loadMarketNews()
+})
+
+watch(uiLanguage, (language) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage?.setItem(UI_LANGUAGE_KEY, language)
+  }
+
+  refreshPreferredVoice()
+
+  if (voiceRecognition.value) {
+    voiceRecognition.value.lang = getSpeechLanguage()
+  }
 })
 
 onBeforeUnmount(() => {
@@ -1573,7 +1876,7 @@ function initializeVoiceAssistant() {
   }
 
   const recognition = new SpeechRecognitionConstructor()
-  recognition.lang = 'en-US'
+  recognition.lang = getSpeechLanguage()
   recognition.continuous = true
   recognition.interimResults = false
   recognition.maxAlternatives = 1
@@ -1663,31 +1966,25 @@ function getPreferredVoice() {
   }
 
   const voices = window.speechSynthesis.getVoices?.() || []
-  const englishVoices = voices.filter((voice) => /^en([-_]|$)/i.test(voice.lang || ''))
-  const preferredNames = [
-    'Samantha',
-    'Victoria',
-    'Ava',
-    'Allison',
-    'Susan',
-    'Karen',
-    'Moira',
-    'Tessa',
-    'Fiona',
-    'Google US English',
-    'Microsoft Aria',
-    'Microsoft Jenny',
-    'Microsoft Zira'
-  ]
+  const speechLang = getSpeechLanguage()
+  const languagePrefix = speechLang.split('-')[0]
+  const matchingVoices = voices.filter((voice) => String(voice.lang || '').toLowerCase().startsWith(languagePrefix))
+  const preferredNamesByLanguage = {
+    en: ['Samantha', 'Victoria', 'Ava', 'Allison', 'Susan', 'Karen', 'Moira', 'Tessa', 'Fiona', 'Google US English', 'Microsoft Aria', 'Microsoft Jenny', 'Microsoft Zira'],
+    zh: ['Ting-Ting', 'Mei-Jia', 'Sin-ji', 'Google 普通话', 'Google 國語', 'Microsoft Xiaoxiao', 'Microsoft Huihui', 'Li-Mu'],
+    es: ['Monica', 'Paulina', 'Marisol', 'Google español', 'Microsoft Elvira', 'Microsoft Helena'],
+    fr: ['Amelie', 'Audrey', 'Aurelie', 'Google français', 'Microsoft Denise', 'Microsoft Hortense']
+  }
+  const preferredNames = preferredNamesByLanguage[uiLanguage.value] || preferredNamesByLanguage.en
 
   for (const preferredName of preferredNames) {
-    const matchedVoice = englishVoices.find((voice) => voice.name.toLowerCase().includes(preferredName.toLowerCase()))
+    const matchedVoice = matchingVoices.find((voice) => voice.name.toLowerCase().includes(preferredName.toLowerCase()))
     if (matchedVoice) {
       return matchedVoice
     }
   }
 
-  return englishVoices[0] || voices[0] || null
+  return matchingVoices[0] || voices[0] || null
 }
 
 function speakVoice(text) {
@@ -1711,7 +2008,7 @@ function speakVoice(text) {
     utterance.lang = preferredVoice.lang || 'en-US'
     voicePreferredVoiceName.value = preferredVoice.name
   } else {
-    utterance.lang = 'en-US'
+    utterance.lang = getSpeechLanguage()
   }
 
   utterance.rate = 0.94
@@ -1821,6 +2118,7 @@ function startVoiceListening({ silent = false } = {}) {
 
   try {
     window.speechSynthesis?.cancel()
+    voiceRecognition.value.lang = getSpeechLanguage()
     voiceRecognition.value.start()
   } catch {
     if (!silent) {
@@ -1847,13 +2145,16 @@ function stopVoiceListening() {
 function normalizeVoiceText(text) {
   return String(text || '')
     .toLowerCase()
-    .replace(/[^a-z0-9.\s-]/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{Letter}\p{Number}%.\s-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
 function includesVoicePhrase(command, phrases) {
-  return phrases.some((phrase) => command.includes(phrase))
+  const normalizedCommand = normalizeVoiceText(command)
+  return phrases.some((phrase) => normalizedCommand.includes(normalizeVoiceText(phrase)))
 }
 
 function findVoicePage(command) {
@@ -1973,22 +2274,22 @@ function runVoiceScreenControl(command) {
   const distance = Math.max(220, window.innerHeight * getScrollDistance(command))
   const smoothScrollBy = (top) => window.scrollBy({ top, left: 0, behavior: 'smooth' })
 
-  if (includesVoicePhrase(command, ['scroll down', 'scrolling down', 'move down', 'page down', 'go down', 'down the page'])) {
+  if (includesVoicePhrase(command, ['scroll down', 'scrolling down', 'move down', 'page down', 'go down', 'down the page', '下滑', '向下滚动', '往下', '滚动到下面', 'desplazar abajo', 'desplaza abajo', 'bajar', 'baja', 'faire defiler vers le bas', 'défiler vers le bas', 'descendre'])) {
     smoothScrollBy(distance)
     return 'Scrolling down.'
   }
 
-  if (includesVoicePhrase(command, ['scroll up', 'scrolling up', 'move up', 'page up', 'go up', 'up the page'])) {
+  if (includesVoicePhrase(command, ['scroll up', 'scrolling up', 'move up', 'page up', 'go up', 'up the page', '上滑', '向上滚动', '往上', '滚动到上面', 'desplazar arriba', 'desplaza arriba', 'subir', 'sube', 'faire defiler vers le haut', 'défiler vers le haut', 'monter'])) {
     smoothScrollBy(-distance)
     return 'Scrolling up.'
   }
 
-  if (includesVoicePhrase(command, ['scroll to top', 'go to top', 'back to top', 'top of page', 'top of the page'])) {
+  if (includesVoicePhrase(command, ['scroll to top', 'go to top', 'back to top', 'top of page', 'top of the page', '回到顶部', '到顶部', '顶部', 'ir arriba', 'arriba del todo', 'haut de page', 'aller en haut'])) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     return 'Going to the top.'
   }
 
-  if (includesVoicePhrase(command, ['scroll to bottom', 'go to bottom', 'bottom of page', 'bottom of the page'])) {
+  if (includesVoicePhrase(command, ['scroll to bottom', 'go to bottom', 'bottom of page', 'bottom of the page', '到底部', '底部', 'ir abajo', 'abajo del todo', 'bas de page', 'aller en bas'])) {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
     return 'Going to the bottom.'
   }
@@ -2099,30 +2400,89 @@ function getIndicatorExplanation(command) {
 function getAssistantContextSummary() {
   const selected = getSelectedIndicators()
   const symbol = activeTradeResponse.value?.stock?.symbol || activeSymbol.value
-  return `You are on ${activePage.value}. Current symbol is ${symbol}. Selected indicators are ${selected.length ? selected.join(', ') : 'none'}.`
+  const pageLabel = formatPageLabel(activePage.value)
+  const indicatorText = selected.length ? selected.join(', ') : 'none'
+
+  if (uiLanguage.value === 'zh') {
+    return `你现在在${pageLabel}页面。当前标的是 ${symbol}。已选择指标：${indicatorText}。`
+  }
+
+  if (uiLanguage.value === 'es') {
+    return `Estás en ${pageLabel}. El símbolo actual es ${symbol}. Indicadores seleccionados: ${indicatorText}.`
+  }
+
+  if (uiLanguage.value === 'fr') {
+    return `Vous êtes sur ${pageLabel}. Le symbole actuel est ${symbol}. Indicateurs sélectionnés : ${indicatorText}.`
+  }
+
+  return `You are on ${pageLabel}. Current symbol is ${symbol}. Selected indicators are ${indicatorText}.`
 }
 
 function buildConversationalReply(command) {
   const indicatorExplanation = getIndicatorExplanation(command)
 
+  const replies = {
+    zh: {
+      greeting: '我在，可以自然说中文。我能回答问题，也能帮你操作页面。',
+      thanks: '不客气。我会继续保持 AI 模式，你也可以随时手动操作。',
+      scrollHelp: '我可以控制页面滚动。你可以说：向下滚动、向上滚动、回到顶部、到底部。',
+      indicatorHelp: '我可以选择或取消指标。比如：选择 MACD 和布林带，取消 EMA，选择 RSI，移除成交量。',
+      generateHelp: '你可以说 Generate AAPL，或者说生成 AAPL，我会切到对应页面并运行分析。',
+      capabilities: '我可以聊天、滚动屏幕、切换页面、选择或取消指标、切换周期、搜索股票、扫描自选、运行 Generate。不能语音下单，也不提供投资建议。',
+      advice: '我不能提供投资建议，但可以帮你打开分析、解释指标、展示模型结果供你判断。',
+      fallback: '我在听，但还不确定你想让我做什么。你可以说：生成 AAPL、打开股票分析、选择 MACD、向下滚动。',
+    },
+    es: {
+      greeting: 'Estoy aquí. Puedes hablar en español; puedo responder o controlar la página.',
+      thanks: 'Con gusto. Sigo en AI Mode, y también puedes usar la página manualmente.',
+      scrollHelp: 'Puedo controlar la pantalla. Prueba: desplaza abajo, sube, ir arriba o ir abajo.',
+      indicatorHelp: 'Puedo seleccionar o quitar indicadores. Prueba: selecciona MACD, quita EMA, elige RSI o remueve volumen.',
+      generateHelp: 'Di Generate AAPL o analiza AAPL, y abriré el análisis.',
+      capabilities: 'Puedo conversar, desplazar la pantalla, abrir páginas, seleccionar indicadores, cambiar intervalos, buscar símbolos, escanear favoritos y ejecutar Generate. No puedo colocar órdenes ni dar asesoría financiera.',
+      advice: 'No puedo dar asesoría financiera. Puedo abrir el análisis, explicar indicadores y mostrar el resultado del modelo.',
+      fallback: 'Estoy escuchando, pero no estoy segura de la acción. Puedes decir Generate AAPL, abrir Acciones, seleccionar MACD o desplaza abajo.',
+    },
+    fr: {
+      greeting: 'Je suis là. Vous pouvez parler en français; je peux répondre ou contrôler la page.',
+      thanks: 'Avec plaisir. Je reste en mode IA, et vous pouvez aussi utiliser la page manuellement.',
+      scrollHelp: 'Je peux contrôler l’écran. Essayez : défiler vers le bas, monter, aller en haut ou aller en bas.',
+      indicatorHelp: 'Je peux sélectionner ou retirer des indicateurs. Essayez : sélectionner MACD, retirer EMA, choisir RSI ou enlever le volume.',
+      generateHelp: 'Dites Generate AAPL ou analyser AAPL, et j’ouvrirai l’analyse.',
+      capabilities: 'Je peux discuter, faire défiler l’écran, ouvrir des pages, sélectionner des indicateurs, changer d’intervalle, rechercher des symboles, scanner les favoris et lancer Generate. Je ne peux pas passer d’ordres ni donner de conseil financier.',
+      advice: 'Je ne peux pas donner de conseil financier. Je peux ouvrir l’analyse, expliquer les indicateurs et montrer le résultat du modèle.',
+      fallback: 'J’écoute, mais je ne suis pas sûre de l’action. Vous pouvez dire Generate AAPL, ouvrir Actions, sélectionner MACD ou défiler vers le bas.',
+    },
+    en: {
+      greeting: 'Hi, I am here. You can talk normally, and I will either answer or operate the page for you.',
+      thanks: 'Anytime. I am staying in AI Mode, so you can keep talking or use the page manually.',
+      scrollHelp: 'I can control the screen. Try saying scroll down, scroll up, go to top, or go to bottom.',
+      indicatorHelp: 'I can select or remove indicators. Try select MACD and Bollinger, unselect EMA, choose RSI, or remove volume.',
+      generateHelp: 'Say Generate followed by a ticker, like Generate AAPL. I will switch to the right workspace and run it.',
+      capabilities: 'I can chat, scroll the screen, open pages, select or unselect indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.',
+      advice: 'I cannot give investment advice. I can help you open the analysis, explain indicators, and show the model output so you can review it.',
+      fallback: 'I am listening, but I am not sure what action you want. You can ask a question, or say something like Generate AAPL, open Crypto Trade, or enable MACD.',
+    }
+  }
+  const localReplies = replies[uiLanguage.value] || replies.en
+
   if (indicatorExplanation && includesVoicePhrase(command, ['what is', 'explain', 'tell me about', 'how does'])) {
     return indicatorExplanation
   }
 
-  if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon'])) {
-    return 'Hi, I am here. You can talk normally, and I will either answer or operate the page for you.'
+  if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon', '你好', '您好', '嗨', 'hola', 'bonjour', 'salut'])) {
+    return localReplies.greeting
   }
 
-  if (includesVoicePhrase(command, ['thank you', 'thanks', 'nice', 'great'])) {
-    return 'Anytime. I am staying in AI Mode, so you can keep talking or use the page manually.'
+  if (includesVoicePhrase(command, ['thank you', 'thanks', 'nice', 'great', '谢谢', '感谢', 'gracias', 'merci'])) {
+    return localReplies.thanks
   }
 
   if (includesVoicePhrase(command, ['where am i', 'what page', 'current page', 'where are we'])) {
     return getAssistantContextSummary()
   }
 
-  if (includesVoicePhrase(command, ['scroll', 'scrolling', 'move down', 'move up', 'page down', 'page up'])) {
-    return 'I can control the screen. Try saying scroll down, scroll up, go to top, or go to bottom.'
+  if (includesVoicePhrase(command, ['scroll', 'scrolling', 'move down', 'move up', 'page down', 'page up', '滚动', '下滑', '上滑', 'desplaza', 'desplazar', 'defiler', 'défiler'])) {
+    return localReplies.scrollHelp
   }
 
   if (includesVoicePhrase(command, ['what symbol', 'current symbol', 'which ticker', 'what ticker'])) {
@@ -2138,19 +2498,19 @@ function buildConversationalReply(command) {
   }
 
   if (includesVoicePhrase(command, ['how to generate', 'how do i generate', 'how can i generate'])) {
-    return 'Say Generate followed by a ticker, like Generate AAPL. I will switch to the right workspace and run it.'
+    return localReplies.generateHelp
   }
 
-  if (includesVoicePhrase(command, ['indicator', 'indicators', 'select', 'unselect', 'choose', 'remove'])) {
-    return 'I can select or remove indicators. Try select MACD and Bollinger, unselect EMA, choose RSI, or remove volume.'
+  if (includesVoicePhrase(command, ['indicator', 'indicators', 'select', 'unselect', 'choose', 'remove', '指标', '选择', '取消', 'indicador', 'indicadores', 'selecciona', 'quitar', 'indicateur', 'indicateurs', 'selectionner', 'sélectionner', 'retirer'])) {
+    return localReplies.indicatorHelp
   }
 
-  if (includesVoicePhrase(command, ['what can you do', 'help', 'commands'])) {
-    return 'I can chat, scroll the screen, open pages, select or unselect indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.'
+  if (includesVoicePhrase(command, ['what can you do', 'help', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
+    return localReplies.capabilities
   }
 
-  if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice'])) {
-    return 'I cannot give investment advice. I can help you open the analysis, explain indicators, and show the model output so you can review it.'
+  if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice', '投资建议', '该买吗', '该卖吗', '建议', 'asesoria', 'comprar', 'vender', 'conseil', 'acheter', 'vendre'])) {
+    return localReplies.advice
   }
 
   const maybeSymbol = extractVoiceSymbol(command)
@@ -2158,7 +2518,7 @@ function buildConversationalReply(command) {
     return `I heard ${maybeSymbol}. If you want action, say Search ${maybeSymbol} or Generate ${maybeSymbol}.`
   }
 
-  return 'I am listening, but I am not sure what action you want. You can ask a question, or say something like Generate AAPL, open Crypto Trade, or enable MACD.'
+  return localReplies.fallback
 }
 
 async function submitVoiceTextCommand() {
@@ -2181,6 +2541,30 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
+  if (includesVoicePhrase(command, ['中文', 'chinese', 'mandarin', '普通话'])) {
+    uiLanguage.value = 'zh'
+    setVoiceStatus('已切换到中文。我现在可以听中文指令。', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['spanish', 'espanol', 'español'])) {
+    uiLanguage.value = 'es'
+    setVoiceStatus('Idioma cambiado a español. Ahora puedo escuchar comandos en español.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['french', 'francais', 'français'])) {
+    uiLanguage.value = 'fr'
+    setVoiceStatus('Langue changée en français. Je peux maintenant écouter les commandes en français.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['english', '英语', 'anglais', 'ingles'])) {
+    uiLanguage.value = 'en'
+    setVoiceStatus('Language switched to English.', { speak: true, transcript: rawTranscript })
+    return
+  }
+
   if (voicePendingAction.value) {
     if (includesVoicePhrase(command, voiceConfirmPhrases)) {
       confirmVoiceAction()
@@ -2193,7 +2577,7 @@ async function handleVoiceCommand(rawTranscript) {
     }
   }
 
-  if (includesVoicePhrase(command, ['help', 'what can you do', 'commands'])) {
+  if (includesVoicePhrase(command, ['help', 'what can you do', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
     setVoiceStatus(buildConversationalReply(command), {
       speak: true,
       transcript: rawTranscript
@@ -2201,7 +2585,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (includesVoicePhrase(command, ['buy ', 'sell ', 'place order', 'submit order', 'market order', 'limit order', 'short ', 'go long', 'go short'])) {
+  if (includesVoicePhrase(command, ['buy ', 'sell ', 'place order', 'submit order', 'market order', 'limit order', 'short ', 'go long', 'go short', '买入', '卖出', '下单', '做空', '做多', 'comprar', 'vender', 'orden', 'acheter', 'vendre', 'ordre'])) {
     setVoiceStatus('Voice trading orders are disabled. I can control analysis and navigation only.', {
       speak: true,
       transcript: rawTranscript
@@ -2209,7 +2593,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (includesVoicePhrase(command, ['sign out', 'log out', 'logout'])) {
+  if (includesVoicePhrase(command, ['sign out', 'log out', 'logout', '退出登录', '登出', 'cerrar sesion', 'cerrar sesión', 'deconnexion', 'déconnexion'])) {
     queueVoiceAction({
       type: 'signOut',
       prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
@@ -2223,13 +2607,13 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators'])) {
+  if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators', '清空指标', '关闭所有指标', '取消所有指标', 'quitar todos los indicadores', 'desactivar todos los indicadores', 'retirer tous les indicateurs', 'desactiver tous les indicateurs'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
     setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
     return
   }
 
-  if (includesVoicePhrase(command, ['reset indicators', 'default indicators', 'restore indicators'])) {
+  if (includesVoicePhrase(command, ['reset indicators', 'default indicators', 'restore indicators', '重置指标', '默认指标', 'restablecer indicadores', 'indicadores predeterminados', 'retablir indicateurs', 'réinitialiser indicateurs'])) {
     const defaultSelected = new Set(['MA', 'EMA', 'MACD', 'BOLL', 'VOL'])
     indicators.value = indicators.value.map((indicator) => ({
       ...indicator,
@@ -2239,7 +2623,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (command.includes('scan') && includesVoicePhrase(command, ['watchlist', 'starred', 'stars', 'favorites', 'self selected', 'self-selected'])) {
+  if (includesVoicePhrase(command, ['scan', '扫描', 'escanear', 'scanner']) && includesVoicePhrase(command, ['watchlist', 'starred', 'stars', 'favorites', 'self selected', 'self-selected', '自选', '星标', 'favoritos', 'favoris'])) {
     const threshold = extractVoiceProbability(command)
     watchlistScanThreshold.value = threshold
     navigateTo('Dashboard')
@@ -2255,7 +2639,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (includesVoicePhrase(command, ['select all indicators', 'enable all indicators', 'turn on all indicators'])) {
+  if (includesVoicePhrase(command, ['select all indicators', 'enable all indicators', 'turn on all indicators', '选择所有指标', '打开所有指标', 'seleccionar todos los indicadores', 'activar todos los indicadores', 'selectionner tous les indicateurs', 'activer tous les indicateurs'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: true }))
     setVoiceStatus('All indicators are on.', { speak: true, transcript: rawTranscript })
     return
@@ -2263,7 +2647,7 @@ async function handleVoiceCommand(rawTranscript) {
 
   const mentionedIndicators = findVoiceIndicators(command)
   if (mentionedIndicators.length) {
-    if (command.includes('only')) {
+    if (includesVoicePhrase(command, voiceOnlyPhrases)) {
       setOnlyVoiceIndicators(mentionedIndicators)
       setVoiceStatus(`Only ${mentionedIndicators.join(', ')} are selected.`, { speak: true, transcript: rawTranscript })
       return
@@ -2283,30 +2667,30 @@ async function handleVoiceCommand(rawTranscript) {
   }
 
   const requestedInterval = findVoiceInterval(command)
-  if (requestedInterval && includesVoicePhrase(command, ['interval', 'chart', 'time frame', 'timeframe', 'switch'])) {
+  if (requestedInterval && includesVoicePhrase(command, ['interval', 'chart', 'time frame', 'timeframe', 'switch', '周期', '图表', '切换', 'intervalo', 'grafico', 'gráfico', 'cambiar', 'intervalle', 'graphique', 'changer'])) {
     selectedChartInterval.value = requestedInterval
     setVoiceStatus(`Chart interval set to ${requestedInterval}.`, { speak: true, transcript: rawTranscript })
     return
   }
 
-  if (includesVoicePhrase(command, ['generate', 'run analysis', 'analyze', 'analyse'])) {
+  if (includesVoicePhrase(command, ['generate', 'run analysis', 'analyze', 'analyse', '生成', '分析', 'analizar', 'genera', 'generar', 'analyse', 'analyser', 'generer', 'générer'])) {
     await runVoiceAnalysis('generate', extractVoiceSymbol(command), rawTranscript)
     return
   }
 
-  if (includesVoicePhrase(command, ['search', 'look up', 'quote', 'price'])) {
+  if (includesVoicePhrase(command, ['search', 'look up', 'quote', 'price', '搜索', '查找', '查询', '价格', 'buscar', 'precio', 'cotizacion', 'cotización', 'chercher', 'rechercher', 'prix', 'cours'])) {
     await runVoiceAnalysis('search', extractVoiceSymbol(command), rawTranscript)
     return
   }
 
   const naturalSymbol = extractVoiceSymbol(command)
-  if (naturalSymbol && includesVoicePhrase(command, ['show', 'check', 'open', 'load', 'what about'])) {
+  if (naturalSymbol && includesVoicePhrase(command, ['show', 'check', 'open', 'load', 'what about', '看一下', '查看', '打开', '加载', 'mostrar', 'abrir', 'cargar', 'voir', 'ouvrir', 'charger'])) {
     await runVoiceAnalysis('search', naturalSymbol, rawTranscript)
     return
   }
 
   const requestedPage = findVoicePage(command)
-  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate'])) {
+  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à'])) {
     navigateTo(requestedPage)
     setVoiceStatus(`Opened ${requestedPage}.`, { speak: true, transcript: rawTranscript })
     return
@@ -2319,7 +2703,11 @@ async function handleVoiceCommand(rawTranscript) {
 }
 
 function navigateTo(page) {
-  const normalizedPage = page === 'Analysis' ? 'Stock Trade' : page
+  const pageAliases = {
+    Analysis: 'Stock Trade',
+    Myself: 'Settings'
+  }
+  const normalizedPage = pageAliases[page] || page
 
   if (accessiblePages.value.includes(normalizedPage)) {
     activePage.value = normalizedPage
@@ -3636,7 +4024,11 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       }
     },
     setPage(page) {
-      const normalizedPage = page === 'Analysis' ? 'Stock Trade' : page
+      const pageAliases = {
+        Analysis: 'Stock Trade',
+        Myself: 'Settings'
+      }
+      const normalizedPage = pageAliases[page] || page
       if (accessiblePages.value.includes(normalizedPage)) {
         activePage.value = normalizedPage
       }
@@ -3681,7 +4073,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :class="{ active: activePage === page }"
           @click="navigateTo(page)"
         >
-          {{ page }}
+          {{ formatPageLabel(page) }}
         </button>
       </nav>
 
@@ -3691,10 +4083,22 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           class="topbar-button secondary"
           @click="triggerInstall"
         >
-          Install App
+          {{ t('installApp') }}
         </button>
         <template v-if="isAuthenticated">
-          <button class="topbar-button" @click="signOut">Sign out</button>
+          <label class="language-selector">
+            <span>{{ t('selectLanguage') }}</span>
+            <select v-model="uiLanguage" :aria-label="t('selectLanguage')">
+              <option
+                v-for="language in languageOptions"
+                :key="language.code"
+                :value="language.code"
+              >
+                {{ language.label }}
+              </option>
+            </select>
+          </label>
+          <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
         </template>
       </div>
     </header>
@@ -4761,61 +5165,59 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </section>
     </main>
 
-    <main v-else-if="activePage === 'Myself'" class="product-page">
+    <main v-else-if="activePage === 'Settings'" class="product-page">
       <section class="hero-surface compact">
         <div>
-          <p class="eyebrow">Myself</p>
-          <h1 class="page-title">Your account at a glance</h1>
-          <p class="page-subtitle">
-            Review your personal account ID, registered email, and basic account status in one place.
-          </p>
+          <p class="eyebrow">{{ t('settingsEyebrow') }}</p>
+          <h1 class="page-title">{{ t('settingsTitle') }}</h1>
+          <p class="page-subtitle">{{ t('settingsSubtitle') }}</p>
         </div>
       </section>
 
       <section class="dashboard-grid myself-grid">
         <article class="table-surface dashboard-card">
           <div class="table-header">
-            <h2>Account Details</h2>
-            <span class="section-chip">{{ currentUser?.isAdmin ? 'Admin' : 'User' }}</span>
+            <h2>{{ t('accountDetails') }}</h2>
+            <span class="section-chip">{{ currentUser?.isAdmin ? t('adminRole') : t('userRole') }}</span>
           </div>
           <div class="task-list myself-detail-list">
             <div class="task-row">
-              <strong>Account ID</strong>
+              <strong>{{ t('accountId') }}</strong>
               <small>{{ currentUserCode }}</small>
             </div>
             <div class="task-row">
-              <strong>Full Name</strong>
+              <strong>{{ t('fullName') }}</strong>
               <small>{{ currentUser?.fullName || currentUserName }}</small>
             </div>
             <div class="task-row">
-              <strong>Email</strong>
-              <small>{{ currentUser?.email || 'Not available' }}</small>
+              <strong>{{ t('email') }}</strong>
+              <small>{{ currentUser?.email || t('notAvailable') }}</small>
             </div>
             <div class="task-row">
-              <strong>Membership</strong>
-              <small>{{ currentUser?.membership || 'Regular User' }}</small>
+              <strong>{{ t('membership') }}</strong>
+              <small>{{ currentUser?.membership || t('regularUser') }}</small>
             </div>
             <div class="task-row">
-              <strong>Joined</strong>
-              <small>{{ currentUser?.joinedAt || 'Recent' }}</small>
+              <strong>{{ t('joined') }}</strong>
+              <small>{{ currentUser?.joinedAt || t('recent') }}</small>
             </div>
           </div>
         </article>
 
         <article class="table-surface dashboard-card">
           <div class="table-header">
-            <h2>Settings</h2>
-            <span class="section-chip">Session</span>
+            <h2>{{ t('settingsEyebrow') }}</h2>
+            <span class="section-chip">{{ t('session') }}</span>
           </div>
           <div class="dashboard-card-grid">
             <div class="dashboard-mini-card">
-              <span>Current login</span>
-              <strong>{{ currentUser?.emailVerified ? 'Verified' : 'Pending verification' }}</strong>
-              <small>Your account stays stored locally even when the shared market seed database is updated.</small>
+              <span>{{ t('currentLogin') }}</span>
+              <strong>{{ currentUser?.emailVerified ? t('verified') : t('pendingVerification') }}</strong>
+              <small>{{ t('settingsNote') }}</small>
             </div>
           </div>
           <div class="myself-actions">
-            <button class="topbar-button" @click="signOut">Logout</button>
+            <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
           </div>
         </article>
       </section>
@@ -5067,17 +5469,17 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       >
         <div class="voice-panel-header">
           <div>
-            <span class="section-chip">AI Voice Mode</span>
-            <h2>Noob AI Assistant</h2>
+            <span class="section-chip">{{ t('aiMode') }}</span>
+            <h2>{{ t('aiTitle') }}</h2>
           </div>
           <div class="voice-header-actions">
             <span class="voice-state" :class="{ active: voiceListening }">{{ voiceActionLabel }}</span>
-            <button class="voice-minimize-button" type="button" @click="minimizeVoiceAssistantPanel">Shrink</button>
+            <button class="voice-minimize-button" type="button" @click="minimizeVoiceAssistantPanel">{{ t('shrink') }}</button>
           </div>
         </div>
 
         <p class="voice-disclaimer">
-          AI Mode listens continuously while on. You can still use every manual control. No voice trading orders or investment advice.
+          {{ t('aiDisclaimer') }}
         </p>
 
         <button
@@ -5090,33 +5492,33 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span class="voice-switch-thumb"></span>
           </span>
           <span>
-            <strong>{{ voiceAssistantEnabled ? 'AI Mode On' : 'AI Mode Off' }}</strong>
-            <small>{{ voiceAssistantEnabled ? 'Listening and chatting automatically' : 'Manual mode only' }}</small>
+            <strong>{{ voiceAssistantEnabled ? t('aiModeOn') : t('aiModeOff') }}</strong>
+            <small>{{ voiceAssistantEnabled ? t('aiListening') : t('aiManual') }}</small>
           </span>
         </button>
 
         <div class="voice-command-box" aria-live="polite">
-          <small>Assistant status</small>
+          <small>{{ t('assistantStatus') }}</small>
           <strong>{{ voiceStatus }}</strong>
-          <p>{{ voiceTranscript ? `Heard: ${voiceTranscript}` : 'Say a question or command in English.' }}</p>
+          <p>{{ voiceTranscript ? `${t('heardPrefix')}: ${voiceTranscript}` : t('sayCommand') }}</p>
         </div>
 
         <div class="voice-text-input">
           <input
             v-model="voiceInputDraft"
             type="text"
-            placeholder="Type a question or command..."
+            :placeholder="t('typeCommand')"
             @keyup.enter="submitVoiceTextCommand"
           />
-          <button class="topbar-button secondary" type="button" @click="submitVoiceTextCommand">Send</button>
+          <button class="topbar-button secondary" type="button" @click="submitVoiceTextCommand">{{ t('send') }}</button>
         </div>
 
         <div v-if="voicePendingAction" class="voice-confirm-card">
-          <strong>Confirmation required</strong>
+          <strong>{{ t('confirmationRequired') }}</strong>
           <p>{{ voicePendingAction.prompt }}</p>
           <div class="voice-actions">
-            <button class="topbar-button" type="button" @click="confirmVoiceAction">Confirm</button>
-            <button class="topbar-button secondary" type="button" @click="cancelVoiceAction">Cancel</button>
+            <button class="topbar-button" type="button" @click="confirmVoiceAction">{{ t('confirm') }}</button>
+            <button class="topbar-button secondary" type="button" @click="cancelVoiceAction">{{ t('cancel') }}</button>
           </div>
         </div>
 
@@ -5125,18 +5527,18 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
 
         <div class="voice-footer">
-          <span>Voice: {{ voicePreferredVoiceName }}</span>
-          <span>{{ voiceSupported ? 'Browser voice enabled' : 'Use Chrome or Edge for mic control' }}</span>
+          <span>{{ t('voiceLabel') }}: {{ voicePreferredVoiceName }}</span>
+          <span>{{ voiceSupported ? t('voiceEnabled') : t('voiceUnsupported') }}</span>
         </div>
 
         <div class="voice-log">
           <div v-if="!voiceChatTimeline.length" class="voice-log-empty">
             <strong>Noob AI</strong>
-            <small>Turn AI Mode on and talk naturally. I can answer questions or operate the page.</small>
+            <small>{{ t('noobAiIntro') }}</small>
           </div>
           <div v-for="item in voiceChatTimeline" :key="`${item.time}-${item.transcript}-${item.response}`" class="voice-chat-turn">
             <div class="voice-bubble user">
-              <span>You · {{ item.time }}</span>
+              <span>{{ t('you') }} · {{ item.time }}</span>
               <strong>{{ item.transcript }}</strong>
             </div>
             <div class="voice-bubble assistant">
@@ -5174,7 +5576,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         :class="{ active: activePage === page }"
         @click="navigateTo(page)"
       >
-        <span class="mobile-tab-label">{{ page }}</span>
+        <span class="mobile-tab-label">{{ formatPageLabel(page) }}</span>
       </button>
     </nav>
   </div>

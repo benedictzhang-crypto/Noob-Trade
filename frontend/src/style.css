@@ -107,6 +107,39 @@ select {
   min-width: 0;
 }
 
+.language-selector {
+  display: grid;
+  gap: 5px;
+  min-width: 164px;
+  color: var(--text-soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.language-selector select {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 34px 9px 13px;
+  border: 1px solid rgba(255, 138, 0, 0.2);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  outline: none;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.language-selector select:focus {
+  border-color: rgba(255, 138, 0, 0.42);
+  box-shadow: 0 0 0 4px rgba(255, 138, 0, 0.1);
+}
+
 .topbar-search {
   width: 240px;
   max-width: 100%;
@@ -3220,6 +3253,11 @@ select {
 
   .topbar-actions:has(> :only-child) {
     grid-template-columns: 1fr;
+  }
+
+  .language-selector {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .topbar-button,
