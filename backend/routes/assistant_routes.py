@@ -2,7 +2,10 @@ import json
 import re
 
 import requests
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
+
+from extensions import db
+from models.auth import AssistantIntentFeedback
 
 
 assistant_blueprint = Blueprint("assistant", __name__, url_prefix="/api/assistant")
@@ -70,6 +73,15 @@ INDICATOR_ALIASES = {
     "指数均线": "EMA",
 }
 
+ALLOWED_INTENTS = {
+    "navigate", "scroll", "generate", "search", "set_indicator",
+    "select_only_indicators", "clear_indicators", "reset_indicators",
+    "scan_watchlist", "set_star", "adjust_probability",
+    "summarize_probability", "open_historical_pattern",
+    "load_more_patterns", "set_interval", "sign_out", "language",
+    "help", "chat", "blocked_trading", "unknown",
+}
+
 
 def _normalize_text(value):
     return re.sub(r"\s+", " ", str(value or "").lower()).strip()
@@ -95,6 +107,27 @@ def _base_intent(intent="chat", confidence=0.5, **kwargs):
     }
     payload.update(kwargs)
     return payload
+
+
+def _feedback_payload_from_intent(intent_payload):
+    if not isinstance(intent_payload, dict):
+        return {}
+
+    return {
+        "page": intent_payload.get("page"),
+        "direction": intent_payload.get("direction"),
+        "amount": intent_payload.get("amount"),
+        "symbol": intent_payload.get("symbol"),
+        "indicators": intent_payload.get("indicators") or [],
+        "active": intent_payload.get("active"),
+        "threshold": intent_payload.get("threshold"),
+        "side": intent_payload.get("side"),
+        "value": intent_payload.get("value"),
+        "index": intent_payload.get("index"),
+        "interval": intent_payload.get("interval"),
+        "language": intent_payload.get("language"),
+        "confidence": intent_payload.get("confidence"),
+    }
 
 
 def _extract_symbol(text):
@@ -286,14 +319,7 @@ def _intent_schema():
         "properties": {
             "intent": {
                 "type": "string",
-                "enum": [
-                    "navigate", "scroll", "generate", "search", "set_indicator",
-                    "select_only_indicators", "clear_indicators", "reset_indicators",
-                    "scan_watchlist", "set_star", "adjust_probability",
-                    "summarize_probability", "open_historical_pattern",
-                    "load_more_patterns", "set_interval", "sign_out", "language",
-                    "help", "chat", "blocked_trading", "unknown",
-                ],
+                "enum": sorted(ALLOWED_INTENTS),
             },
             "confidence": {"type": "number"},
             "page": {"type": ["string", "null"]},
@@ -395,6 +421,135 @@ def _openai_intent(transcript, context):
     return parsed if isinstance(parsed, dict) else None
 
 
+def _coerce_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_bool(value):
+    if isinstance(value, bool):
+        return value
+
+    normalized = _normalize_text(value)
+    if normalized in {"true", "yes", "on", "enable", "select", "add", "pick", "选择", "打开", "加入"}:
+        return True
+    if normalized in {"false", "no", "off", "disable", "remove", "unselect", "deselect", "取消", "关闭", "移除"}:
+        return False
+    return None
+
+
+def _normalize_page_entity(value):
+    normalized = _normalize_text(value)
+    return ALLOWED_PAGES.get(normalized)
+
+
+def _normalize_indicator_entity(value):
+    normalized = _normalize_text(value)
+    if not normalized:
+        return ""
+    return INDICATOR_ALIASES.get(normalized, str(value or "").strip().upper())
+
+
+def _intent_from_rasa_parse(parsed, transcript, context):
+    intent_info = parsed.get("intent") if isinstance(parsed, dict) else {}
+    intent_name = str((intent_info or {}).get("name") or "unknown")
+    if intent_name not in ALLOWED_INTENTS:
+        intent_name = "chat"
+
+    confidence = _coerce_float((intent_info or {}).get("confidence")) or 0.0
+    intent_payload = _base_intent(intent_name, confidence)
+    indicators = []
+
+    for entity in parsed.get("entities", []) if isinstance(parsed, dict) else []:
+        if not isinstance(entity, dict):
+            continue
+
+        entity_name = str(entity.get("entity") or "").lower()
+        value = entity.get("value")
+
+        if entity_name in {"indicator", "indicators"}:
+            indicator = _normalize_indicator_entity(value)
+            if indicator and indicator not in indicators:
+                indicators.append(indicator)
+        elif entity_name == "page":
+            intent_payload["page"] = _normalize_page_entity(value) or intent_payload["page"]
+        elif entity_name == "symbol":
+            intent_payload["symbol"] = str(value or "").strip().upper() or intent_payload["symbol"]
+        elif entity_name == "direction":
+            direction = _normalize_text(value)
+            if direction in {"up", "down", "top", "bottom"}:
+                intent_payload["direction"] = direction
+        elif entity_name == "amount":
+            amount = _normalize_text(value)
+            if amount in {"small", "normal", "large", "full"}:
+                intent_payload["amount"] = amount
+        elif entity_name == "active":
+            intent_payload["active"] = _coerce_bool(value)
+        elif entity_name == "threshold":
+            intent_payload["threshold"] = _coerce_float(value)
+        elif entity_name == "side":
+            side = _normalize_text(value)
+            if side in {"up", "down"}:
+                intent_payload["side"] = side
+        elif entity_name == "value":
+            intent_payload["value"] = _coerce_float(value)
+        elif entity_name == "index":
+            number = _coerce_float(value)
+            intent_payload["index"] = int(number) if number is not None else intent_payload["index"]
+        elif entity_name == "interval":
+            intent_payload["interval"] = str(value or "").strip() or intent_payload["interval"]
+        elif entity_name == "language":
+            language = _normalize_text(value)
+            if language in {"en", "zh", "es", "fr"}:
+                intent_payload["language"] = language
+
+    if indicators:
+        intent_payload["indicators"] = indicators
+
+    text = _normalize_text(transcript)
+    if intent_payload["intent"] == "set_indicator":
+        if not intent_payload["indicators"]:
+            intent_payload["indicators"] = _extract_indicators(text)
+        if intent_payload["active"] is None:
+            intent_payload["active"] = not any(
+                phrase in text
+                for phrase in ("remove", "turn off", "disable", "unselect", "deselect", "取消", "关闭", "移除")
+            )
+
+    if intent_payload["intent"] in {"generate", "search", "set_star"} and not intent_payload["symbol"]:
+        intent_payload["symbol"] = _extract_symbol(text) or context.get("symbol")
+
+    if intent_payload["intent"] == "scan_watchlist" and intent_payload["threshold"] is None:
+        intent_payload["threshold"] = _extract_first_number(text)
+
+    if intent_payload["intent"] == "adjust_probability":
+        if intent_payload["side"] is None:
+            intent_payload["side"] = "down" if any(phrase in text for phrase in ("down", "downside", "fall", "drop", "下跌", "向下")) else "up"
+        if intent_payload["value"] is None:
+            intent_payload["value"] = _extract_first_number(text)
+
+    if intent_payload["intent"] == "open_historical_pattern" and intent_payload["index"] is None:
+        intent_payload["index"] = _extract_ordinal_index(text)
+
+    return intent_payload
+
+
+def _rasa_intent(transcript, context):
+    base_url = current_app.config.get("ASSISTANT_RASA_URL")
+    if not base_url:
+        return None
+
+    response = requests.post(
+        f"{str(base_url).rstrip('/')}/model/parse",
+        json={"text": transcript},
+        timeout=float(current_app.config.get("ASSISTANT_INTENT_TIMEOUT_SECONDS", 3.5)),
+    )
+    response.raise_for_status()
+    return _intent_from_rasa_parse(response.json(), transcript, context)
+
+
 @assistant_blueprint.route("/intent", methods=["POST"])
 def parse_intent():
     payload = request.get_json(silent=True) or {}
@@ -405,6 +560,17 @@ def parse_intent():
     if rule_intent["confidence"] >= 0.92:
         return jsonify({"source": "rules", "intent": rule_intent})
 
+    provider = current_app.config.get("ASSISTANT_INTENT_PROVIDER", "openai")
+    should_try_rasa = provider in {"rasa", "auto"} or bool(current_app.config.get("ASSISTANT_RASA_URL"))
+
+    if should_try_rasa:
+        try:
+            rasa_intent = _rasa_intent(transcript, context)
+            if rasa_intent and float(rasa_intent.get("confidence") or 0) >= 0.5:
+                return jsonify({"source": "rasa", "intent": rasa_intent})
+        except Exception as error:
+            current_app.logger.warning("Rasa assistant intent failed: %s", error)
+
     try:
         cloud_intent = _openai_intent(transcript, context)
         if cloud_intent and float(cloud_intent.get("confidence") or 0) >= 0.5:
@@ -413,3 +579,31 @@ def parse_intent():
         current_app.logger.warning("Cloud assistant intent failed: %s", error)
 
     return jsonify({"source": "rules", "intent": rule_intent})
+
+
+@assistant_blueprint.route("/feedback", methods=["POST"])
+def save_feedback():
+    payload = request.get_json(silent=True) or {}
+    transcript = str(payload.get("transcript") or "").strip()
+    prediction = payload.get("prediction") if isinstance(payload.get("prediction"), dict) else {}
+    correction = payload.get("correction") if isinstance(payload.get("correction"), dict) else {}
+
+    if not transcript:
+        return jsonify({"message": "Transcript is required."}), 400
+
+    user_id = session.get("user_id")
+    feedback = AssistantIntentFeedback(
+        user_id=user_id if isinstance(user_id, int) else None,
+        transcript=transcript,
+        predicted_intent=str(prediction.get("intent") or "unknown")[:80],
+        predicted_entities=_feedback_payload_from_intent(prediction),
+        corrected_intent=(str(correction.get("intent"))[:80] if correction.get("intent") else None),
+        corrected_entities=_feedback_payload_from_intent(correction),
+        language=str(payload.get("language") or prediction.get("language") or "en")[:12],
+        source=str(payload.get("source") or "voice")[:32],
+        context_payload=payload.get("context") if isinstance(payload.get("context"), dict) else {},
+    )
+
+    db.session.add(feedback)
+    db.session.commit()
+    return jsonify({"status": "ok", "id": feedback.id})

@@ -1,0 +1,62 @@
+version: "3.1"
+
+intents:
+  - navigate
+  - scroll
+  - generate
+  - search
+  - set_indicator
+  - select_only_indicators
+  - clear_indicators
+  - reset_indicators
+  - scan_watchlist
+  - set_star
+  - adjust_probability
+  - summarize_probability
+  - open_historical_pattern
+  - load_more_patterns
+  - set_interval
+  - sign_out
+  - language
+  - help
+  - chat
+  - blocked_trading
+
+entities:
+  - page
+  - symbol
+  - indicator
+  - direction
+  - amount
+  - threshold
+  - side
+  - index
+  - interval
+  - language
+
+slots:
+  page:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: page
+  symbol:
+    type: text
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: symbol
+  indicator:
+    type: list
+    influence_conversation: false
+    mappings:
+      - type: from_entity
+        entity: indicator
+
+responses:
+  utter_command_received:
+    - text: "Command received."
+
+actions:
+  - action_route_noobtrade_command

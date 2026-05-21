@@ -1,0 +1,149 @@
+version: "3.1"
+
+nlu:
+  - lookup: indicator
+    examples: |
+      - MA
+      - EMA
+      - MACD
+      - BOLL
+      - Bollinger
+      - RSI
+      - Volume
+      - Vol
+      - KDJ
+      - OI
+      - OBV
+      - 布林带
+      - 成交量
+      - 均线
+
+  - lookup: page
+    examples: |
+      - Dashboard
+      - Stock Trade
+      - Crypto Trade
+      - Portfolio
+      - Explore
+      - Markets
+      - Settings
+      - Admin
+      - 股票分析
+      - 加密分析
+      - 设置
+
+  - intent: navigate
+    examples: |
+      - go to [Stock Trade](page)
+      - open the [stock trade](page) page
+      - switch to [Portfolio](page)
+      - show me [Markets](page)
+      - 打开[股票分析](page)
+      - 切换到[设置](page)
+
+  - intent: set_indicator
+    examples: |
+      - [RSI](indicator)
+      - select [RSI](indicator)
+      - pick [Bollinger](indicator)
+      - I want [MACD](indicator)
+      - use [RSI](indicator) and [MACD](indicator)
+      - remove [EMA](indicator)
+      - turn off [Volume](indicator)
+      - 选择[RSI](indicator)
+      - 取消[EMA](indicator)
+
+  - intent: select_only_indicators
+    examples: |
+      - only use [MACD](indicator) and [Bollinger](indicator)
+      - just [RSI](indicator)
+      - 只选[MACD](indicator)和[布林带](indicator)
+
+  - intent: clear_indicators
+    examples: |
+      - clear all indicators
+      - turn off all indicators
+      - 关闭所有指标
+
+  - intent: reset_indicators
+    examples: |
+      - reset indicators
+      - restore default indicators
+      - 重置指标
+
+  - intent: generate
+    examples: |
+      - generate [AAPL](symbol)
+      - run generate for [NVDA](symbol)
+      - analyze [Tesla](symbol)
+      - 生成[AAPL](symbol)
+
+  - intent: search
+    examples: |
+      - search [AAPL](symbol)
+      - look up [MSFT](symbol)
+      - what is the price of [NVDA](symbol)
+      - 查询[AAPL](symbol)
+
+  - intent: set_star
+    examples: |
+      - star [AAPL](symbol)
+      - add [NVDA](symbol) to favorites
+      - remove star [AAPL](symbol)
+      - unstar [MSFT](symbol)
+      - 给[AAPL](symbol)加星标
+      - 取消[AAPL](symbol)星标
+
+  - intent: scan_watchlist
+    examples: |
+      - scan watchlist at [60](threshold) percent
+      - scan starred stocks above [70](threshold)
+      - scan my favorites
+      - 扫描自选 [60](threshold)%
+
+  - intent: adjust_probability
+    examples: |
+      - set upside probability to [3](threshold) percent
+      - drag upside to [5](threshold)%
+      - set downside to [2](threshold) percent
+      - 把上涨调到[3](threshold)%
+      - 把下跌调到[2](threshold)%
+
+  - intent: summarize_probability
+    examples: |
+      - what is the upside probability
+      - what changed after moving the slider
+      - what is downside probability at [2](threshold) percent
+      - 现在上涨概率是多少
+      - 下跌[2](threshold)%概率是多少
+
+  - intent: open_historical_pattern
+    examples: |
+      - open a historical moment
+      - show me a similar historical window
+      - open the second historical pattern
+      - 打开一个历史时刻我看看
+      - 看一个相似历史窗口
+
+  - intent: load_more_patterns
+    examples: |
+      - load more historical patterns
+      - show more matches
+      - 加载更多历史相似
+
+  - intent: scroll
+    examples: |
+      - scroll down
+      - scrolling down more
+      - a little bit more
+      - scroll up
+      - go to bottom
+      - 向下滚动
+      - 再往下
+
+  - intent: blocked_trading
+    examples: |
+      - buy [AAPL](symbol)
+      - sell [NVDA](symbol)
+      - place a market order
+      - 买入[AAPL](symbol)

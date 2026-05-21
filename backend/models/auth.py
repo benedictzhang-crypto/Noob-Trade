@@ -57,3 +57,25 @@ class LoginActivity(db.Model):
     is_new_device = db.Column(db.Boolean, nullable=False, default=False)
     is_new_location = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+
+class AssistantIntentFeedback(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "assistant_intent_feedback"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    transcript = db.Column(db.Text, nullable=False)
+    predicted_intent = db.Column(db.String(80), nullable=False, default="unknown")
+    predicted_entities = db.Column(db.JSON)
+    corrected_intent = db.Column(db.String(80))
+    corrected_entities = db.Column(db.JSON)
+    language = db.Column(db.String(12), nullable=False, default="en")
+    source = db.Column(db.String(32), nullable=False, default="voice")
+    context_payload = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())

@@ -444,6 +444,7 @@ const voicePreferredVoiceName = ref('System voice')
 const voiceIsSpeaking = ref(false)
 const voiceInputDraft = ref('')
 const voiceLastIntent = ref({ type: '', direction: '', at: 0 })
+const voiceLastAssistantPrediction = ref(null)
 const predictionSummaryRef = ref(null)
 const matchedPatternsRef = ref(null)
 
@@ -2737,12 +2738,35 @@ async function submitVoiceTextCommand() {
 }
 
 async function handleVoiceCommand(rawTranscript) {
-  const command = normalizeVoiceText(rawTranscript)
+  let command = normalizeVoiceText(rawTranscript)
+  let effectiveTranscript = rawTranscript
+  let correctionTranscript = ''
   voiceTranscript.value = rawTranscript
 
   if (!command) {
     setVoiceStatus('I did not catch that. Please try again.', { speak: true, transcript: rawTranscript })
     return
+  }
+
+  if (isVoiceCorrectionCommand(command) && voiceLastAssistantPrediction.value) {
+    const correctionText = extractVoiceCorrectionText(rawTranscript)
+    if (!correctionText) {
+      await saveAssistantFeedback({ correctionTranscript: rawTranscript })
+      setVoiceStatus('Thanks, I saved that correction for NoobTrade AI training. Please say the command again in the way you want it handled.', {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return
+    }
+
+    correctionTranscript = correctionText
+    effectiveTranscript = correctionText
+    command = normalizeVoiceText(correctionText)
+    voiceTranscript.value = correctionText
+    setVoiceStatus('Thanks, I saved that correction and will use it for NoobTrade AI training. Let me do what you meant now.', {
+      speak: true,
+      transcript: rawTranscript
+    })
   }
 
   if (includesVoicePhrase(command, ['中文', 'chinese', 'mandarin', '普通话'])) {
@@ -2781,9 +2805,27 @@ async function handleVoiceCommand(rawTranscript) {
     }
   }
 
-  const assistantIntent = await fetchAssistantIntent(rawTranscript)
-  if (assistantIntent && await applyAssistantIntent(assistantIntent, rawTranscript)) {
+  const assistantContext = buildAssistantIntentContext()
+  const assistantIntent = await fetchAssistantIntent(effectiveTranscript)
+  if (assistantIntent && await applyAssistantIntent(assistantIntent, effectiveTranscript)) {
+    if (correctionTranscript) {
+      await saveAssistantFeedback({
+        correctionTranscript,
+        correctedIntent: assistantIntent
+      })
+    }
+
+    voiceLastAssistantPrediction.value = {
+      transcript: effectiveTranscript,
+      intent: assistantIntent,
+      context: assistantContext,
+      at: Date.now()
+    }
     return
+  }
+
+  if (correctionTranscript) {
+    await saveAssistantFeedback({ correctionTranscript })
   }
 
   if (includesVoicePhrase(command, ['help', 'what can you do', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
@@ -3768,6 +3810,76 @@ async function fetchAssistantIntent(rawTranscript) {
   } catch (error) {
     console.warn('Cloud assistant intent failed:', error)
     return null
+  }
+}
+
+function isVoiceCorrectionCommand(command) {
+  return includesVoicePhrase(command, [
+    'wrong', 'not that', 'no i meant', 'i meant', 'actually', '不是', '错了', '不对', '我的意思是', '我是说',
+    'no era eso', 'quise decir', 'non', 'je voulais dire'
+  ])
+}
+
+function extractVoiceCorrectionText(rawTranscript) {
+  const text = String(rawTranscript || '').trim()
+  const patterns = [
+    /no[, ]+i meant\s+/i,
+    /i meant\s+/i,
+    /actually\s+/i,
+    /not that[, ]+/i,
+    /wrong[, ]+/i,
+    /不是[，, ]*/i,
+    /错了[，, ]*/i,
+    /不对[，, ]*/i,
+    /我的意思是[，, ]*/i,
+    /我是说[，, ]*/i,
+    /quise decir\s+/i,
+    /je voulais dire\s+/i,
+  ]
+
+  for (const pattern of patterns) {
+    const cleaned = text.replace(pattern, '').trim()
+    if (cleaned && cleaned !== text) {
+      return cleaned
+    }
+  }
+
+  return ''
+}
+
+async function saveAssistantFeedback({ correctionTranscript = '', correctedIntent = null } = {}) {
+  const lastPrediction = voiceLastAssistantPrediction.value
+
+  if (!lastPrediction?.transcript || !lastPrediction?.intent) {
+    return false
+  }
+
+  try {
+    await secureFetch(`${API_BASE_URL}/assistant/feedback`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        transcript: lastPrediction.transcript,
+        prediction: lastPrediction.intent,
+        correction: correctedIntent || {
+          intent: 'unknown',
+          reply: correctionTranscript
+        },
+        language: uiLanguage.value,
+        source: 'voice_correction',
+        context: {
+          ...lastPrediction.context,
+          correctionTranscript
+        }
+      }),
+      timeoutMs: 4500,
+    })
+    return true
+  } catch (error) {
+    console.warn('Assistant feedback save failed:', error)
+    return false
   }
 }
 

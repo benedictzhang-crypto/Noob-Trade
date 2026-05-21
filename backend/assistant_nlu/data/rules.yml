@@ -1,0 +1,12 @@
+version: "3.1"
+
+rules:
+  - rule: route every recognized command
+    steps:
+      - intent: navigate
+      - action: action_route_noobtrade_command
+
+  - rule: block trading order requests
+    steps:
+      - intent: blocked_trading
+      - action: action_route_noobtrade_command
