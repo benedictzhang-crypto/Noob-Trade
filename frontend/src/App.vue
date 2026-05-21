@@ -4840,7 +4840,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
           <form class="watchlist-scan-bar" @submit.prevent="scanStarredWatchlist">
             <label class="watchlist-scan-input">
-              <span>Minimum upside probability</span>
+              <span>Minimum probability of +1% gain in the next 5 days based on historical patterns</span>
               <span class="percent-input-shell">
                 <input
                   v-model.number="watchlistScanThreshold"
