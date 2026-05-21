@@ -79,8 +79,14 @@ ALLOWED_INTENTS = {
     "scan_watchlist", "set_star", "adjust_probability",
     "summarize_probability", "open_historical_pattern",
     "load_more_patterns", "set_interval", "sign_out", "language",
-    "help", "chat", "blocked_trading", "unknown",
+    "greeting", "help", "chat", "blocked_trading", "unknown",
 }
+
+GREETING_REPLIES = [
+    "I am here. What can I help you with?",
+    "I am listening. You can ask a question or tell me what to do on the page.",
+    "Here with you. Do you want analysis, navigation, indicators, or watchlist help?",
+]
 
 
 def _normalize_text(value):
@@ -211,6 +217,9 @@ def _rule_based_intent(transcript, context=None):
     context = context or {}
     if not text:
         return _base_intent("unknown", 0.2, reply="I did not catch that.")
+
+    if any(phrase in text for phrase in ("hey", "hi", "hello", "are you there", "noob trade", "assistant", "你好", "在吗", "你在吗", "嗨", "hola", "bonjour")):
+        return _base_intent("greeting", 0.96, reply=GREETING_REPLIES[0])
 
     if any(word in text for word in TRADING_WORDS):
         return _base_intent(

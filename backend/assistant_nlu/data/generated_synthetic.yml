@@ -1,0 +1,2320 @@
+version: "3.1"
+
+nlu:
+  - intent: navigate
+    examples: |
+      - go to [Stock Trade](page)
+      - open [Stock Trade](page)
+      - show me [Stock Trade](page)
+      - switch to [Stock Trade](page)
+      - navigate to [Stock Trade](page)
+      - take me to [Stock Trade](page)
+      - I want the [Stock Trade](page)
+      - can you open [Stock Trade](page)
+      - 进入 [Stock Trade](page)
+      - 打开 [Stock Trade](page)
+      - 切换到 [Stock Trade](page)
+      - 去 [Stock Trade](page)
+      - abrir [Stock Trade](page)
+      - ir a [Stock Trade](page)
+      - ouvrir [Stock Trade](page)
+      - go to [股票分析](page)
+      - open [股票分析](page)
+      - show me [股票分析](page)
+      - switch to [股票分析](page)
+      - navigate to [股票分析](page)
+      - take me to [股票分析](page)
+      - I want the [股票分析](page)
+      - can you open [股票分析](page)
+      - 进入 [股票分析](page)
+      - 打开 [股票分析](page)
+      - 切换到 [股票分析](page)
+      - 去 [股票分析](page)
+      - abrir [股票分析](page)
+      - ir a [股票分析](page)
+      - ouvrir [股票分析](page)
+      - go to [Crypto Trade](page)
+      - open [Crypto Trade](page)
+      - show me [Crypto Trade](page)
+      - switch to [Crypto Trade](page)
+      - navigate to [Crypto Trade](page)
+      - take me to [Crypto Trade](page)
+      - I want the [Crypto Trade](page)
+      - can you open [Crypto Trade](page)
+      - 进入 [Crypto Trade](page)
+      - 打开 [Crypto Trade](page)
+      - 切换到 [Crypto Trade](page)
+      - 去 [Crypto Trade](page)
+      - abrir [Crypto Trade](page)
+      - ir a [Crypto Trade](page)
+      - ouvrir [Crypto Trade](page)
+      - go to [加密分析](page)
+      - open [加密分析](page)
+      - show me [加密分析](page)
+      - switch to [加密分析](page)
+      - navigate to [加密分析](page)
+      - take me to [加密分析](page)
+      - I want the [加密分析](page)
+      - can you open [加密分析](page)
+      - 进入 [加密分析](page)
+      - 打开 [加密分析](page)
+      - 切换到 [加密分析](page)
+      - 去 [加密分析](page)
+      - abrir [加密分析](page)
+      - ir a [加密分析](page)
+      - ouvrir [加密分析](page)
+      - go to [Dashboard](page)
+      - open [Dashboard](page)
+      - show me [Dashboard](page)
+      - switch to [Dashboard](page)
+      - navigate to [Dashboard](page)
+      - take me to [Dashboard](page)
+      - I want the [Dashboard](page)
+      - can you open [Dashboard](page)
+      - 进入 [Dashboard](page)
+      - 打开 [Dashboard](page)
+      - 切换到 [Dashboard](page)
+      - 去 [Dashboard](page)
+      - abrir [Dashboard](page)
+      - ir a [Dashboard](page)
+      - ouvrir [Dashboard](page)
+      - go to [仪表盘](page)
+      - open [仪表盘](page)
+      - show me [仪表盘](page)
+      - switch to [仪表盘](page)
+      - navigate to [仪表盘](page)
+      - take me to [仪表盘](page)
+      - I want the [仪表盘](page)
+      - can you open [仪表盘](page)
+      - 进入 [仪表盘](page)
+      - 打开 [仪表盘](page)
+      - 切换到 [仪表盘](page)
+      - 去 [仪表盘](page)
+      - abrir [仪表盘](page)
+      - ir a [仪表盘](page)
+      - ouvrir [仪表盘](page)
+      - go to [Portfolio](page)
+      - open [Portfolio](page)
+      - show me [Portfolio](page)
+      - switch to [Portfolio](page)
+      - navigate to [Portfolio](page)
+      - take me to [Portfolio](page)
+      - I want the [Portfolio](page)
+      - can you open [Portfolio](page)
+      - 进入 [Portfolio](page)
+      - 打开 [Portfolio](page)
+      - 切换到 [Portfolio](page)
+      - 去 [Portfolio](page)
+      - abrir [Portfolio](page)
+      - ir a [Portfolio](page)
+      - ouvrir [Portfolio](page)
+      - go to [投资组合](page)
+      - open [投资组合](page)
+      - show me [投资组合](page)
+      - switch to [投资组合](page)
+      - navigate to [投资组合](page)
+      - take me to [投资组合](page)
+      - I want the [投资组合](page)
+      - can you open [投资组合](page)
+      - 进入 [投资组合](page)
+      - 打开 [投资组合](page)
+      - 切换到 [投资组合](page)
+      - 去 [投资组合](page)
+      - abrir [投资组合](page)
+      - ir a [投资组合](page)
+      - ouvrir [投资组合](page)
+      - go to [Explore](page)
+      - open [Explore](page)
+      - show me [Explore](page)
+      - switch to [Explore](page)
+      - navigate to [Explore](page)
+      - take me to [Explore](page)
+      - I want the [Explore](page)
+      - can you open [Explore](page)
+      - 进入 [Explore](page)
+      - 打开 [Explore](page)
+      - 切换到 [Explore](page)
+      - 去 [Explore](page)
+      - abrir [Explore](page)
+      - ir a [Explore](page)
+      - ouvrir [Explore](page)
+      - go to [探索](page)
+      - open [探索](page)
+      - show me [探索](page)
+      - switch to [探索](page)
+      - navigate to [探索](page)
+      - take me to [探索](page)
+      - I want the [探索](page)
+      - can you open [探索](page)
+      - 进入 [探索](page)
+      - 打开 [探索](page)
+      - 切换到 [探索](page)
+      - 去 [探索](page)
+      - abrir [探索](page)
+      - ir a [探索](page)
+      - ouvrir [探索](page)
+      - go to [Markets](page)
+      - open [Markets](page)
+      - show me [Markets](page)
+      - switch to [Markets](page)
+      - navigate to [Markets](page)
+      - take me to [Markets](page)
+      - I want the [Markets](page)
+      - can you open [Markets](page)
+      - 进入 [Markets](page)
+      - 打开 [Markets](page)
+      - 切换到 [Markets](page)
+      - 去 [Markets](page)
+      - abrir [Markets](page)
+      - ir a [Markets](page)
+      - ouvrir [Markets](page)
+      - go to [行情](page)
+      - open [行情](page)
+      - show me [行情](page)
+      - switch to [行情](page)
+      - navigate to [行情](page)
+      - take me to [行情](page)
+      - I want the [行情](page)
+      - can you open [行情](page)
+      - 进入 [行情](page)
+      - 打开 [行情](page)
+      - 切换到 [行情](page)
+      - 去 [行情](page)
+      - abrir [行情](page)
+      - ir a [行情](page)
+      - ouvrir [行情](page)
+      - go to [Settings](page)
+      - open [Settings](page)
+      - show me [Settings](page)
+      - switch to [Settings](page)
+      - navigate to [Settings](page)
+      - take me to [Settings](page)
+      - I want the [Settings](page)
+      - can you open [Settings](page)
+      - 进入 [Settings](page)
+      - 打开 [Settings](page)
+      - 切换到 [Settings](page)
+      - 去 [Settings](page)
+      - abrir [Settings](page)
+      - ir a [Settings](page)
+      - ouvrir [Settings](page)
+      - go to [设置](page)
+      - open [设置](page)
+      - show me [设置](page)
+      - switch to [设置](page)
+      - navigate to [设置](page)
+      - take me to [设置](page)
+      - I want the [设置](page)
+      - can you open [设置](page)
+      - 进入 [设置](page)
+      - 打开 [设置](page)
+      - 切换到 [设置](page)
+      - 去 [设置](page)
+      - abrir [设置](page)
+      - ir a [设置](page)
+      - ouvrir [设置](page)
+      - go to [Admin](page)
+      - open [Admin](page)
+      - show me [Admin](page)
+      - switch to [Admin](page)
+      - navigate to [Admin](page)
+      - take me to [Admin](page)
+      - I want the [Admin](page)
+      - can you open [Admin](page)
+      - 进入 [Admin](page)
+      - 打开 [Admin](page)
+      - 切换到 [Admin](page)
+      - 去 [Admin](page)
+      - abrir [Admin](page)
+      - ir a [Admin](page)
+      - ouvrir [Admin](page)
+      - go to [管理员](page)
+      - open [管理员](page)
+      - show me [管理员](page)
+      - switch to [管理员](page)
+      - navigate to [管理员](page)
+
+  - intent: scroll
+    examples: |
+      - scroll down
+      - scroll down a little bit
+      - scroll down more
+      - scroll down please
+      - scroll down just a bit
+      - scroll down [down](direction)
+      - scroll down [down](amount)
+      - move down
+      - move down a little bit
+      - move down more
+      - move down please
+      - move down just a bit
+      - move down [down](direction)
+      - move down [down](amount)
+      - go lower
+      - go lower a little bit
+      - go lower more
+      - go lower please
+      - go lower just a bit
+      - go lower [down](direction)
+      - go lower [down](amount)
+      - page down
+      - page down a little bit
+      - page down more
+      - page down please
+      - page down just a bit
+      - page down [down](direction)
+      - page down [down](amount)
+      - scrolling down
+      - scrolling down a little bit
+      - scrolling down more
+      - scrolling down please
+      - scrolling down just a bit
+      - scrolling down [down](direction)
+      - scrolling down [down](amount)
+      - scorlling down
+      - scorlling down a little bit
+      - scorlling down more
+      - scorlling down please
+      - scorlling down just a bit
+      - scorlling down [down](direction)
+      - scorlling down [down](amount)
+      - 往下滚
+      - 往下滚 a little bit
+      - 往下滚 more
+      - 往下滚 please
+      - 往下滚 just a bit
+      - 往下滚 [down](direction)
+      - 往下滚 [down](amount)
+      - 向下滚动
+      - 向下滚动 a little bit
+      - 向下滚动 more
+      - 向下滚动 please
+      - 向下滚动 just a bit
+      - 向下滚动 [down](direction)
+      - 向下滚动 [down](amount)
+      - scroll up
+      - scroll up a little bit
+      - scroll up more
+      - scroll up please
+      - scroll up just a bit
+      - scroll up [up](direction)
+      - scroll up [up](amount)
+      - move up
+      - move up a little bit
+      - move up more
+      - move up please
+      - move up just a bit
+      - move up [up](direction)
+      - move up [up](amount)
+      - go higher
+      - go higher a little bit
+      - go higher more
+      - go higher please
+      - go higher just a bit
+      - go higher [up](direction)
+      - go higher [up](amount)
+      - page up
+      - page up a little bit
+      - page up more
+      - page up please
+      - page up just a bit
+      - page up [up](direction)
+      - page up [up](amount)
+      - 往上滚
+      - 往上滚 a little bit
+      - 往上滚 more
+      - 往上滚 please
+      - 往上滚 just a bit
+      - 往上滚 [up](direction)
+      - 往上滚 [up](amount)
+      - 向上滚动
+      - 向上滚动 a little bit
+      - 向上滚动 more
+      - 向上滚动 please
+      - 向上滚动 just a bit
+      - 向上滚动 [up](direction)
+      - 向上滚动 [up](amount)
+      - go to bottom
+      - go to bottom a little bit
+      - go to bottom more
+      - go to bottom please
+      - go to bottom just a bit
+      - go to bottom [bottom](direction)
+      - go to bottom [bottom](amount)
+      - scroll to bottom
+      - scroll to bottom a little bit
+      - scroll to bottom more
+      - scroll to bottom please
+      - scroll to bottom just a bit
+      - scroll to bottom [bottom](direction)
+      - scroll to bottom [bottom](amount)
+      - 到底部
+      - 到底部 a little bit
+      - 到底部 more
+      - 到底部 please
+      - 到底部 just a bit
+      - 到底部 [bottom](direction)
+      - 到底部 [bottom](amount)
+      - 去底部
+      - 去底部 a little bit
+      - 去底部 more
+      - 去底部 please
+      - 去底部 just a bit
+      - 去底部 [bottom](direction)
+      - 去底部 [bottom](amount)
+      - go to top
+      - go to top a little bit
+      - go to top more
+      - go to top please
+      - go to top just a bit
+      - go to top [top](direction)
+      - go to top [top](amount)
+      - scroll to top
+      - scroll to top a little bit
+      - scroll to top more
+      - scroll to top please
+      - scroll to top just a bit
+      - scroll to top [top](direction)
+      - scroll to top [top](amount)
+      - back to top
+      - back to top a little bit
+      - back to top more
+      - back to top please
+      - back to top just a bit
+      - back to top [top](direction)
+      - back to top [top](amount)
+      - 到顶部
+      - 到顶部 a little bit
+      - 到顶部 more
+      - 到顶部 please
+      - 到顶部 just a bit
+      - 到顶部 [top](direction)
+      - 到顶部 [top](amount)
+      - 回顶部
+      - 回顶部 a little bit
+      - 回顶部 more
+      - 回顶部 please
+      - 回顶部 just a bit
+      - 回顶部 [top](direction)
+      - 回顶部 [top](amount)
+      - keep going
+      - a bit more
+      - more
+      - less
+      - go further
+      - not enough keep moving
+      - move the page
+      - down a little
+      - up a little
+
+  - intent: generate
+    examples: |
+      - generate [AAPL](symbol)
+      - run generate for [AAPL](symbol)
+      - analyze [AAPL](symbol)
+      - forecast [AAPL](symbol)
+      - generate probability for [AAPL](symbol)
+      - start analysis on [AAPL](symbol)
+      - 帮我分析 [AAPL](symbol)
+      - 生成 [AAPL](symbol)
+      - generate [NVDA](symbol)
+      - run generate for [NVDA](symbol)
+      - analyze [NVDA](symbol)
+      - forecast [NVDA](symbol)
+      - generate probability for [NVDA](symbol)
+      - start analysis on [NVDA](symbol)
+      - 帮我分析 [NVDA](symbol)
+      - 生成 [NVDA](symbol)
+      - generate [MSFT](symbol)
+      - run generate for [MSFT](symbol)
+      - analyze [MSFT](symbol)
+      - forecast [MSFT](symbol)
+      - generate probability for [MSFT](symbol)
+      - start analysis on [MSFT](symbol)
+      - 帮我分析 [MSFT](symbol)
+      - 生成 [MSFT](symbol)
+      - generate [TSLA](symbol)
+      - run generate for [TSLA](symbol)
+      - analyze [TSLA](symbol)
+      - forecast [TSLA](symbol)
+      - generate probability for [TSLA](symbol)
+      - start analysis on [TSLA](symbol)
+      - 帮我分析 [TSLA](symbol)
+      - 生成 [TSLA](symbol)
+      - generate [META](symbol)
+      - run generate for [META](symbol)
+      - analyze [META](symbol)
+      - forecast [META](symbol)
+      - generate probability for [META](symbol)
+      - start analysis on [META](symbol)
+      - 帮我分析 [META](symbol)
+      - 生成 [META](symbol)
+      - generate [GOOGL](symbol)
+      - run generate for [GOOGL](symbol)
+      - analyze [GOOGL](symbol)
+      - forecast [GOOGL](symbol)
+      - generate probability for [GOOGL](symbol)
+      - start analysis on [GOOGL](symbol)
+      - 帮我分析 [GOOGL](symbol)
+      - 生成 [GOOGL](symbol)
+      - generate [AMZN](symbol)
+      - run generate for [AMZN](symbol)
+      - analyze [AMZN](symbol)
+      - forecast [AMZN](symbol)
+      - generate probability for [AMZN](symbol)
+      - start analysis on [AMZN](symbol)
+      - 帮我分析 [AMZN](symbol)
+      - 生成 [AMZN](symbol)
+      - generate [SPY](symbol)
+      - run generate for [SPY](symbol)
+      - analyze [SPY](symbol)
+      - forecast [SPY](symbol)
+      - generate probability for [SPY](symbol)
+      - start analysis on [SPY](symbol)
+      - 帮我分析 [SPY](symbol)
+      - 生成 [SPY](symbol)
+      - generate [BTC](symbol)
+      - run generate for [BTC](symbol)
+      - analyze [BTC](symbol)
+      - forecast [BTC](symbol)
+      - generate probability for [BTC](symbol)
+      - start analysis on [BTC](symbol)
+      - 帮我分析 [BTC](symbol)
+      - 生成 [BTC](symbol)
+      - generate [ETH](symbol)
+      - run generate for [ETH](symbol)
+      - analyze [ETH](symbol)
+      - forecast [ETH](symbol)
+      - generate probability for [ETH](symbol)
+      - start analysis on [ETH](symbol)
+      - 帮我分析 [ETH](symbol)
+      - 生成 [ETH](symbol)
+      - check this stock
+      - run the model
+      - tell me the odds
+      - what is the probability for this one
+      - do the forecast
+      - analyze the current symbol
+      - give me the prediction
+      - see if this can go up
+      - run NoobTrade on this
+      - 帮我算一下概率
+      - 看一下这个股票会不会涨
+      - 跑一下模型
+      - 生成一下当前股票
+      - please generate [AAPL](symbol)
+      - can you generate [AAPL](symbol)
+      - could you generate [AAPL](symbol)
+      - I need you to generate [AAPL](symbol)
+      - assistant generate [AAPL](symbol)
+      - Noob Trade generate [AAPL](symbol)
+      - generate [AAPL](symbol) now
+      - generate [AAPL](symbol) please
+      - generate [AAPL](symbol) for me
+      - generate [AAPL](symbol) a little faster
+      - please run generate for [AAPL](symbol)
+      - can you run generate for [AAPL](symbol)
+      - could you run generate for [AAPL](symbol)
+      - I need you to run generate for [AAPL](symbol)
+      - assistant run generate for [AAPL](symbol)
+      - Noob Trade run generate for [AAPL](symbol)
+      - run generate for [AAPL](symbol) now
+      - run generate for [AAPL](symbol) please
+      - run generate for [AAPL](symbol) for me
+      - run generate for [AAPL](symbol) a little faster
+      - please analyze [AAPL](symbol)
+      - can you analyze [AAPL](symbol)
+      - could you analyze [AAPL](symbol)
+      - I need you to analyze [AAPL](symbol)
+      - assistant analyze [AAPL](symbol)
+      - Noob Trade analyze [AAPL](symbol)
+      - analyze [AAPL](symbol) now
+      - analyze [AAPL](symbol) please
+      - analyze [AAPL](symbol) for me
+      - analyze [AAPL](symbol) a little faster
+      - please forecast [AAPL](symbol)
+      - can you forecast [AAPL](symbol)
+      - could you forecast [AAPL](symbol)
+      - I need you to forecast [AAPL](symbol)
+      - assistant forecast [AAPL](symbol)
+      - Noob Trade forecast [AAPL](symbol)
+      - forecast [AAPL](symbol) now
+      - forecast [AAPL](symbol) please
+      - forecast [AAPL](symbol) for me
+      - forecast [AAPL](symbol) a little faster
+      - please generate probability for [AAPL](symbol)
+      - can you generate probability for [AAPL](symbol)
+      - could you generate probability for [AAPL](symbol)
+      - I need you to generate probability for [AAPL](symbol)
+      - assistant generate probability for [AAPL](symbol)
+      - Noob Trade generate probability for [AAPL](symbol)
+      - generate probability for [AAPL](symbol) now
+      - generate probability for [AAPL](symbol) please
+      - generate probability for [AAPL](symbol) for me
+      - generate probability for [AAPL](symbol) a little faster
+      - please start analysis on [AAPL](symbol)
+      - can you start analysis on [AAPL](symbol)
+      - could you start analysis on [AAPL](symbol)
+      - I need you to start analysis on [AAPL](symbol)
+      - assistant start analysis on [AAPL](symbol)
+      - Noob Trade start analysis on [AAPL](symbol)
+      - start analysis on [AAPL](symbol) now
+      - start analysis on [AAPL](symbol) please
+      - start analysis on [AAPL](symbol) for me
+      - start analysis on [AAPL](symbol) a little faster
+      - please 帮我分析 [AAPL](symbol)
+      - can you 帮我分析 [AAPL](symbol)
+      - could you 帮我分析 [AAPL](symbol)
+      - I need you to 帮我分析 [AAPL](symbol)
+      - assistant 帮我分析 [AAPL](symbol)
+      - Noob Trade 帮我分析 [AAPL](symbol)
+      - 帮我分析 [AAPL](symbol) now
+      - 帮我分析 [AAPL](symbol) please
+      - 帮我分析 [AAPL](symbol) for me
+      - 帮我分析 [AAPL](symbol) a little faster
+      - 请 生成 [AAPL](symbol)
+      - 帮我 生成 [AAPL](symbol)
+      - please generate [NVDA](symbol)
+      - can you generate [NVDA](symbol)
+      - could you generate [NVDA](symbol)
+      - I need you to generate [NVDA](symbol)
+      - assistant generate [NVDA](symbol)
+
+  - intent: search
+    examples: |
+      - search [AAPL](symbol)
+      - look up [AAPL](symbol)
+      - show price for [AAPL](symbol)
+      - quote [AAPL](symbol)
+      - find [AAPL](symbol)
+      - 查询 [AAPL](symbol)
+      - 搜索 [AAPL](symbol)
+      - search [NVDA](symbol)
+      - look up [NVDA](symbol)
+      - show price for [NVDA](symbol)
+      - quote [NVDA](symbol)
+      - find [NVDA](symbol)
+      - 查询 [NVDA](symbol)
+      - 搜索 [NVDA](symbol)
+      - search [MSFT](symbol)
+      - look up [MSFT](symbol)
+      - show price for [MSFT](symbol)
+      - quote [MSFT](symbol)
+      - find [MSFT](symbol)
+      - 查询 [MSFT](symbol)
+      - 搜索 [MSFT](symbol)
+      - search [TSLA](symbol)
+      - look up [TSLA](symbol)
+      - show price for [TSLA](symbol)
+      - quote [TSLA](symbol)
+      - find [TSLA](symbol)
+      - 查询 [TSLA](symbol)
+      - 搜索 [TSLA](symbol)
+      - search [META](symbol)
+      - look up [META](symbol)
+      - show price for [META](symbol)
+      - quote [META](symbol)
+      - find [META](symbol)
+      - 查询 [META](symbol)
+      - 搜索 [META](symbol)
+      - search [GOOGL](symbol)
+      - look up [GOOGL](symbol)
+      - show price for [GOOGL](symbol)
+      - quote [GOOGL](symbol)
+      - find [GOOGL](symbol)
+      - 查询 [GOOGL](symbol)
+      - 搜索 [GOOGL](symbol)
+      - search [AMZN](symbol)
+      - look up [AMZN](symbol)
+      - show price for [AMZN](symbol)
+      - quote [AMZN](symbol)
+      - find [AMZN](symbol)
+      - 查询 [AMZN](symbol)
+      - 搜索 [AMZN](symbol)
+      - search [SPY](symbol)
+      - look up [SPY](symbol)
+      - show price for [SPY](symbol)
+      - quote [SPY](symbol)
+      - find [SPY](symbol)
+      - 查询 [SPY](symbol)
+      - 搜索 [SPY](symbol)
+      - search [BTC](symbol)
+      - look up [BTC](symbol)
+      - show price for [BTC](symbol)
+      - quote [BTC](symbol)
+      - find [BTC](symbol)
+      - 查询 [BTC](symbol)
+      - 搜索 [BTC](symbol)
+      - search [ETH](symbol)
+      - look up [ETH](symbol)
+      - show price for [ETH](symbol)
+      - quote [ETH](symbol)
+      - find [ETH](symbol)
+      - 查询 [ETH](symbol)
+      - 搜索 [ETH](symbol)
+      - pull up Apple
+      - can you find Nvidia
+      - show me Tesla
+      - what is Microsoft doing
+      - open the quote
+      - find the ticker
+      - I want to look at Bitcoin
+      - 查一下苹果
+      - 看一下英伟达
+      - 找一下特斯拉
+      - please search [AAPL](symbol)
+      - can you search [AAPL](symbol)
+      - could you search [AAPL](symbol)
+      - I need you to search [AAPL](symbol)
+      - assistant search [AAPL](symbol)
+      - Noob Trade search [AAPL](symbol)
+      - search [AAPL](symbol) now
+      - search [AAPL](symbol) please
+      - search [AAPL](symbol) for me
+      - search [AAPL](symbol) a little faster
+      - please look up [AAPL](symbol)
+      - can you look up [AAPL](symbol)
+      - could you look up [AAPL](symbol)
+      - I need you to look up [AAPL](symbol)
+      - assistant look up [AAPL](symbol)
+      - Noob Trade look up [AAPL](symbol)
+      - look up [AAPL](symbol) now
+      - look up [AAPL](symbol) please
+      - look up [AAPL](symbol) for me
+      - look up [AAPL](symbol) a little faster
+      - please show price for [AAPL](symbol)
+      - can you show price for [AAPL](symbol)
+      - could you show price for [AAPL](symbol)
+      - I need you to show price for [AAPL](symbol)
+      - assistant show price for [AAPL](symbol)
+      - Noob Trade show price for [AAPL](symbol)
+      - show price for [AAPL](symbol) now
+      - show price for [AAPL](symbol) please
+      - show price for [AAPL](symbol) for me
+      - show price for [AAPL](symbol) a little faster
+      - please quote [AAPL](symbol)
+      - can you quote [AAPL](symbol)
+      - could you quote [AAPL](symbol)
+      - I need you to quote [AAPL](symbol)
+      - assistant quote [AAPL](symbol)
+      - Noob Trade quote [AAPL](symbol)
+      - quote [AAPL](symbol) now
+      - quote [AAPL](symbol) please
+      - quote [AAPL](symbol) for me
+      - quote [AAPL](symbol) a little faster
+      - please find [AAPL](symbol)
+      - can you find [AAPL](symbol)
+      - could you find [AAPL](symbol)
+      - I need you to find [AAPL](symbol)
+      - assistant find [AAPL](symbol)
+      - Noob Trade find [AAPL](symbol)
+      - find [AAPL](symbol) now
+      - find [AAPL](symbol) please
+      - find [AAPL](symbol) for me
+      - find [AAPL](symbol) a little faster
+
+  - intent: set_indicator
+    examples: |
+      - [MA](indicator)
+      - select [MA](indicator)
+      - pick [MA](indicator)
+      - I want [MA](indicator)
+      - use [MA](indicator)
+      - turn on [MA](indicator)
+      - enable [MA](indicator)
+      - add [MA](indicator)
+      - remove [MA](indicator)
+      - turn off [MA](indicator)
+      - disable [MA](indicator)
+      - unselect [MA](indicator)
+      - deselect [MA](indicator)
+      - 选择 [MA](indicator)
+      - 勾选 [MA](indicator)
+      - 取消 [MA](indicator)
+      - 关闭 [MA](indicator)
+      - [均线](indicator)
+      - select [均线](indicator)
+      - pick [均线](indicator)
+      - I want [均线](indicator)
+      - use [均线](indicator)
+      - turn on [均线](indicator)
+      - enable [均线](indicator)
+      - add [均线](indicator)
+      - remove [均线](indicator)
+      - turn off [均线](indicator)
+      - disable [均线](indicator)
+      - unselect [均线](indicator)
+      - deselect [均线](indicator)
+      - 选择 [均线](indicator)
+      - 勾选 [均线](indicator)
+      - 取消 [均线](indicator)
+      - 关闭 [均线](indicator)
+      - [EMA](indicator)
+      - select [EMA](indicator)
+      - pick [EMA](indicator)
+      - I want [EMA](indicator)
+      - use [EMA](indicator)
+      - turn on [EMA](indicator)
+      - enable [EMA](indicator)
+      - add [EMA](indicator)
+      - remove [EMA](indicator)
+      - turn off [EMA](indicator)
+      - disable [EMA](indicator)
+      - unselect [EMA](indicator)
+      - deselect [EMA](indicator)
+      - 选择 [EMA](indicator)
+      - 勾选 [EMA](indicator)
+      - 取消 [EMA](indicator)
+      - 关闭 [EMA](indicator)
+      - [指数均线](indicator)
+      - select [指数均线](indicator)
+      - pick [指数均线](indicator)
+      - I want [指数均线](indicator)
+      - use [指数均线](indicator)
+      - turn on [指数均线](indicator)
+      - enable [指数均线](indicator)
+      - add [指数均线](indicator)
+      - remove [指数均线](indicator)
+      - turn off [指数均线](indicator)
+      - disable [指数均线](indicator)
+      - unselect [指数均线](indicator)
+      - deselect [指数均线](indicator)
+      - 选择 [指数均线](indicator)
+      - 勾选 [指数均线](indicator)
+      - 取消 [指数均线](indicator)
+      - 关闭 [指数均线](indicator)
+      - [MACD](indicator)
+      - select [MACD](indicator)
+      - pick [MACD](indicator)
+      - I want [MACD](indicator)
+      - use [MACD](indicator)
+      - turn on [MACD](indicator)
+      - enable [MACD](indicator)
+      - add [MACD](indicator)
+      - remove [MACD](indicator)
+      - turn off [MACD](indicator)
+      - disable [MACD](indicator)
+      - unselect [MACD](indicator)
+      - deselect [MACD](indicator)
+      - 选择 [MACD](indicator)
+      - 勾选 [MACD](indicator)
+      - 取消 [MACD](indicator)
+      - 关闭 [MACD](indicator)
+      - [BOLL](indicator)
+      - select [BOLL](indicator)
+      - pick [BOLL](indicator)
+      - I want [BOLL](indicator)
+      - use [BOLL](indicator)
+      - turn on [BOLL](indicator)
+      - enable [BOLL](indicator)
+      - add [BOLL](indicator)
+      - remove [BOLL](indicator)
+      - turn off [BOLL](indicator)
+      - disable [BOLL](indicator)
+      - unselect [BOLL](indicator)
+      - deselect [BOLL](indicator)
+      - 选择 [BOLL](indicator)
+      - 勾选 [BOLL](indicator)
+      - 取消 [BOLL](indicator)
+      - 关闭 [BOLL](indicator)
+      - [布林带](indicator)
+      - select [布林带](indicator)
+      - pick [布林带](indicator)
+      - I want [布林带](indicator)
+      - use [布林带](indicator)
+      - turn on [布林带](indicator)
+      - enable [布林带](indicator)
+      - add [布林带](indicator)
+      - remove [布林带](indicator)
+      - turn off [布林带](indicator)
+      - disable [布林带](indicator)
+      - unselect [布林带](indicator)
+      - deselect [布林带](indicator)
+      - 选择 [布林带](indicator)
+      - 勾选 [布林带](indicator)
+      - 取消 [布林带](indicator)
+      - 关闭 [布林带](indicator)
+      - [RSI](indicator)
+      - select [RSI](indicator)
+      - pick [RSI](indicator)
+      - I want [RSI](indicator)
+      - use [RSI](indicator)
+      - turn on [RSI](indicator)
+      - enable [RSI](indicator)
+      - add [RSI](indicator)
+      - remove [RSI](indicator)
+      - turn off [RSI](indicator)
+      - disable [RSI](indicator)
+      - unselect [RSI](indicator)
+      - deselect [RSI](indicator)
+      - 选择 [RSI](indicator)
+      - 勾选 [RSI](indicator)
+      - 取消 [RSI](indicator)
+      - 关闭 [RSI](indicator)
+      - [Vol](indicator)
+      - select [Vol](indicator)
+      - pick [Vol](indicator)
+      - I want [Vol](indicator)
+      - use [Vol](indicator)
+      - turn on [Vol](indicator)
+      - enable [Vol](indicator)
+      - add [Vol](indicator)
+      - remove [Vol](indicator)
+      - turn off [Vol](indicator)
+      - disable [Vol](indicator)
+      - unselect [Vol](indicator)
+      - deselect [Vol](indicator)
+      - 选择 [Vol](indicator)
+      - 勾选 [Vol](indicator)
+      - 取消 [Vol](indicator)
+      - 关闭 [Vol](indicator)
+      - [成交量](indicator)
+      - select [成交量](indicator)
+      - pick [成交量](indicator)
+      - I want [成交量](indicator)
+      - use [成交量](indicator)
+      - turn on [成交量](indicator)
+      - enable [成交量](indicator)
+      - add [成交量](indicator)
+      - remove [成交量](indicator)
+      - turn off [成交量](indicator)
+      - disable [成交量](indicator)
+      - unselect [成交量](indicator)
+      - deselect [成交量](indicator)
+      - 选择 [成交量](indicator)
+      - 勾选 [成交量](indicator)
+      - 取消 [成交量](indicator)
+      - 关闭 [成交量](indicator)
+      - [KDJ](indicator)
+      - select [KDJ](indicator)
+      - pick [KDJ](indicator)
+      - I want [KDJ](indicator)
+      - use [KDJ](indicator)
+      - turn on [KDJ](indicator)
+      - enable [KDJ](indicator)
+      - add [KDJ](indicator)
+      - remove [KDJ](indicator)
+      - turn off [KDJ](indicator)
+      - disable [KDJ](indicator)
+      - unselect [KDJ](indicator)
+      - deselect [KDJ](indicator)
+      - 选择 [KDJ](indicator)
+      - 勾选 [KDJ](indicator)
+      - 取消 [KDJ](indicator)
+      - 关闭 [KDJ](indicator)
+      - [OI](indicator)
+      - select [OI](indicator)
+      - pick [OI](indicator)
+      - I want [OI](indicator)
+      - use [OI](indicator)
+      - turn on [OI](indicator)
+      - enable [OI](indicator)
+      - add [OI](indicator)
+      - remove [OI](indicator)
+      - turn off [OI](indicator)
+      - disable [OI](indicator)
+      - unselect [OI](indicator)
+      - deselect [OI](indicator)
+      - 选择 [OI](indicator)
+      - 勾选 [OI](indicator)
+      - 取消 [OI](indicator)
+      - 关闭 [OI](indicator)
+      - [OBV](indicator)
+      - select [OBV](indicator)
+      - pick [OBV](indicator)
+      - I want [OBV](indicator)
+      - use [OBV](indicator)
+      - turn on [OBV](indicator)
+      - enable [OBV](indicator)
+      - add [OBV](indicator)
+      - remove [OBV](indicator)
+      - turn off [OBV](indicator)
+      - disable [OBV](indicator)
+      - unselect [OBV](indicator)
+      - deselect [OBV](indicator)
+      - 选择 [OBV](indicator)
+      - 勾选 [OBV](indicator)
+      - 取消 [OBV](indicator)
+      - 关闭 [OBV](indicator)
+      - put RSI on
+      - throw RSI in
+      - I need momentum
+      - show momentum
+      - remove momentum
+      - hide moving averages
+      - don't use EMA
+      - get rid of volume
+      - volume is not needed
+      - use Bollinger too
+      - add the bands
+      - remove the bands
+      - I want trend indicators
+      - turn trend off
+      - 把RSI打开
+      - 不要EMA
+      - 加上布林带
+      - 去掉成交量
+      - please [MA](indicator)
+      - can you [MA](indicator)
+      - could you [MA](indicator)
+      - I need you to [MA](indicator)
+      - assistant [MA](indicator)
+      - Noob Trade [MA](indicator)
+      - [MA](indicator) now
+      - [MA](indicator) please
+      - [MA](indicator) for me
+      - [MA](indicator) a little faster
+      - please select [MA](indicator)
+      - can you select [MA](indicator)
+      - could you select [MA](indicator)
+      - I need you to select [MA](indicator)
+      - assistant select [MA](indicator)
+      - Noob Trade select [MA](indicator)
+      - select [MA](indicator) now
+      - select [MA](indicator) please
+      - select [MA](indicator) for me
+      - select [MA](indicator) a little faster
+      - please pick [MA](indicator)
+      - can you pick [MA](indicator)
+      - could you pick [MA](indicator)
+      - I need you to pick [MA](indicator)
+      - assistant pick [MA](indicator)
+      - Noob Trade pick [MA](indicator)
+      - pick [MA](indicator) now
+      - pick [MA](indicator) please
+      - pick [MA](indicator) for me
+      - pick [MA](indicator) a little faster
+      - please I want [MA](indicator)
+      - can you I want [MA](indicator)
+      - could you I want [MA](indicator)
+      - I need you to I want [MA](indicator)
+      - assistant I want [MA](indicator)
+      - Noob Trade I want [MA](indicator)
+      - I want [MA](indicator) now
+      - I want [MA](indicator) please
+      - I want [MA](indicator) for me
+      - I want [MA](indicator) a little faster
+      - please use [MA](indicator)
+      - can you use [MA](indicator)
+      - could you use [MA](indicator)
+      - I need you to use [MA](indicator)
+      - assistant use [MA](indicator)
+      - Noob Trade use [MA](indicator)
+      - use [MA](indicator) now
+      - use [MA](indicator) please
+      - use [MA](indicator) for me
+      - use [MA](indicator) a little faster
+      - please turn on [MA](indicator)
+      - can you turn on [MA](indicator)
+      - could you turn on [MA](indicator)
+      - I need you to turn on [MA](indicator)
+      - assistant turn on [MA](indicator)
+      - Noob Trade turn on [MA](indicator)
+      - turn on [MA](indicator) now
+      - turn on [MA](indicator) please
+      - turn on [MA](indicator) for me
+      - turn on [MA](indicator) a little faster
+      - please enable [MA](indicator)
+      - can you enable [MA](indicator)
+      - could you enable [MA](indicator)
+      - I need you to enable [MA](indicator)
+      - assistant enable [MA](indicator)
+      - Noob Trade enable [MA](indicator)
+      - enable [MA](indicator) now
+      - enable [MA](indicator) please
+      - enable [MA](indicator) for me
+      - enable [MA](indicator) a little faster
+      - please add [MA](indicator)
+      - can you add [MA](indicator)
+      - could you add [MA](indicator)
+      - I need you to add [MA](indicator)
+      - assistant add [MA](indicator)
+      - Noob Trade add [MA](indicator)
+      - add [MA](indicator) now
+      - add [MA](indicator) please
+      - add [MA](indicator) for me
+      - add [MA](indicator) a little faster
+      - please remove [MA](indicator)
+      - can you remove [MA](indicator)
+      - could you remove [MA](indicator)
+      - I need you to remove [MA](indicator)
+      - assistant remove [MA](indicator)
+      - Noob Trade remove [MA](indicator)
+      - remove [MA](indicator) now
+      - remove [MA](indicator) please
+      - remove [MA](indicator) for me
+      - remove [MA](indicator) a little faster
+      - please turn off [MA](indicator)
+      - can you turn off [MA](indicator)
+      - could you turn off [MA](indicator)
+      - I need you to turn off [MA](indicator)
+      - assistant turn off [MA](indicator)
+      - Noob Trade turn off [MA](indicator)
+      - turn off [MA](indicator) now
+      - turn off [MA](indicator) please
+      - turn off [MA](indicator) for me
+      - turn off [MA](indicator) a little faster
+      - please disable [MA](indicator)
+      - can you disable [MA](indicator)
+      - could you disable [MA](indicator)
+      - I need you to disable [MA](indicator)
+      - assistant disable [MA](indicator)
+      - Noob Trade disable [MA](indicator)
+      - disable [MA](indicator) now
+      - disable [MA](indicator) please
+      - disable [MA](indicator) for me
+      - disable [MA](indicator) a little faster
+      - please unselect [MA](indicator)
+      - can you unselect [MA](indicator)
+      - could you unselect [MA](indicator)
+      - I need you to unselect [MA](indicator)
+      - assistant unselect [MA](indicator)
+      - Noob Trade unselect [MA](indicator)
+      - unselect [MA](indicator) now
+      - unselect [MA](indicator) please
+      - unselect [MA](indicator) for me
+      - unselect [MA](indicator) a little faster
+      - please deselect [MA](indicator)
+
+  - intent: select_only_indicators
+    examples: |
+      - only use [MA](indicator) and [EMA](indicator)
+      - just [MA](indicator) and [EMA](indicator)
+      - select only [MA](indicator) plus [EMA](indicator)
+      - keep only [MA](indicator) [EMA](indicator)
+      - 只选 [MA](indicator) 和 [EMA](indicator)
+      - only use [MA](indicator) and [MACD](indicator)
+      - just [MA](indicator) and [MACD](indicator)
+      - select only [MA](indicator) plus [MACD](indicator)
+      - keep only [MA](indicator) [MACD](indicator)
+      - 只选 [MA](indicator) 和 [MACD](indicator)
+      - only use [MA](indicator) and [BOLL](indicator)
+      - just [MA](indicator) and [BOLL](indicator)
+      - select only [MA](indicator) plus [BOLL](indicator)
+      - keep only [MA](indicator) [BOLL](indicator)
+      - 只选 [MA](indicator) 和 [BOLL](indicator)
+      - only use [MA](indicator) and [RSI](indicator)
+      - just [MA](indicator) and [RSI](indicator)
+      - select only [MA](indicator) plus [RSI](indicator)
+      - keep only [MA](indicator) [RSI](indicator)
+      - 只选 [MA](indicator) 和 [RSI](indicator)
+      - only use [MA](indicator) and [Vol](indicator)
+      - just [MA](indicator) and [Vol](indicator)
+      - select only [MA](indicator) plus [Vol](indicator)
+      - keep only [MA](indicator) [Vol](indicator)
+      - 只选 [MA](indicator) 和 [Vol](indicator)
+      - only use [MA](indicator) and [KDJ](indicator)
+      - just [MA](indicator) and [KDJ](indicator)
+      - select only [MA](indicator) plus [KDJ](indicator)
+      - keep only [MA](indicator) [KDJ](indicator)
+      - 只选 [MA](indicator) 和 [KDJ](indicator)
+      - only use [MA](indicator) and [OI](indicator)
+      - just [MA](indicator) and [OI](indicator)
+      - select only [MA](indicator) plus [OI](indicator)
+      - keep only [MA](indicator) [OI](indicator)
+      - 只选 [MA](indicator) 和 [OI](indicator)
+      - only use [MA](indicator) and [OBV](indicator)
+      - just [MA](indicator) and [OBV](indicator)
+      - select only [MA](indicator) plus [OBV](indicator)
+      - keep only [MA](indicator) [OBV](indicator)
+      - 只选 [MA](indicator) 和 [OBV](indicator)
+      - only use [EMA](indicator) and [MA](indicator)
+      - just [EMA](indicator) and [MA](indicator)
+      - select only [EMA](indicator) plus [MA](indicator)
+      - keep only [EMA](indicator) [MA](indicator)
+      - 只选 [EMA](indicator) 和 [MA](indicator)
+      - only use [EMA](indicator) and [MACD](indicator)
+      - just [EMA](indicator) and [MACD](indicator)
+      - select only [EMA](indicator) plus [MACD](indicator)
+      - keep only [EMA](indicator) [MACD](indicator)
+      - 只选 [EMA](indicator) 和 [MACD](indicator)
+      - only use [EMA](indicator) and [BOLL](indicator)
+      - just [EMA](indicator) and [BOLL](indicator)
+      - select only [EMA](indicator) plus [BOLL](indicator)
+      - keep only [EMA](indicator) [BOLL](indicator)
+      - 只选 [EMA](indicator) 和 [BOLL](indicator)
+      - only use [EMA](indicator) and [RSI](indicator)
+      - just [EMA](indicator) and [RSI](indicator)
+      - select only [EMA](indicator) plus [RSI](indicator)
+      - keep only [EMA](indicator) [RSI](indicator)
+      - 只选 [EMA](indicator) 和 [RSI](indicator)
+      - only use [EMA](indicator) and [Vol](indicator)
+      - just [EMA](indicator) and [Vol](indicator)
+      - select only [EMA](indicator) plus [Vol](indicator)
+      - keep only [EMA](indicator) [Vol](indicator)
+      - 只选 [EMA](indicator) 和 [Vol](indicator)
+      - only use [EMA](indicator) and [KDJ](indicator)
+      - just [EMA](indicator) and [KDJ](indicator)
+      - select only [EMA](indicator) plus [KDJ](indicator)
+      - keep only [EMA](indicator) [KDJ](indicator)
+      - 只选 [EMA](indicator) 和 [KDJ](indicator)
+      - only use [EMA](indicator) and [OI](indicator)
+      - just [EMA](indicator) and [OI](indicator)
+      - select only [EMA](indicator) plus [OI](indicator)
+      - keep only [EMA](indicator) [OI](indicator)
+      - 只选 [EMA](indicator) 和 [OI](indicator)
+      - only use [EMA](indicator) and [OBV](indicator)
+      - just [EMA](indicator) and [OBV](indicator)
+      - select only [EMA](indicator) plus [OBV](indicator)
+      - keep only [EMA](indicator) [OBV](indicator)
+      - 只选 [EMA](indicator) 和 [OBV](indicator)
+      - only use [MACD](indicator) and [MA](indicator)
+      - just [MACD](indicator) and [MA](indicator)
+      - select only [MACD](indicator) plus [MA](indicator)
+      - keep only [MACD](indicator) [MA](indicator)
+      - 只选 [MACD](indicator) 和 [MA](indicator)
+      - only use [MACD](indicator) and [EMA](indicator)
+      - just [MACD](indicator) and [EMA](indicator)
+      - select only [MACD](indicator) plus [EMA](indicator)
+      - keep only [MACD](indicator) [EMA](indicator)
+      - 只选 [MACD](indicator) 和 [EMA](indicator)
+      - only use [MACD](indicator) and [BOLL](indicator)
+      - just [MACD](indicator) and [BOLL](indicator)
+      - select only [MACD](indicator) plus [BOLL](indicator)
+      - keep only [MACD](indicator) [BOLL](indicator)
+      - 只选 [MACD](indicator) 和 [BOLL](indicator)
+      - only use [MACD](indicator) and [RSI](indicator)
+      - just [MACD](indicator) and [RSI](indicator)
+      - select only [MACD](indicator) plus [RSI](indicator)
+      - keep only [MACD](indicator) [RSI](indicator)
+      - 只选 [MACD](indicator) 和 [RSI](indicator)
+      - only use [MACD](indicator) and [Vol](indicator)
+      - just [MACD](indicator) and [Vol](indicator)
+      - select only [MACD](indicator) plus [Vol](indicator)
+      - keep only [MACD](indicator) [Vol](indicator)
+      - 只选 [MACD](indicator) 和 [Vol](indicator)
+      - only use [MACD](indicator) and [KDJ](indicator)
+      - just [MACD](indicator) and [KDJ](indicator)
+      - select only [MACD](indicator) plus [KDJ](indicator)
+      - keep only [MACD](indicator) [KDJ](indicator)
+      - 只选 [MACD](indicator) 和 [KDJ](indicator)
+      - only use [MACD](indicator) and [OI](indicator)
+      - just [MACD](indicator) and [OI](indicator)
+      - select only [MACD](indicator) plus [OI](indicator)
+      - keep only [MACD](indicator) [OI](indicator)
+      - 只选 [MACD](indicator) 和 [OI](indicator)
+      - only use [MACD](indicator) and [OBV](indicator)
+      - just [MACD](indicator) and [OBV](indicator)
+      - select only [MACD](indicator) plus [OBV](indicator)
+      - keep only [MACD](indicator) [OBV](indicator)
+      - 只选 [MACD](indicator) 和 [OBV](indicator)
+      - only use [BOLL](indicator) and [MA](indicator)
+      - just [BOLL](indicator) and [MA](indicator)
+      - select only [BOLL](indicator) plus [MA](indicator)
+      - keep only [BOLL](indicator) [MA](indicator)
+      - 只选 [BOLL](indicator) 和 [MA](indicator)
+      - only use [BOLL](indicator) and [EMA](indicator)
+      - just [BOLL](indicator) and [EMA](indicator)
+      - select only [BOLL](indicator) plus [EMA](indicator)
+      - keep only [BOLL](indicator) [EMA](indicator)
+      - 只选 [BOLL](indicator) 和 [EMA](indicator)
+      - only use [BOLL](indicator) and [MACD](indicator)
+      - just [BOLL](indicator) and [MACD](indicator)
+      - select only [BOLL](indicator) plus [MACD](indicator)
+      - keep only [BOLL](indicator) [MACD](indicator)
+      - 只选 [BOLL](indicator) 和 [MACD](indicator)
+      - only use [BOLL](indicator) and [RSI](indicator)
+      - just [BOLL](indicator) and [RSI](indicator)
+      - select only [BOLL](indicator) plus [RSI](indicator)
+      - keep only [BOLL](indicator) [RSI](indicator)
+      - 只选 [BOLL](indicator) 和 [RSI](indicator)
+      - only use [BOLL](indicator) and [Vol](indicator)
+      - just [BOLL](indicator) and [Vol](indicator)
+      - select only [BOLL](indicator) plus [Vol](indicator)
+      - keep only [BOLL](indicator) [Vol](indicator)
+      - 只选 [BOLL](indicator) 和 [Vol](indicator)
+      - only use [BOLL](indicator) and [KDJ](indicator)
+      - just [BOLL](indicator) and [KDJ](indicator)
+      - select only [BOLL](indicator) plus [KDJ](indicator)
+      - keep only [BOLL](indicator) [KDJ](indicator)
+      - 只选 [BOLL](indicator) 和 [KDJ](indicator)
+      - only use [BOLL](indicator) and [OI](indicator)
+      - just [BOLL](indicator) and [OI](indicator)
+      - select only [BOLL](indicator) plus [OI](indicator)
+      - keep only [BOLL](indicator) [OI](indicator)
+      - 只选 [BOLL](indicator) 和 [OI](indicator)
+      - only use [BOLL](indicator) and [OBV](indicator)
+      - just [BOLL](indicator) and [OBV](indicator)
+      - select only [BOLL](indicator) plus [OBV](indicator)
+      - keep only [BOLL](indicator) [OBV](indicator)
+      - 只选 [BOLL](indicator) 和 [OBV](indicator)
+      - only use [RSI](indicator) and [MA](indicator)
+      - just [RSI](indicator) and [MA](indicator)
+      - select only [RSI](indicator) plus [MA](indicator)
+      - keep only [RSI](indicator) [MA](indicator)
+      - 只选 [RSI](indicator) 和 [MA](indicator)
+      - only use [RSI](indicator) and [EMA](indicator)
+      - just [RSI](indicator) and [EMA](indicator)
+      - select only [RSI](indicator) plus [EMA](indicator)
+      - keep only [RSI](indicator) [EMA](indicator)
+      - 只选 [RSI](indicator) 和 [EMA](indicator)
+      - only use [RSI](indicator) and [MACD](indicator)
+      - just [RSI](indicator) and [MACD](indicator)
+      - select only [RSI](indicator) plus [MACD](indicator)
+      - keep only [RSI](indicator) [MACD](indicator)
+      - 只选 [RSI](indicator) 和 [MACD](indicator)
+      - only use [RSI](indicator) and [BOLL](indicator)
+      - just [RSI](indicator) and [BOLL](indicator)
+      - select only [RSI](indicator) plus [BOLL](indicator)
+      - keep only [RSI](indicator) [BOLL](indicator)
+      - 只选 [RSI](indicator) 和 [BOLL](indicator)
+
+  - intent: clear_indicators
+    examples: |
+      - clear all indicators
+      - turn off all indicators
+      - remove every indicator
+      - disable all indicators
+      - no indicators
+      - 清空所有指标
+      - 关闭所有指标
+      - 取消全部指标
+      - please clear all indicators
+      - can you clear all indicators
+      - could you clear all indicators
+      - I need you to clear all indicators
+      - assistant clear all indicators
+      - Noob Trade clear all indicators
+      - clear all indicators now
+      - clear all indicators please
+      - clear all indicators for me
+      - clear all indicators a little faster
+      - please turn off all indicators
+      - can you turn off all indicators
+      - could you turn off all indicators
+      - I need you to turn off all indicators
+      - assistant turn off all indicators
+      - Noob Trade turn off all indicators
+      - turn off all indicators now
+      - turn off all indicators please
+      - turn off all indicators for me
+      - turn off all indicators a little faster
+      - please remove every indicator
+      - can you remove every indicator
+
+  - intent: reset_indicators
+    examples: |
+      - reset indicators
+      - restore default indicators
+      - go back to default indicators
+      - default indicator setup
+      - 重置指标
+      - 恢复默认指标
+      - please reset indicators
+      - can you reset indicators
+      - could you reset indicators
+      - I need you to reset indicators
+      - assistant reset indicators
+      - Noob Trade reset indicators
+      - reset indicators now
+      - reset indicators please
+      - reset indicators for me
+      - reset indicators a little faster
+      - please restore default indicators
+      - can you restore default indicators
+      - could you restore default indicators
+      - I need you to restore default indicators
+      - assistant restore default indicators
+      - Noob Trade restore default indicators
+      - restore default indicators now
+      - restore default indicators please
+      - restore default indicators for me
+      - restore default indicators a little faster
+      - please go back to default indicators
+      - can you go back to default indicators
+      - could you go back to default indicators
+      - I need you to go back to default indicators
+
+  - intent: scan_watchlist
+    examples: |
+      - scan watchlist above [55](threshold) percent
+      - scan starred stocks at [55](threshold)%
+      - scan my favorites over [55](threshold)
+      - find favorites with probability above [55](threshold)
+      - scan watchlist
+      - scan my starred list
+      - 扫描自选 [55](threshold)%
+      - 扫描星标股票 [55](threshold)%
+      - scan watchlist above [60](threshold) percent
+      - scan starred stocks at [60](threshold)%
+      - scan my favorites over [60](threshold)
+      - find favorites with probability above [60](threshold)
+      - 扫描自选 [60](threshold)%
+      - 扫描星标股票 [60](threshold)%
+      - scan watchlist above [65](threshold) percent
+      - scan starred stocks at [65](threshold)%
+      - scan my favorites over [65](threshold)
+      - find favorites with probability above [65](threshold)
+      - 扫描自选 [65](threshold)%
+      - 扫描星标股票 [65](threshold)%
+      - scan watchlist above [70](threshold) percent
+      - scan starred stocks at [70](threshold)%
+      - scan my favorites over [70](threshold)
+      - find favorites with probability above [70](threshold)
+      - 扫描自选 [70](threshold)%
+      - 扫描星标股票 [70](threshold)%
+      - scan watchlist above [75](threshold) percent
+      - scan starred stocks at [75](threshold)%
+      - scan my favorites over [75](threshold)
+      - find favorites with probability above [75](threshold)
+      - 扫描自选 [75](threshold)%
+      - 扫描星标股票 [75](threshold)%
+      - scan watchlist above [80](threshold) percent
+      - scan starred stocks at [80](threshold)%
+      - scan my favorites over [80](threshold)
+      - find favorites with probability above [80](threshold)
+      - 扫描自选 [80](threshold)%
+      - 扫描星标股票 [80](threshold)%
+      - scan watchlist above [88](threshold) percent
+      - scan starred stocks at [88](threshold)%
+      - scan my favorites over [88](threshold)
+      - find favorites with probability above [88](threshold)
+      - 扫描自选 [88](threshold)%
+      - 扫描星标股票 [88](threshold)%
+      - scan watchlist above [90](threshold) percent
+      - scan starred stocks at [90](threshold)%
+      - scan my favorites over [90](threshold)
+      - find favorites with probability above [90](threshold)
+      - 扫描自选 [90](threshold)%
+      - 扫描星标股票 [90](threshold)%
+      - scan watchlist above [93](threshold) percent
+      - scan starred stocks at [93](threshold)%
+      - scan my favorites over [93](threshold)
+      - find favorites with probability above [93](threshold)
+      - 扫描自选 [93](threshold)%
+      - 扫描星标股票 [93](threshold)%
+      - scan my saved names
+      - check all my favorites
+      - run the watchlist
+      - which favorites look good
+      - find good setups from my stars
+      - show me starred names above sixty
+      - scan everything I starred
+      - 扫描我收藏的股票
+      - 看看自选里面哪个概率高
+      - please scan watchlist above [55](threshold) percent
+      - can you scan watchlist above [55](threshold) percent
+      - could you scan watchlist above [55](threshold) percent
+      - I need you to scan watchlist above [55](threshold) percent
+      - assistant scan watchlist above [55](threshold) percent
+      - Noob Trade scan watchlist above [55](threshold) percent
+      - scan watchlist above [55](threshold) percent now
+      - scan watchlist above [55](threshold) percent please
+      - scan watchlist above [55](threshold) percent for me
+      - scan watchlist above [55](threshold) percent a little faster
+      - please scan starred stocks at [55](threshold)%
+      - can you scan starred stocks at [55](threshold)%
+      - could you scan starred stocks at [55](threshold)%
+      - I need you to scan starred stocks at [55](threshold)%
+      - assistant scan starred stocks at [55](threshold)%
+      - Noob Trade scan starred stocks at [55](threshold)%
+      - scan starred stocks at [55](threshold)% now
+      - scan starred stocks at [55](threshold)% please
+      - scan starred stocks at [55](threshold)% for me
+      - scan starred stocks at [55](threshold)% a little faster
+      - please scan my favorites over [55](threshold)
+      - can you scan my favorites over [55](threshold)
+      - could you scan my favorites over [55](threshold)
+      - I need you to scan my favorites over [55](threshold)
+      - assistant scan my favorites over [55](threshold)
+      - Noob Trade scan my favorites over [55](threshold)
+      - scan my favorites over [55](threshold) now
+      - scan my favorites over [55](threshold) please
+      - scan my favorites over [55](threshold) for me
+      - scan my favorites over [55](threshold) a little faster
+      - please find favorites with probability above [55](threshold)
+      - can you find favorites with probability above [55](threshold)
+      - could you find favorites with probability above [55](threshold)
+      - I need you to find favorites with probability above [55](threshold)
+      - assistant find favorites with probability above [55](threshold)
+      - Noob Trade find favorites with probability above [55](threshold)
+      - find favorites with probability above [55](threshold) now
+      - find favorites with probability above [55](threshold) please
+      - find favorites with probability above [55](threshold) for me
+      - find favorites with probability above [55](threshold) a little faster
+      - please scan watchlist
+      - can you scan watchlist
+      - could you scan watchlist
+      - I need you to scan watchlist
+      - assistant scan watchlist
+      - Noob Trade scan watchlist
+      - scan watchlist now
+      - scan watchlist please
+      - scan watchlist for me
+      - scan watchlist a little faster
+      - please scan my starred list
+      - can you scan my starred list
+      - could you scan my starred list
+      - I need you to scan my starred list
+      - assistant scan my starred list
+      - Noob Trade scan my starred list
+      - scan my starred list now
+      - scan my starred list please
+      - scan my starred list for me
+      - scan my starred list a little faster
+      - 请 扫描自选 [55](threshold)%
+      - 帮我 扫描自选 [55](threshold)%
+      - 请 扫描星标股票 [55](threshold)%
+      - 帮我 扫描星标股票 [55](threshold)%
+      - please scan watchlist above [60](threshold) percent
+      - can you scan watchlist above [60](threshold) percent
+      - could you scan watchlist above [60](threshold) percent
+      - I need you to scan watchlist above [60](threshold) percent
+      - assistant scan watchlist above [60](threshold) percent
+      - Noob Trade scan watchlist above [60](threshold) percent
+
+  - intent: set_star
+    examples: |
+      - star [AAPL](symbol)
+      - favorite [AAPL](symbol)
+      - add [AAPL](symbol) to watchlist
+      - save [AAPL](symbol) as favorite
+      - unstar [AAPL](symbol)
+      - remove [AAPL](symbol) from watchlist
+      - 取消 [AAPL](symbol) 星标
+      - 给 [AAPL](symbol) 加星标
+      - star [NVDA](symbol)
+      - favorite [NVDA](symbol)
+      - add [NVDA](symbol) to watchlist
+      - save [NVDA](symbol) as favorite
+      - unstar [NVDA](symbol)
+      - remove [NVDA](symbol) from watchlist
+      - 取消 [NVDA](symbol) 星标
+      - 给 [NVDA](symbol) 加星标
+      - star [MSFT](symbol)
+      - favorite [MSFT](symbol)
+      - add [MSFT](symbol) to watchlist
+      - save [MSFT](symbol) as favorite
+      - unstar [MSFT](symbol)
+      - remove [MSFT](symbol) from watchlist
+      - 取消 [MSFT](symbol) 星标
+      - 给 [MSFT](symbol) 加星标
+      - star [TSLA](symbol)
+      - favorite [TSLA](symbol)
+      - add [TSLA](symbol) to watchlist
+      - save [TSLA](symbol) as favorite
+      - unstar [TSLA](symbol)
+      - remove [TSLA](symbol) from watchlist
+      - 取消 [TSLA](symbol) 星标
+      - 给 [TSLA](symbol) 加星标
+      - star [META](symbol)
+      - favorite [META](symbol)
+      - add [META](symbol) to watchlist
+      - save [META](symbol) as favorite
+      - unstar [META](symbol)
+      - remove [META](symbol) from watchlist
+      - 取消 [META](symbol) 星标
+      - 给 [META](symbol) 加星标
+      - star [GOOGL](symbol)
+      - favorite [GOOGL](symbol)
+      - add [GOOGL](symbol) to watchlist
+      - save [GOOGL](symbol) as favorite
+      - unstar [GOOGL](symbol)
+      - remove [GOOGL](symbol) from watchlist
+      - 取消 [GOOGL](symbol) 星标
+      - 给 [GOOGL](symbol) 加星标
+      - star [AMZN](symbol)
+      - favorite [AMZN](symbol)
+      - add [AMZN](symbol) to watchlist
+      - save [AMZN](symbol) as favorite
+      - unstar [AMZN](symbol)
+      - remove [AMZN](symbol) from watchlist
+      - 取消 [AMZN](symbol) 星标
+      - 给 [AMZN](symbol) 加星标
+      - star [SPY](symbol)
+      - favorite [SPY](symbol)
+      - add [SPY](symbol) to watchlist
+      - save [SPY](symbol) as favorite
+      - unstar [SPY](symbol)
+      - remove [SPY](symbol) from watchlist
+      - 取消 [SPY](symbol) 星标
+      - 给 [SPY](symbol) 加星标
+      - star [BTC](symbol)
+      - favorite [BTC](symbol)
+      - add [BTC](symbol) to watchlist
+      - save [BTC](symbol) as favorite
+      - unstar [BTC](symbol)
+      - remove [BTC](symbol) from watchlist
+      - 取消 [BTC](symbol) 星标
+      - 给 [BTC](symbol) 加星标
+      - star [ETH](symbol)
+      - favorite [ETH](symbol)
+      - add [ETH](symbol) to watchlist
+      - save [ETH](symbol) as favorite
+      - unstar [ETH](symbol)
+      - remove [ETH](symbol) from watchlist
+      - 取消 [ETH](symbol) 星标
+      - 给 [ETH](symbol) 加星标
+      - save this one
+      - keep this stock
+      - add this to my list
+      - remember this symbol
+      - remove this one from my list
+      - don't keep this anymore
+      - star the current stock
+      - unstar the current stock
+      - 把这个加到自选
+      - 收藏当前这个
+      - 取消收藏这个
+      - please star [AAPL](symbol)
+      - can you star [AAPL](symbol)
+      - could you star [AAPL](symbol)
+      - I need you to star [AAPL](symbol)
+      - assistant star [AAPL](symbol)
+      - Noob Trade star [AAPL](symbol)
+      - star [AAPL](symbol) now
+      - star [AAPL](symbol) please
+      - star [AAPL](symbol) for me
+      - star [AAPL](symbol) a little faster
+      - please favorite [AAPL](symbol)
+      - can you favorite [AAPL](symbol)
+      - could you favorite [AAPL](symbol)
+      - I need you to favorite [AAPL](symbol)
+      - assistant favorite [AAPL](symbol)
+      - Noob Trade favorite [AAPL](symbol)
+      - favorite [AAPL](symbol) now
+      - favorite [AAPL](symbol) please
+      - favorite [AAPL](symbol) for me
+      - favorite [AAPL](symbol) a little faster
+      - please add [AAPL](symbol) to watchlist
+      - can you add [AAPL](symbol) to watchlist
+      - could you add [AAPL](symbol) to watchlist
+      - I need you to add [AAPL](symbol) to watchlist
+      - assistant add [AAPL](symbol) to watchlist
+      - Noob Trade add [AAPL](symbol) to watchlist
+      - add [AAPL](symbol) to watchlist now
+      - add [AAPL](symbol) to watchlist please
+      - add [AAPL](symbol) to watchlist for me
+      - add [AAPL](symbol) to watchlist a little faster
+      - please save [AAPL](symbol) as favorite
+      - can you save [AAPL](symbol) as favorite
+      - could you save [AAPL](symbol) as favorite
+      - I need you to save [AAPL](symbol) as favorite
+      - assistant save [AAPL](symbol) as favorite
+      - Noob Trade save [AAPL](symbol) as favorite
+      - save [AAPL](symbol) as favorite now
+      - save [AAPL](symbol) as favorite please
+      - save [AAPL](symbol) as favorite for me
+      - save [AAPL](symbol) as favorite a little faster
+      - please unstar [AAPL](symbol)
+      - can you unstar [AAPL](symbol)
+      - could you unstar [AAPL](symbol)
+      - I need you to unstar [AAPL](symbol)
+      - assistant unstar [AAPL](symbol)
+      - Noob Trade unstar [AAPL](symbol)
+      - unstar [AAPL](symbol) now
+      - unstar [AAPL](symbol) please
+      - unstar [AAPL](symbol) for me
+      - unstar [AAPL](symbol) a little faster
+      - please remove [AAPL](symbol) from watchlist
+      - can you remove [AAPL](symbol) from watchlist
+      - could you remove [AAPL](symbol) from watchlist
+      - I need you to remove [AAPL](symbol) from watchlist
+
+  - intent: adjust_probability
+    examples: |
+      - set upside probability to [1](value) percent
+      - drag upside to [1](value)%
+      - move upside slider to [1](value)
+      - set downside probability to [1](value) percent
+      - drag downside to [1](value)%
+      - move downside slider to [1](value)
+      - 把上涨概率调到 [1](value)%
+      - 把下跌概率调到 [1](value)%
+      - set upside probability to [1.5](value) percent
+      - drag upside to [1.5](value)%
+      - move upside slider to [1.5](value)
+      - set downside probability to [1.5](value) percent
+      - drag downside to [1.5](value)%
+      - move downside slider to [1.5](value)
+      - 把上涨概率调到 [1.5](value)%
+      - 把下跌概率调到 [1.5](value)%
+      - set upside probability to [2](value) percent
+      - drag upside to [2](value)%
+      - move upside slider to [2](value)
+      - set downside probability to [2](value) percent
+      - drag downside to [2](value)%
+      - move downside slider to [2](value)
+      - 把上涨概率调到 [2](value)%
+      - 把下跌概率调到 [2](value)%
+      - set upside probability to [2.5](value) percent
+      - drag upside to [2.5](value)%
+      - move upside slider to [2.5](value)
+      - set downside probability to [2.5](value) percent
+      - drag downside to [2.5](value)%
+      - move downside slider to [2.5](value)
+      - 把上涨概率调到 [2.5](value)%
+      - 把下跌概率调到 [2.5](value)%
+      - set upside probability to [3](value) percent
+      - drag upside to [3](value)%
+      - move upside slider to [3](value)
+      - set downside probability to [3](value) percent
+      - drag downside to [3](value)%
+      - move downside slider to [3](value)
+      - 把上涨概率调到 [3](value)%
+      - 把下跌概率调到 [3](value)%
+      - set upside probability to [4](value) percent
+      - drag upside to [4](value)%
+      - move upside slider to [4](value)
+      - set downside probability to [4](value) percent
+      - drag downside to [4](value)%
+      - move downside slider to [4](value)
+      - 把上涨概率调到 [4](value)%
+      - 把下跌概率调到 [4](value)%
+      - set upside probability to [5](value) percent
+      - drag upside to [5](value)%
+      - move upside slider to [5](value)
+      - set downside probability to [5](value) percent
+      - drag downside to [5](value)%
+      - move downside slider to [5](value)
+      - 把上涨概率调到 [5](value)%
+      - 把下跌概率调到 [5](value)%
+      - set upside probability to [7](value) percent
+      - drag upside to [7](value)%
+      - move upside slider to [7](value)
+      - set downside probability to [7](value) percent
+      - drag downside to [7](value)%
+      - move downside slider to [7](value)
+      - 把上涨概率调到 [7](value)%
+      - 把下跌概率调到 [7](value)%
+      - set upside probability to [10](value) percent
+      - drag upside to [10](value)%
+      - move upside slider to [10](value)
+      - set downside probability to [10](value) percent
+      - drag downside to [10](value)%
+      - move downside slider to [10](value)
+      - 把上涨概率调到 [10](value)%
+      - 把下跌概率调到 [10](value)%
+      - move the upside slider higher
+      - make the upside target three
+      - what if I want two percent up
+      - change the drop slider
+      - set the loss side to two
+      - make downside smaller
+      - drag the green probability
+      - drag the red probability
+      - 把上涨那个滑块调高
+      - 把下跌那个调低
+      - please set upside probability to [1](value) percent
+      - can you set upside probability to [1](value) percent
+      - could you set upside probability to [1](value) percent
+      - I need you to set upside probability to [1](value) percent
+      - assistant set upside probability to [1](value) percent
+      - Noob Trade set upside probability to [1](value) percent
+      - set upside probability to [1](value) percent now
+      - set upside probability to [1](value) percent please
+      - set upside probability to [1](value) percent for me
+      - set upside probability to [1](value) percent a little faster
+      - please drag upside to [1](value)%
+      - can you drag upside to [1](value)%
+      - could you drag upside to [1](value)%
+      - I need you to drag upside to [1](value)%
+      - assistant drag upside to [1](value)%
+      - Noob Trade drag upside to [1](value)%
+      - drag upside to [1](value)% now
+      - drag upside to [1](value)% please
+      - drag upside to [1](value)% for me
+      - drag upside to [1](value)% a little faster
+      - please move upside slider to [1](value)
+      - can you move upside slider to [1](value)
+      - could you move upside slider to [1](value)
+      - I need you to move upside slider to [1](value)
+      - assistant move upside slider to [1](value)
+      - Noob Trade move upside slider to [1](value)
+      - move upside slider to [1](value) now
+      - move upside slider to [1](value) please
+      - move upside slider to [1](value) for me
+      - move upside slider to [1](value) a little faster
+      - please set downside probability to [1](value) percent
+      - can you set downside probability to [1](value) percent
+      - could you set downside probability to [1](value) percent
+      - I need you to set downside probability to [1](value) percent
+      - assistant set downside probability to [1](value) percent
+      - Noob Trade set downside probability to [1](value) percent
+      - set downside probability to [1](value) percent now
+      - set downside probability to [1](value) percent please
+      - set downside probability to [1](value) percent for me
+      - set downside probability to [1](value) percent a little faster
+      - please drag downside to [1](value)%
+      - can you drag downside to [1](value)%
+      - could you drag downside to [1](value)%
+      - I need you to drag downside to [1](value)%
+      - assistant drag downside to [1](value)%
+      - Noob Trade drag downside to [1](value)%
+      - drag downside to [1](value)% now
+      - drag downside to [1](value)% please
+      - drag downside to [1](value)% for me
+      - drag downside to [1](value)% a little faster
+      - please move downside slider to [1](value)
+      - can you move downside slider to [1](value)
+      - could you move downside slider to [1](value)
+      - I need you to move downside slider to [1](value)
+      - assistant move downside slider to [1](value)
+      - Noob Trade move downside slider to [1](value)
+      - move downside slider to [1](value) now
+      - move downside slider to [1](value) please
+      - move downside slider to [1](value) for me
+      - move downside slider to [1](value) a little faster
+      - 请 把上涨概率调到 [1](value)%
+      - 帮我 把上涨概率调到 [1](value)%
+      - 请 把下跌概率调到 [1](value)%
+
+  - intent: summarize_probability
+    examples: |
+      - what is the upside probability
+      - what is the downside probability
+      - what is upside probability at [1](threshold)%
+      - what is downside probability at [1](threshold)%
+      - tell me the chance above [1](threshold)%
+      - 上涨 [1](threshold)% 概率是多少
+      - 下跌 [1](threshold)% 概率是多少
+      - what is upside probability at [1.5](threshold)%
+      - what is downside probability at [1.5](threshold)%
+      - tell me the chance above [1.5](threshold)%
+      - 上涨 [1.5](threshold)% 概率是多少
+      - 下跌 [1.5](threshold)% 概率是多少
+      - what is upside probability at [2](threshold)%
+      - what is downside probability at [2](threshold)%
+      - tell me the chance above [2](threshold)%
+      - 上涨 [2](threshold)% 概率是多少
+      - 下跌 [2](threshold)% 概率是多少
+      - what is upside probability at [2.5](threshold)%
+      - what is downside probability at [2.5](threshold)%
+      - tell me the chance above [2.5](threshold)%
+      - 上涨 [2.5](threshold)% 概率是多少
+      - 下跌 [2.5](threshold)% 概率是多少
+      - what is upside probability at [3](threshold)%
+      - what is downside probability at [3](threshold)%
+      - tell me the chance above [3](threshold)%
+      - 上涨 [3](threshold)% 概率是多少
+      - 下跌 [3](threshold)% 概率是多少
+      - what is upside probability at [4](threshold)%
+      - what is downside probability at [4](threshold)%
+      - tell me the chance above [4](threshold)%
+      - 上涨 [4](threshold)% 概率是多少
+      - 下跌 [4](threshold)% 概率是多少
+      - what is upside probability at [5](threshold)%
+      - what is downside probability at [5](threshold)%
+      - tell me the chance above [5](threshold)%
+      - 上涨 [5](threshold)% 概率是多少
+      - 下跌 [5](threshold)% 概率是多少
+      - what is upside probability at [7](threshold)%
+      - what is downside probability at [7](threshold)%
+      - tell me the chance above [7](threshold)%
+      - 上涨 [7](threshold)% 概率是多少
+      - 下跌 [7](threshold)% 概率是多少
+      - what is upside probability at [10](threshold)%
+      - what is downside probability at [10](threshold)%
+      - tell me the chance above [10](threshold)%
+      - 上涨 [10](threshold)% 概率是多少
+      - 下跌 [10](threshold)% 概率是多少
+      - what are the odds now
+      - did the probability change
+      - explain the probability
+      - how likely is it to go up
+      - how likely is it to fall
+      - 这个上涨机会多少
+      - 现在概率怎么样
+      - please what is the upside probability
+      - can you what is the upside probability
+      - could you what is the upside probability
+      - I need you to what is the upside probability
+      - assistant what is the upside probability
+      - Noob Trade what is the upside probability
+      - what is the upside probability now
+      - what is the upside probability please
+      - what is the upside probability for me
+      - what is the upside probability a little faster
+      - please what is the downside probability
+      - can you what is the downside probability
+      - could you what is the downside probability
+      - I need you to what is the downside probability
+      - assistant what is the downside probability
+      - Noob Trade what is the downside probability
+      - what is the downside probability now
+      - what is the downside probability please
+      - what is the downside probability for me
+      - what is the downside probability a little faster
+      - please what is upside probability at [1](threshold)%
+      - can you what is upside probability at [1](threshold)%
+      - could you what is upside probability at [1](threshold)%
+      - I need you to what is upside probability at [1](threshold)%
+      - assistant what is upside probability at [1](threshold)%
+      - Noob Trade what is upside probability at [1](threshold)%
+      - what is upside probability at [1](threshold)% now
+      - what is upside probability at [1](threshold)% please
+      - what is upside probability at [1](threshold)% for me
+      - what is upside probability at [1](threshold)% a little faster
+      - please what is downside probability at [1](threshold)%
+      - can you what is downside probability at [1](threshold)%
+      - could you what is downside probability at [1](threshold)%
+      - I need you to what is downside probability at [1](threshold)%
+      - assistant what is downside probability at [1](threshold)%
+      - Noob Trade what is downside probability at [1](threshold)%
+      - what is downside probability at [1](threshold)% now
+      - what is downside probability at [1](threshold)% please
+      - what is downside probability at [1](threshold)% for me
+      - what is downside probability at [1](threshold)% a little faster
+      - please tell me the chance above [1](threshold)%
+      - can you tell me the chance above [1](threshold)%
+      - could you tell me the chance above [1](threshold)%
+      - I need you to tell me the chance above [1](threshold)%
+      - assistant tell me the chance above [1](threshold)%
+      - Noob Trade tell me the chance above [1](threshold)%
+      - tell me the chance above [1](threshold)% now
+      - tell me the chance above [1](threshold)% please
+      - tell me the chance above [1](threshold)% for me
+      - tell me the chance above [1](threshold)% a little faster
+      - 请 上涨 [1](threshold)% 概率是多少
+      - 帮我 上涨 [1](threshold)% 概率是多少
+      - 请 下跌 [1](threshold)% 概率是多少
+      - 帮我 下跌 [1](threshold)% 概率是多少
+      - please what is upside probability at [1.5](threshold)%
+      - can you what is upside probability at [1.5](threshold)%
+      - could you what is upside probability at [1.5](threshold)%
+      - I need you to what is upside probability at [1.5](threshold)%
+      - assistant what is upside probability at [1.5](threshold)%
+      - Noob Trade what is upside probability at [1.5](threshold)%
+      - what is upside probability at [1.5](threshold)% now
+      - what is upside probability at [1.5](threshold)% please
+      - what is upside probability at [1.5](threshold)% for me
+      - what is upside probability at [1.5](threshold)% a little faster
+      - please what is downside probability at [1.5](threshold)%
+      - can you what is downside probability at [1.5](threshold)%
+
+  - intent: open_historical_pattern
+    examples: |
+      - open a historical moment
+      - show me a similar historical window
+      - open the [first](index) historical pattern
+      - show the [first](index) match
+      - let me see a historical case
+      - 打开一个历史时刻
+      - 看一个相似历史窗口
+      - open the [second](index) historical pattern
+      - show the [second](index) match
+      - open the [third](index) historical pattern
+      - show the [third](index) match
+      - open the [fourth](index) historical pattern
+      - show the [fourth](index) match
+      - open the [fifth](index) historical pattern
+      - show the [fifth](index) match
+      - show me what happened before
+      - open a past case
+      - show similar history
+      - what did similar setups do
+      - let me inspect one match
+      - open that historical card
+      - 看看以前类似的时候
+      - 打开一个过去案例
+      - please open a historical moment
+      - can you open a historical moment
+      - could you open a historical moment
+      - I need you to open a historical moment
+      - assistant open a historical moment
+      - Noob Trade open a historical moment
+      - open a historical moment now
+      - open a historical moment please
+      - open a historical moment for me
+      - open a historical moment a little faster
+      - please show me a similar historical window
+      - can you show me a similar historical window
+      - could you show me a similar historical window
+      - I need you to show me a similar historical window
+      - assistant show me a similar historical window
+      - Noob Trade show me a similar historical window
+      - show me a similar historical window now
+      - show me a similar historical window please
+      - show me a similar historical window for me
+      - show me a similar historical window a little faster
+      - please open the [first](index) historical pattern
+      - can you open the [first](index) historical pattern
+      - could you open the [first](index) historical pattern
+      - I need you to open the [first](index) historical pattern
+      - assistant open the [first](index) historical pattern
+      - Noob Trade open the [first](index) historical pattern
+      - open the [first](index) historical pattern now
+      - open the [first](index) historical pattern please
+      - open the [first](index) historical pattern for me
+      - open the [first](index) historical pattern a little faster
+      - please show the [first](index) match
+      - can you show the [first](index) match
+      - could you show the [first](index) match
+      - I need you to show the [first](index) match
+      - assistant show the [first](index) match
+      - Noob Trade show the [first](index) match
+      - show the [first](index) match now
+      - show the [first](index) match please
+      - show the [first](index) match for me
+      - show the [first](index) match a little faster
+      - please let me see a historical case
+      - can you let me see a historical case
+      - could you let me see a historical case
+      - I need you to let me see a historical case
+      - assistant let me see a historical case
+      - Noob Trade let me see a historical case
+      - let me see a historical case now
+      - let me see a historical case please
+      - let me see a historical case for me
+      - let me see a historical case a little faster
+      - 请 打开一个历史时刻
+      - 帮我 打开一个历史时刻
+      - please 看一个相似历史窗口
+      - can you 看一个相似历史窗口
+      - could you 看一个相似历史窗口
+      - I need you to 看一个相似历史窗口
+      - assistant 看一个相似历史窗口
+      - Noob Trade 看一个相似历史窗口
+      - 看一个相似历史窗口 now
+      - 看一个相似历史窗口 please
+      - 看一个相似历史窗口 for me
+      - 看一个相似历史窗口 a little faster
+      - please open the [second](index) historical pattern
+      - can you open the [second](index) historical pattern
+      - could you open the [second](index) historical pattern
+      - I need you to open the [second](index) historical pattern
+      - assistant open the [second](index) historical pattern
+
+  - intent: load_more_patterns
+    examples: |
+      - load more historical patterns
+      - show more matches
+      - more historical windows
+      - load more similar cases
+      - 加载更多历史相似
+      - 更多历史窗口
+      - more past cases
+      - show additional history
+      - give me more similar moments
+      - 还有更多类似的吗
+      - 多加载几个历史案例
+      - please load more historical patterns
+      - can you load more historical patterns
+      - could you load more historical patterns
+      - I need you to load more historical patterns
+      - assistant load more historical patterns
+      - Noob Trade load more historical patterns
+      - load more historical patterns now
+      - load more historical patterns please
+      - load more historical patterns for me
+      - load more historical patterns a little faster
+      - please show more matches
+      - can you show more matches
+      - could you show more matches
+      - I need you to show more matches
+      - assistant show more matches
+      - Noob Trade show more matches
+      - show more matches now
+      - show more matches please
+      - show more matches for me
+
+  - intent: set_interval
+    examples: |
+      - set interval to [daily](interval)
+      - use [daily](interval) candles
+      - switch timeframe to [daily](interval)
+      - 切换周期到 [daily](interval)
+      - set interval to [weekly](interval)
+      - use [weekly](interval) candles
+      - switch timeframe to [weekly](interval)
+      - 切换周期到 [weekly](interval)
+      - set interval to [monthly](interval)
+      - use [monthly](interval) candles
+      - switch timeframe to [monthly](interval)
+      - 切换周期到 [monthly](interval)
+      - set interval to [1 day](interval)
+      - use [1 day](interval) candles
+      - switch timeframe to [1 day](interval)
+      - 切换周期到 [1 day](interval)
+      - set interval to [1 week](interval)
+      - use [1 week](interval) candles
+      - switch timeframe to [1 week](interval)
+      - 切换周期到 [1 week](interval)
+      - set interval to [1 month](interval)
+      - use [1 month](interval) candles
+      - switch timeframe to [1 month](interval)
+      - 切换周期到 [1 month](interval)
+      - please set interval to [daily](interval)
+      - can you set interval to [daily](interval)
+      - could you set interval to [daily](interval)
+      - I need you to set interval to [daily](interval)
+      - assistant set interval to [daily](interval)
+      - Noob Trade set interval to [daily](interval)
+      - set interval to [daily](interval) now
+      - set interval to [daily](interval) please
+      - set interval to [daily](interval) for me
+      - set interval to [daily](interval) a little faster
+      - please use [daily](interval) candles
+      - can you use [daily](interval) candles
+      - could you use [daily](interval) candles
+      - I need you to use [daily](interval) candles
+      - assistant use [daily](interval) candles
+      - Noob Trade use [daily](interval) candles
+
+  - intent: sign_out
+    examples: |
+      - log out
+      - sign out
+      - logout
+      - leave my account
+      - 退出登录
+      - 登出
+      - please log out
+      - can you log out
+      - could you log out
+      - I need you to log out
+      - assistant log out
+      - Noob Trade log out
+      - log out now
+      - log out please
+      - log out for me
+      - log out a little faster
+      - please sign out
+      - can you sign out
+      - could you sign out
+      - I need you to sign out
+
+  - intent: language
+    examples: |
+      - switch to [en](language)
+      - use English
+      - change language to English
+      - switch to [zh](language)
+      - use Chinese
+      - change language to Chinese
+      - switch to [es](language)
+      - use Spanish
+      - change language to Spanish
+      - switch to [fr](language)
+      - use French
+      - change language to French
+      - please switch to [en](language)
+      - can you switch to [en](language)
+      - could you switch to [en](language)
+      - I need you to switch to [en](language)
+      - assistant switch to [en](language)
+      - Noob Trade switch to [en](language)
+      - switch to [en](language) now
+      - switch to [en](language) please
+      - switch to [en](language) for me
+      - switch to [en](language) a little faster
+      - please use English
+      - can you use English
+      - could you use English
+      - I need you to use English
+      - assistant use English
+      - Noob Trade use English
+      - use English now
+      - use English please
+      - use English for me
+      - use English a little faster
+      - please change language to English
+      - can you change language to English
+      - could you change language to English
+
+  - intent: greeting
+    examples: |
+      - hey
+      - hi
+      - hello
+      - hello assistant
+      - hey NoobTrade
+      - NoobTrade
+      - assistant
+      - are you there
+      - you there
+      - can you hear me
+      - wake up
+      - I need help
+      - I have a question
+      - what can I ask you
+      - what can you help me with
+      - 你好
+      - 嗨
+      - 在吗
+      - 你在吗
+      - 小助手
+      - 我有问题
+      - 帮我一下
+      - hola
+      - bonjour
+      - salut
+      - estás ahí
+      - tu es là
+      - please hey
+      - can you hey
+      - could you hey
+      - I need you to hey
+      - assistant hey
+      - Noob Trade hey
+      - hey now
+      - hey please
+      - hey for me
+      - hey a little faster
+      - please hi
+      - can you hi
+      - could you hi
+      - I need you to hi
+      - assistant hi
+      - Noob Trade hi
+      - hi now
+      - hi please
+      - hi for me
+      - hi a little faster
+      - please hello
+      - can you hello
+      - could you hello
+      - I need you to hello
+      - assistant hello
+      - Noob Trade hello
+      - hello now
+      - hello please
+      - hello for me
+      - hello a little faster
+      - please hello assistant
+      - can you hello assistant
+      - could you hello assistant
+      - I need you to hello assistant
+      - assistant hello assistant
+      - Noob Trade hello assistant
+      - hello assistant now
+      - hello assistant please
+      - hello assistant for me
+      - hello assistant a little faster
+      - please hey NoobTrade
+      - can you hey NoobTrade
+      - could you hey NoobTrade
+      - I need you to hey NoobTrade
+      - assistant hey NoobTrade
+      - Noob Trade hey NoobTrade
+      - hey NoobTrade now
+      - hey NoobTrade please
+      - hey NoobTrade for me
+      - hey NoobTrade a little faster
+      - please NoobTrade
+      - can you NoobTrade
+      - could you NoobTrade
+
+  - intent: help
+    examples: |
+      - help
+      - what can you do
+      - show commands
+      - how can I use voice
+      - 帮助
+      - 你会什么
+      - please help
+      - can you help
+      - could you help
+      - I need you to help
+      - assistant help
+      - Noob Trade help
+      - help now
+      - help please
+      - help for me
+      - help a little faster
+      - please what can you do
+      - can you what can you do
+      - could you what can you do
+      - I need you to what can you do
+
+  - intent: blocked_trading
+    examples: |
+      - buy [AAPL](symbol)
+      - sell [AAPL](symbol)
+      - place a market order for [AAPL](symbol)
+      - place a limit order for [AAPL](symbol)
+      - go long [AAPL](symbol)
+      - short [AAPL](symbol)
+      - 买入 [AAPL](symbol)
+      - 卖出 [AAPL](symbol)
+      - buy [NVDA](symbol)
+      - sell [NVDA](symbol)
+      - place a market order for [NVDA](symbol)
+      - place a limit order for [NVDA](symbol)
+      - go long [NVDA](symbol)
+      - short [NVDA](symbol)
+      - 买入 [NVDA](symbol)
+      - 卖出 [NVDA](symbol)
+      - buy [MSFT](symbol)
+      - sell [MSFT](symbol)
+      - place a market order for [MSFT](symbol)
+      - place a limit order for [MSFT](symbol)
+      - go long [MSFT](symbol)
+      - short [MSFT](symbol)
+      - 买入 [MSFT](symbol)
+      - 卖出 [MSFT](symbol)
+      - buy [TSLA](symbol)
+      - sell [TSLA](symbol)
+      - place a market order for [TSLA](symbol)
+      - place a limit order for [TSLA](symbol)
+      - go long [TSLA](symbol)
+      - short [TSLA](symbol)
+      - 买入 [TSLA](symbol)
+      - 卖出 [TSLA](symbol)
+      - buy [META](symbol)
+      - sell [META](symbol)
+      - place a market order for [META](symbol)
+      - place a limit order for [META](symbol)
+      - go long [META](symbol)
+      - short [META](symbol)
+      - 买入 [META](symbol)
+      - 卖出 [META](symbol)
+      - buy [GOOGL](symbol)
+      - sell [GOOGL](symbol)
+      - place a market order for [GOOGL](symbol)
+      - place a limit order for [GOOGL](symbol)
+      - go long [GOOGL](symbol)
+      - short [GOOGL](symbol)
+      - 买入 [GOOGL](symbol)
+      - 卖出 [GOOGL](symbol)
+      - buy [AMZN](symbol)
+      - sell [AMZN](symbol)
+      - place a market order for [AMZN](symbol)
+      - place a limit order for [AMZN](symbol)
+      - go long [AMZN](symbol)
+      - short [AMZN](symbol)
+      - 买入 [AMZN](symbol)
+      - 卖出 [AMZN](symbol)
+      - buy [SPY](symbol)
+      - sell [SPY](symbol)
+      - place a market order for [SPY](symbol)
+      - place a limit order for [SPY](symbol)
+      - go long [SPY](symbol)
+      - short [SPY](symbol)
+      - 买入 [SPY](symbol)
+      - 卖出 [SPY](symbol)
+      - buy [BTC](symbol)
+      - sell [BTC](symbol)
+      - place a market order for [BTC](symbol)
+      - place a limit order for [BTC](symbol)
+      - go long [BTC](symbol)
+      - short [BTC](symbol)
+      - 买入 [BTC](symbol)
+      - 卖出 [BTC](symbol)
+      - buy [ETH](symbol)
+      - sell [ETH](symbol)
+      - place a market order for [ETH](symbol)
+
+  - intent: chat
+    examples: |
+      - what are you
+      - tell me about Noob Trade
+      - 介绍一下这个平台
+      - what is this platform
+      - how does Noob Trade work
+      - is this investment advice
+      - explain the dashboard
+      - what is Generate
+      - why do indicators matter
+      - 这个平台是做什么的
+      - Noob Trade 怎么用
+      - Generate 是什么
+      - please what are you
+      - can you what are you
+      - could you what are you
+      - I need you to what are you
+      - assistant what are you
+      - Noob Trade what are you
+      - what are you now
+      - what are you please

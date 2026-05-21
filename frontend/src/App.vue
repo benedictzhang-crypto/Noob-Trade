@@ -2629,6 +2629,7 @@ function buildConversationalReply(command) {
   const replies = {
     zh: {
       greeting: '我在，可以自然说中文。我能回答问题，也能帮你操作页面。',
+      wake: '我在。你想让我帮你看行情、切换页面、选择指标，还是运行 Generate？',
       thanks: '不客气。我会继续保持 AI 模式，你也可以随时手动操作。',
       scrollHelp: '我可以控制页面滚动。你可以说：向下滚动、向上滚动、回到顶部、到底部。',
       indicatorHelp: '我可以选择或取消指标。比如：选择 MACD 和布林带，取消 EMA，选择 RSI，移除成交量。',
@@ -2639,6 +2640,7 @@ function buildConversationalReply(command) {
     },
     es: {
       greeting: 'Estoy aquí. Puedes hablar en español; puedo responder o controlar la página.',
+      wake: 'Estoy aquí. ¿Quieres que analice, navegue, cambie indicadores o escanee tu lista?',
       thanks: 'Con gusto. Sigo en AI Mode, y también puedes usar la página manualmente.',
       scrollHelp: 'Puedo controlar la pantalla. Prueba: desplaza abajo, sube, ir arriba o ir abajo.',
       indicatorHelp: 'Puedo seleccionar o quitar indicadores. Prueba: selecciona MACD, quita EMA, elige RSI o remueve volumen.',
@@ -2649,6 +2651,7 @@ function buildConversationalReply(command) {
     },
     fr: {
       greeting: 'Je suis là. Vous pouvez parler en français; je peux répondre ou contrôler la page.',
+      wake: 'Je suis là. Voulez-vous analyser, naviguer, changer des indicateurs ou scanner vos favoris ?',
       thanks: 'Avec plaisir. Je reste en mode IA, et vous pouvez aussi utiliser la page manuellement.',
       scrollHelp: 'Je peux contrôler l’écran. Essayez : défiler vers le bas, monter, aller en haut ou aller en bas.',
       indicatorHelp: 'Je peux sélectionner ou retirer des indicateurs. Essayez : sélectionner MACD, retirer EMA, choisir RSI ou enlever le volume.',
@@ -2659,6 +2662,7 @@ function buildConversationalReply(command) {
     },
     en: {
       greeting: 'Hi, I am here. You can talk normally, and I will either answer or operate the page for you.',
+      wake: 'I am here. What can I help you with? I can analyze, navigate, adjust indicators, or answer questions.',
       thanks: 'Anytime. I am staying in AI Mode, so you can keep talking or use the page manually.',
       scrollHelp: 'I can control the screen. Try saying scroll down, scroll up, go to top, or go to bottom.',
       indicatorHelp: 'I can select or remove indicators. Try select MACD and Bollinger, unselect EMA, choose RSI, or remove volume.',
@@ -2674,8 +2678,10 @@ function buildConversationalReply(command) {
     return indicatorExplanation
   }
 
-  if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon', '你好', '您好', '嗨', 'hola', 'bonjour', 'salut'])) {
-    return localReplies.greeting
+  if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'are you there', 'you there', 'noob trade', 'assistant', '你好', '您好', '嗨', '你在吗', '在吗', 'hola', 'bonjour', 'salut'])) {
+    return includesVoicePhrase(command, ['hey', 'are you there', 'you there', 'noob trade', 'assistant', '你在吗', '在吗'])
+      ? localReplies.wake
+      : localReplies.greeting
   }
 
   if (includesVoicePhrase(command, ['thank you', 'thanks', 'nice', 'great', '谢谢', '感谢', 'gracias', 'merci'])) {
@@ -4058,7 +4064,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
     return true
   }
 
-  if (intent === 'help' || intent === 'chat') {
+  if (intent === 'greeting' || intent === 'help' || intent === 'chat') {
     setVoiceStatus(intentPayload.reply || buildConversationalReply(normalizeVoiceText(rawTranscript)), {
       speak: true,
       transcript: rawTranscript

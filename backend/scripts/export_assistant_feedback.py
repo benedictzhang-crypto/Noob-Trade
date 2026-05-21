@@ -32,15 +32,11 @@ def export_feedback():
     lines = [
         'version: "3.1"',
         "",
-        "nlu:",
     ]
     if not grouped:
-        lines.extend([
-            "  - intent: feedback_placeholder",
-            "    examples: |",
-            "      - placeholder example until real corrections are collected",
-        ])
+        lines.append("nlu: []")
     else:
+        lines.append("nlu:")
         for intent in sorted(grouped):
             lines.append(f"  - intent: {intent}")
             lines.append("    examples: |")
