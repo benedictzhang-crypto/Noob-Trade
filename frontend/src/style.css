@@ -2684,25 +2684,33 @@ select {
 
 .watchlist-scan-bar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(260px, 1fr) minmax(150px, auto);
+  gap: 16px;
   align-items: end;
-  margin: 0 0 12px;
-  padding: 12px;
-  border: 1px solid rgba(255, 138, 0, 0.12);
-  border-radius: 18px;
+  margin: 4px 0 18px;
+  padding: 18px;
+  border: 1px solid rgba(255, 138, 0, 0.18);
+  border-radius: 24px;
   background:
-    radial-gradient(circle at top left, rgba(255, 138, 0, 0.1), transparent 32%),
-    rgba(255, 255, 255, 0.74);
+    radial-gradient(circle at top left, rgba(255, 138, 0, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(255, 250, 244, 0.96), rgba(255, 255, 255, 0.84));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.watchlist-scan-bar .topbar-button {
+  min-height: 58px;
+  padding: 0 28px;
+  font-size: 1.05rem;
+  font-weight: 900;
 }
 
 .watchlist-scan-input {
   display: grid;
-  gap: 6px;
+  gap: 10px;
   color: var(--text-soft);
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -2711,24 +2719,27 @@ select {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   overflow: hidden;
-  border: 1px solid rgba(24, 24, 27, 0.08);
+  border: 1px solid rgba(255, 138, 0, 0.22);
   border-radius: 999px;
   background: white;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.06);
 }
 
 .percent-input-shell input {
   min-width: 0;
   border: 0;
   outline: 0;
-  padding: 11px 12px;
+  padding: 16px 18px;
   color: var(--text-main);
-  font-weight: 800;
+  font-size: 1.35rem;
+  font-weight: 900;
   background: transparent;
 }
 
 .percent-input-shell strong {
-  padding: 0 13px 0 8px;
+  padding: 0 18px 0 10px;
   color: var(--accent-strong);
+  font-size: 1.22rem;
   font-weight: 900;
 }
 
@@ -2939,6 +2950,10 @@ select {
 
 .dashboard-card {
   padding: 18px;
+}
+
+.dashboard-card--wide {
+  grid-column: 1 / -1;
 }
 
 .dashboard-card-grid {

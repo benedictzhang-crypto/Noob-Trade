@@ -4560,7 +4560,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </section>
 
       <section class="dashboard-grid">
-        <article class="table-surface dashboard-card">
+        <article class="table-surface dashboard-card dashboard-card--wide">
           <div class="table-header">
             <h2>Self-Selected Stocks</h2>
             <span class="section-chip">{{ starredSymbols.length }} saved</span>
@@ -4640,30 +4640,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 <span>{{ result.price }}</span>
                 <span>{{ result.signal }}</span>
               </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="table-surface dashboard-card">
-          <div class="table-header">
-            <h2>Favorites Flow</h2>
-            <button class="chip active" @click="navigateTo('Explore')">Open Explore</button>
-          </div>
-          <div class="dashboard-card-grid">
-            <div class="dashboard-mini-card">
-              <span>Saved stars</span>
-              <strong>{{ starredSymbols.length }}</strong>
-              <small>Your favorite names stay pinned to the dashboard.</small>
-            </div>
-            <div class="dashboard-mini-card">
-              <span>Current focus</span>
-              <strong>{{ activeSymbol }}</strong>
-              <small>Search in Trade or Explore, then star the names you want to keep visible.</small>
-            </div>
-            <div class="dashboard-mini-card">
-              <span>Best next step</span>
-              <strong>Star from Explore</strong>
-              <small>Use the right-side star icon to add or remove symbols instantly.</small>
             </div>
           </div>
         </article>
