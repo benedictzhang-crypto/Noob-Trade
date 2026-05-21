@@ -2373,6 +2373,18 @@ function getScrollDistance(command) {
   return 0.68
 }
 
+function getScrollDistanceFromAmount(amount) {
+  if (amount === 'small') {
+    return 0.3
+  }
+
+  if (amount === 'large' || amount === 'full') {
+    return 1
+  }
+
+  return 0.68
+}
+
 function rememberVoiceIntent(type, direction = '') {
   voiceLastIntent.value = {
     type,
@@ -2399,7 +2411,7 @@ function getVoiceScrollIntent(command) {
     return voiceLastIntent.value.direction === 'up' ? 'scrollUp' : 'scrollDown'
   }
 
-  if (includesVoicePhrase(normalizedCommand, voiceFollowUpPhrases) && !hasVoiceScrollDirection(normalizedCommand)) {
+  if (!hasVoiceScrollDirection(normalizedCommand)) {
     return ''
   }
 
@@ -2417,37 +2429,67 @@ function getVoiceScrollIntent(command) {
   return ''
 }
 
-function runVoiceScreenControl(command) {
+function executeVoiceScrollIntent(direction, amount = 'normal') {
   if (typeof window === 'undefined') {
     return ''
   }
 
-  const distance = Math.max(220, window.innerHeight * getScrollDistance(command))
-  const smoothScrollBy = (top) => window.scrollBy({ top, left: 0, behavior: 'smooth' })
-  const scrollIntent = getVoiceScrollIntent(command)
+  const normalizedDirection = String(direction || '').toLowerCase()
+  const distance = Math.max(220, window.innerHeight * getScrollDistanceFromAmount(amount))
 
-  if (scrollIntent === 'scrollDown') {
-    smoothScrollBy(distance)
+  if (normalizedDirection === 'down') {
+    window.scrollBy({ top: distance, left: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'down')
     return 'Scrolling down.'
   }
 
-  if (scrollIntent === 'scrollUp') {
-    smoothScrollBy(-distance)
+  if (normalizedDirection === 'up') {
+    window.scrollBy({ top: -distance, left: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'up')
     return 'Scrolling up.'
   }
 
-  if (scrollIntent === 'scrollTop') {
+  if (normalizedDirection === 'top') {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'up')
     return 'Going to the top.'
   }
 
-  if (scrollIntent === 'scrollBottom') {
+  if (normalizedDirection === 'bottom') {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'down')
     return 'Going to the bottom.'
+  }
+
+  return ''
+}
+
+function runVoiceScreenControl(command) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const scrollIntent = getVoiceScrollIntent(command)
+  const amount = includesVoicePhrase(command, ['a little', 'little bit', 'small scroll', 'little more', 'bit more', 'a little bit more', '再来一点', '再一点', '一点', 'un poco', 'un peu'])
+    ? 'small'
+    : includesVoicePhrase(command, ['a lot', 'big scroll', 'far down', 'far up', 'much more', 'a lot more', '很多', '多一点', 'mucho mas', 'mucho más', 'beaucoup plus'])
+      ? 'large'
+      : 'normal'
+
+  if (scrollIntent === 'scrollDown') {
+    return executeVoiceScrollIntent('down', amount)
+  }
+
+  if (scrollIntent === 'scrollUp') {
+    return executeVoiceScrollIntent('up', amount)
+  }
+
+  if (scrollIntent === 'scrollTop') {
+    return executeVoiceScrollIntent('top', 'full')
+  }
+
+  if (scrollIntent === 'scrollBottom') {
+    return executeVoiceScrollIntent('bottom', 'full')
   }
 
   if (includesVoicePhrase(command, ['go back', 'back page', 'previous page'])) {
@@ -2508,7 +2550,11 @@ async function runVoiceAnalysis(source, symbol = '', transcript = '') {
   }
 
   const finishedSymbol = activeTradeResponse.value?.stock?.symbol || workingSymbol
-  setVoiceStatus(`${finishedSymbol} is ready. I loaded the latest analysis workspace for you.`, { speak: true, transcript })
+  const probability = getAnalysisUpsideProbability(activeTradeResponse.value)
+  const probabilityText = source === 'generate' && Number.isFinite(probability)
+    ? ` Upside probability is ${probability.toFixed(2)}%.`
+    : ''
+  setVoiceStatus(`${finishedSymbol} is ready.${probabilityText} I loaded the latest analysis workspace for you.`, { speak: true, transcript })
 }
 
 function queueVoiceAction(action) {
@@ -2733,6 +2779,11 @@ async function handleVoiceCommand(rawTranscript) {
     }
   }
 
+  const assistantIntent = await fetchAssistantIntent(rawTranscript)
+  if (assistantIntent && await applyAssistantIntent(assistantIntent, rawTranscript)) {
+    return
+  }
+
   if (includesVoicePhrase(command, ['help', 'what can you do', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
     setVoiceStatus(buildConversationalReply(command), {
       speak: true,
@@ -2754,6 +2805,13 @@ async function handleVoiceCommand(rawTranscript) {
       type: 'signOut',
       prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
     })
+    return
+  }
+
+  const requestedPage = findVoicePage(command)
+  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à'])) {
+    navigateTo(requestedPage)
+    setVoiceStatus(`Opened ${requestedPage}.`, { speak: true, transcript: rawTranscript })
     return
   }
 
@@ -2815,6 +2873,14 @@ async function handleVoiceCommand(rawTranscript) {
       return
     }
 
+    if (!includesVoicePhrase(command, voiceEnablePhrases) && !includesVoicePhrase(command, ['indicator', 'indicators'])) {
+      const toggledIndicator = toggleVoiceIndicator(mentionedIndicators[0])
+      if (toggledIndicator) {
+        setVoiceStatus(`${toggledIndicator.name} turned ${toggledIndicator.active ? 'on' : 'off'}.`, { speak: true, transcript: rawTranscript })
+        return
+      }
+    }
+
     if (includesVoicePhrase(command, voiceEnablePhrases) || includesVoicePhrase(command, ['indicator', 'indicators'])) {
       setIndicatorActive(mentionedIndicators, true)
       setVoiceStatus(`${mentionedIndicators.join(', ')} turned on.`, { speak: true, transcript: rawTranscript })
@@ -2842,13 +2908,6 @@ async function handleVoiceCommand(rawTranscript) {
   const naturalSymbol = extractVoiceSymbol(command)
   if (naturalSymbol && includesVoicePhrase(command, ['show', 'check', 'open', 'load', 'what about', '看一下', '查看', '打开', '加载', 'mostrar', 'abrir', 'cargar', 'voir', 'ouvrir', 'charger'])) {
     await runVoiceAnalysis('search', naturalSymbol, rawTranscript)
-    return
-  }
-
-  const requestedPage = findVoicePage(command)
-  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à'])) {
-    navigateTo(requestedPage)
-    setVoiceStatus(`Opened ${requestedPage}.`, { speak: true, transcript: rawTranscript })
     return
   }
 
@@ -3378,6 +3437,36 @@ function toggleStarredSymbol(symbol) {
   starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
 }
 
+function setStarredSymbol(symbol, active = true) {
+  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
+
+  if (!cleanedSymbol) {
+    return false
+  }
+
+  if (active && !isStarredSymbol(cleanedSymbol)) {
+    starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
+  }
+
+  if (!active && isStarredSymbol(cleanedSymbol)) {
+    starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
+  }
+
+  return true
+}
+
+function toggleVoiceIndicator(indicatorName) {
+  const matchedName = normalizeAssistantIndicatorName(indicatorName)
+  if (!matchedName) {
+    return null
+  }
+
+  const currentIndicator = indicators.value.find((indicator) => indicator.name === matchedName)
+  const nextActive = !currentIndicator?.active
+  setIndicatorActive([matchedName], nextActive)
+  return { name: matchedName, active: nextActive }
+}
+
 watch(
   () => [isAuthenticated.value, portfolioSymbols.value.join('|')],
   ([authenticated]) => {
@@ -3588,6 +3677,190 @@ async function secureFetch(url, options = {}) {
   }
 
   return response
+}
+
+function normalizeAssistantIndicatorName(name) {
+  const normalized = String(name || '').trim().toUpperCase()
+  const matched = indicators.value.find((indicator) => String(indicator.name).toUpperCase() === normalized)
+  return matched?.name || ''
+}
+
+function buildAssistantIntentContext() {
+  return {
+    activePage: activePage.value,
+    language: uiLanguage.value,
+    symbol: activeTradeResponse.value?.stock?.symbol || activeSymbol.value,
+    selectedIndicators: getSelectedIndicators(),
+    availablePages: accessiblePages.value,
+    availableIndicators: indicators.value.map((indicator) => indicator.name),
+    lastIntent: voiceLastIntent.value,
+  }
+}
+
+async function fetchAssistantIntent(rawTranscript) {
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/assistant/intent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        transcript: rawTranscript,
+        language: uiLanguage.value,
+        context: buildAssistantIntentContext()
+      }),
+      timeoutMs: 4500,
+    })
+    const payload = await parseJsonResponse(response, 'AI intent parser is not available right now.')
+
+    if (!response.ok) {
+      return null
+    }
+
+    return payload?.intent || null
+  } catch (error) {
+    console.warn('Cloud assistant intent failed:', error)
+    return null
+  }
+}
+
+async function applyAssistantIntent(intentPayload, rawTranscript) {
+  const intent = String(intentPayload?.intent || '')
+  const confidence = Number(intentPayload?.confidence || 0)
+
+  if (!intent || confidence < 0.55) {
+    return false
+  }
+
+  if (intent === 'blocked_trading') {
+    setVoiceStatus(
+      intentPayload.reply || 'Voice trading orders are disabled. I can control analysis and navigation only.',
+      { speak: true, transcript: rawTranscript }
+    )
+    return true
+  }
+
+  if (intent === 'navigate' && intentPayload.page) {
+    navigateTo(intentPayload.page)
+    setVoiceStatus(intentPayload.reply || `Opened ${intentPayload.page}.`, { speak: true, transcript: rawTranscript })
+    return true
+  }
+
+  if (intent === 'scroll') {
+    const reply = executeVoiceScrollIntent(intentPayload.direction, intentPayload.amount)
+    if (reply) {
+      setVoiceStatus(intentPayload.reply || reply, { speak: true, transcript: rawTranscript })
+      return true
+    }
+  }
+
+  if (intent === 'generate') {
+    await runVoiceAnalysis('generate', intentPayload.symbol || '', rawTranscript)
+    return true
+  }
+
+  if (intent === 'search') {
+    await runVoiceAnalysis('search', intentPayload.symbol || '', rawTranscript)
+    return true
+  }
+
+  if (intent === 'scan_watchlist') {
+    if (Number.isFinite(Number(intentPayload.threshold))) {
+      watchlistScanThreshold.value = normalizeProbabilityThreshold(intentPayload.threshold)
+    }
+    navigateTo('Dashboard')
+    setVoiceStatus(`Scanning your starred watchlist for probabilities at or above ${watchlistScanThreshold.value.toFixed(0)} percent.`, {
+      speak: true,
+      transcript: rawTranscript
+    })
+    await scanStarredWatchlist()
+    setVoiceStatus(watchlistScanMessage.value || 'Watchlist scan is complete.', {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return true
+  }
+
+  if (intent === 'set_star') {
+    const targetSymbol = intentPayload.symbol || activeTradeResponse.value?.stock?.symbol || activeSymbol.value
+    if (setStarredSymbol(targetSymbol, intentPayload.active !== false)) {
+      setVoiceStatus(`${String(targetSymbol).toUpperCase()} ${intentPayload.active === false ? 'removed from' : 'added to'} your starred watchlist.`, {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return true
+    }
+  }
+
+  if (intent === 'clear_indicators') {
+    indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
+    setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    return true
+  }
+
+  if (intent === 'reset_indicators') {
+    const defaultSelected = new Set(['MA', 'EMA', 'MACD', 'BOLL', 'VOL'])
+    indicators.value = indicators.value.map((indicator) => ({
+      ...indicator,
+      active: defaultSelected.has(String(indicator.name).toUpperCase())
+    }))
+    setVoiceStatus('Indicators reset to the default Noob Trade selection.', { speak: true, transcript: rawTranscript })
+    return true
+  }
+
+  if (intent === 'select_only_indicators' && Array.isArray(intentPayload.indicators)) {
+    const normalizedIndicators = intentPayload.indicators.map(normalizeAssistantIndicatorName).filter(Boolean)
+    if (normalizedIndicators.length) {
+      setOnlyVoiceIndicators(normalizedIndicators)
+      setVoiceStatus(`Only ${normalizedIndicators.join(', ')} are selected.`, { speak: true, transcript: rawTranscript })
+      return true
+    }
+  }
+
+  if (intent === 'set_indicator' && Array.isArray(intentPayload.indicators)) {
+    const normalizedIndicators = intentPayload.indicators.map(normalizeAssistantIndicatorName).filter(Boolean)
+    if (normalizedIndicators.length) {
+      setIndicatorActive(normalizedIndicators, intentPayload.active !== false)
+      setVoiceStatus(`${normalizedIndicators.join(', ')} turned ${intentPayload.active === false ? 'off' : 'on'}.`, {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return true
+    }
+  }
+
+  if (intent === 'set_interval' && intentPayload.interval) {
+    selectedChartInterval.value = intentPayload.interval
+    setVoiceStatus(`Chart interval set to ${intentPayload.interval}.`, { speak: true, transcript: rawTranscript })
+    return true
+  }
+
+  if (intent === 'sign_out') {
+    queueVoiceAction({
+      type: 'signOut',
+      prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
+    })
+    return true
+  }
+
+  if (intent === 'language' && intentPayload.language) {
+    uiLanguage.value = intentPayload.language
+    setVoiceStatus(intentPayload.reply || `Language switched to ${intentPayload.language}.`, {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return true
+  }
+
+  if (intent === 'help' || intent === 'chat') {
+    setVoiceStatus(intentPayload.reply || buildConversationalReply(normalizeVoiceText(rawTranscript)), {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return true
+  }
+
+  return false
 }
 
 function applyAuthenticatedState(user, message = '') {

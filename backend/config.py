@@ -210,6 +210,10 @@ class Config:
     X_URL = os.getenv("X_URL", "https://x.com/noobtrade")
     INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://noobtrade.onrender.com")
     DISCORD_URL = os.getenv("DISCORD_URL", "https://discord.gg/noobtrade")
+    ASSISTANT_INTENT_PROVIDER = os.getenv("ASSISTANT_INTENT_PROVIDER", "openai").strip().lower()
+    ASSISTANT_INTENT_MODEL = os.getenv("ASSISTANT_INTENT_MODEL", "gpt-4o-mini")
+    ASSISTANT_INTENT_TIMEOUT_SECONDS = float(os.getenv("ASSISTANT_INTENT_TIMEOUT_SECONDS", "3.5"))
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     SQLALCHEMY_DATABASE_URI = _default_database_uri.__func__()
     SQLALCHEMY_BINDS = {
         "app": _default_app_database_uri.__func__(),

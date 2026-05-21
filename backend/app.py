@@ -16,6 +16,7 @@ from config import Config
 from extensions import db
 from models import analysis, auth, market_data, trading
 from models.auth import LoginActivity, LoginVerificationCode, User
+from routes.assistant_routes import assistant_blueprint
 from routes.auth_routes import auth_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
@@ -470,6 +471,7 @@ def create_app():
 
     app.register_blueprint(stock_blueprint)
     app.register_blueprint(auth_blueprint)
+    app.register_blueprint(assistant_blueprint)
 
     app.config["_DB_INIT_STARTED"] = False
     app.config["_DB_INIT_READY"] = False
