@@ -139,6 +139,57 @@ function calculateDynamicProbability(side, threshold) {
 
   return ((hitWeight / totalWeight) * 100).toFixed(1) + '%'
 }
+
+function normalizeThreshold(value) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return 1
+  }
+
+  return Math.min(100, Math.max(1, numericValue))
+}
+
+function setProbabilityThreshold(side, value) {
+  const normalizedValue = normalizeThreshold(value)
+
+  if (side === 'down') {
+    downsideThreshold.value = normalizedValue
+    return {
+      side: 'down',
+      threshold: normalizedValue,
+      probability: calculateDynamicProbability('down', normalizedValue)
+    }
+  }
+
+  upsideThreshold.value = normalizedValue
+  return {
+    side: 'up',
+    threshold: normalizedValue,
+    probability: calculateDynamicProbability('up', normalizedValue)
+  }
+}
+
+function getProbabilitySnapshot(side = 'up', value = null) {
+  const normalizedSide = side === 'down' ? 'down' : 'up'
+  const threshold = value === null || value === undefined
+    ? (normalizedSide === 'down' ? downsideThreshold.value : upsideThreshold.value)
+    : normalizeThreshold(value)
+
+  return {
+    side: normalizedSide,
+    threshold,
+    probability: calculateDynamicProbability(normalizedSide, threshold),
+    onePercentUp: findThresholdProbability('up', 1),
+    onePercentDown: findThresholdProbability('down', 1),
+    headlineProbability: `${props.analysisData.probabilityOfIncrease ?? 'TBD'}%`,
+    matchedPatternCount: matchedPatternCount.value
+  }
+}
+
+defineExpose({
+  getProbabilitySnapshot,
+  setProbabilityThreshold
+})
 </script>
 
 <template>

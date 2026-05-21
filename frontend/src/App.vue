@@ -444,6 +444,8 @@ const voicePreferredVoiceName = ref('System voice')
 const voiceIsSpeaking = ref(false)
 const voiceInputDraft = ref('')
 const voiceLastIntent = ref({ type: '', direction: '', at: 0 })
+const predictionSummaryRef = ref(null)
+const matchedPatternsRef = ref(null)
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
@@ -3685,6 +3687,49 @@ function normalizeAssistantIndicatorName(name) {
   return matched?.name || ''
 }
 
+function formatProbabilitySide(side) {
+  return side === 'down' ? 'downside' : 'upside'
+}
+
+function setVoiceProbabilityThreshold(side, value) {
+  if (!predictionSummaryRef.value?.setProbabilityThreshold) {
+    return null
+  }
+
+  const normalizedSide = side === 'down' ? 'down' : 'up'
+  return predictionSummaryRef.value.setProbabilityThreshold(normalizedSide, value)
+}
+
+function getVoiceProbabilitySnapshot(side = 'up', value = null) {
+  if (!predictionSummaryRef.value?.getProbabilitySnapshot) {
+    return null
+  }
+
+  return predictionSummaryRef.value.getProbabilitySnapshot(side, value)
+}
+
+function openVoiceHistoricalPattern(index = 0) {
+  const pattern = matchedPatternsRef.value?.openPatternByIndex?.(index)
+  if (!pattern) {
+    return null
+  }
+
+  return {
+    pattern,
+    index
+  }
+}
+
+function summarizeHistoricalPattern(pattern) {
+  if (!pattern) {
+    return 'I could not find an available historical match yet.'
+  }
+
+  const score = Number(pattern.matchScore)
+  const scoreText = Number.isFinite(score) ? `${score.toFixed(1)}% match` : 'matched setup'
+  return `Opened a historical window from ${pattern.date || 'the matched period'} with ${scoreText}. Future 5D return was ${formatPercent(pattern.futureReturn5d)}.`
+}
+
 function buildAssistantIntentContext() {
   return {
     activePage: activePage.value,
@@ -3693,6 +3738,8 @@ function buildAssistantIntentContext() {
     selectedIndicators: getSelectedIndicators(),
     availablePages: accessiblePages.value,
     availableIndicators: indicators.value.map((indicator) => indicator.name),
+    probabilitySnapshot: getVoiceProbabilitySnapshot('up'),
+    matchedPatternCount: activeTradeResponse.value?.patternAnalysis?.matchedHistoricalPatterns?.length || 0,
     lastIntent: voiceLastIntent.value,
   }
 }
@@ -3778,6 +3825,53 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
       speak: true,
       transcript: rawTranscript
     })
+    return true
+  }
+
+  if (intent === 'adjust_probability') {
+    const snapshot = setVoiceProbabilityThreshold(intentPayload.side, intentPayload.value)
+    if (snapshot) {
+      setVoiceStatus(`${formatProbabilitySide(snapshot.side)} threshold is now ${snapshot.side === 'down' ? '-' : '+'}${Number(snapshot.threshold).toFixed(1)}%. Probability is ${snapshot.probability}.`, {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return true
+    }
+  }
+
+  if (intent === 'summarize_probability') {
+    const snapshot = getVoiceProbabilitySnapshot(intentPayload.side || 'up', intentPayload.value)
+    if (snapshot) {
+      const thresholdPrefix = snapshot.side === 'down' ? '-' : '+'
+      setVoiceStatus(`For ${thresholdPrefix}${Number(snapshot.threshold).toFixed(1)}% ${formatProbabilitySide(snapshot.side)} within 5 trading days, probability is ${snapshot.probability}. The headline +1% upside probability is ${snapshot.headlineProbability}, based on ${snapshot.matchedPatternCount} similar historical setups.`, {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return true
+    }
+  }
+
+  if (intent === 'open_historical_pattern') {
+    const index = Number.isFinite(Number(intentPayload.index)) ? Math.max(Number(intentPayload.index) - 1, 0) : 0
+    const opened = openVoiceHistoricalPattern(index)
+    if (opened) {
+      setVoiceStatus(summarizeHistoricalPattern(opened.pattern), {
+        speak: true,
+        transcript: rawTranscript
+      })
+      return true
+    }
+
+    setVoiceStatus('No historical pattern window is available yet. Run Generate first, then ask me again.', {
+      speak: true,
+      transcript: rawTranscript
+    })
+    return true
+  }
+
+  if (intent === 'load_more_patterns') {
+    matchedPatternsRef.value?.loadMorePatterns?.()
+    setVoiceStatus('Loaded more historical matches.', { speak: true, transcript: rawTranscript })
     return true
   }
 
@@ -5036,6 +5130,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
 
         <PredictionSummary
+          ref="predictionSummaryRef"
           :format-percent="formatPercent"
           :request-data="activeTradeResponse.request"
           :stock-data="activeTradeResponse.stock"
@@ -5043,6 +5138,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         />
 
         <MatchedPatterns
+          ref="matchedPatternsRef"
           :matched-patterns="activeTradeResponse.patternAnalysis.matchedHistoricalPatterns"
           :high-fit-paths="activeTradeResponse.patternAnalysis.highFitHistoricalPaths"
           @open-replay="openHistoricalReplay"

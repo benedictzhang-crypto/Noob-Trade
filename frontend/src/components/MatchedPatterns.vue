@@ -137,6 +137,52 @@ function loadMorePatterns() {
   visibleCount.value = Math.min(visibleCount.value + 5, props.matchedPatterns.length)
 }
 
+function openPatternByIndex(index = 0) {
+  const safeIndex = Math.min(
+    Math.max(Number(index) || 0, 0),
+    Math.max(props.matchedPatterns.length - 1, 0)
+  )
+  const pattern = props.matchedPatterns[safeIndex]
+
+  if (!pattern) {
+    return null
+  }
+
+  if (safeIndex >= visibleCount.value) {
+    visibleCount.value = Math.min(safeIndex + 1, props.matchedPatterns.length)
+  }
+
+  selectPattern(pattern)
+  return pattern
+}
+
+function openFirstPattern() {
+  return openPatternByIndex(0)
+}
+
+function getSelectedPatternSummary() {
+  if (!selectedPattern.value) {
+    return null
+  }
+
+  return {
+    patternName: selectedPattern.value.patternName,
+    symbol: selectedPattern.value.symbol,
+    date: selectedPattern.value.date,
+    matchScore: selectedPattern.value.matchScore,
+    returnPct: selectedPattern.value.returnPct,
+    maxDrawdown: selectedPattern.value.maxDrawdown,
+    futureReturn5d: selectedPattern.value.futureReturn5d
+  }
+}
+
+defineExpose({
+  getSelectedPatternSummary,
+  loadMorePatterns,
+  openFirstPattern,
+  openPatternByIndex
+})
+
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return 'TBD'

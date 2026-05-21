@@ -86,6 +86,9 @@ def _base_intent(intent="chat", confidence=0.5, **kwargs):
         "indicators": [],
         "active": None,
         "threshold": None,
+        "side": None,
+        "value": None,
+        "index": None,
         "interval": None,
         "language": None,
         "reply": "",
@@ -134,6 +137,42 @@ def _extract_indicators(text):
     return found
 
 
+def _extract_first_number(text):
+    match = re.search(r"(\d{1,3}(?:\.\d+)?)", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _extract_ordinal_index(text):
+    ordinal_words = {
+        "first": 1,
+        "one": 1,
+        "second": 2,
+        "two": 2,
+        "third": 3,
+        "three": 3,
+        "fourth": 4,
+        "four": 4,
+        "fifth": 5,
+        "five": 5,
+        "第一个": 1,
+        "第一": 1,
+        "第二": 2,
+        "第三": 3,
+        "第四": 4,
+        "第五": 5,
+    }
+    for phrase, index in ordinal_words.items():
+        if phrase in text:
+            return index
+    number = _extract_first_number(text)
+    return int(number) if number else None
+
+
 def _rule_based_intent(transcript, context=None):
     text = _normalize_text(transcript)
     context = context or {}
@@ -149,6 +188,27 @@ def _rule_based_intent(transcript, context=None):
 
     if any(phrase in text for phrase in ("sign out", "log out", "logout", "退出登录", "登出")):
         return _base_intent("sign_out", 0.96)
+
+    historical_words = ("historical", "history", "pattern", "matched", "match", "similar", "moment", "window", "历史", "相似", "时刻", "窗口")
+    if any(phrase in text for phrase in ("load more", "show more", "more history", "more patterns", "加载更多", "更多历史")) and any(word in text for word in historical_words):
+        return _base_intent("load_more_patterns", 0.94)
+
+    if any(phrase in text for phrase in ("open", "show", "look", "see", "打开", "看看", "看一下")) and any(word in text for word in historical_words):
+        return _base_intent("open_historical_pattern", 0.95, index=_extract_ordinal_index(text))
+
+    probability_words = ("probability", "chance", "odds", "概率", "几率")
+    if any(word in text for word in probability_words):
+        side = "down" if any(phrase in text for phrase in ("down", "downside", "fall", "drop", "下跌", "向下")) else "up"
+        value = _extract_first_number(text)
+        if any(phrase in text for phrase in ("set", "change", "adjust", "drag", "move", "调", "调整", "拖", "改")) and value is not None:
+            return _base_intent("adjust_probability", 0.94, side=side, value=value)
+        return _base_intent("summarize_probability", 0.9, side=side, value=value)
+
+    if any(phrase in text for phrase in ("upside to", "downside to", "set upside", "set downside", "drag upside", "drag downside", "把上涨", "把下跌", "上涨调到", "下跌调到")):
+        side = "down" if any(phrase in text for phrase in ("down", "downside", "下跌", "向下")) else "up"
+        value = _extract_first_number(text)
+        if value is not None:
+            return _base_intent("adjust_probability", 0.94, side=side, value=value)
 
     indicators = _extract_indicators(text)
     selected_indicators = {
@@ -229,7 +289,9 @@ def _intent_schema():
                 "enum": [
                     "navigate", "scroll", "generate", "search", "set_indicator",
                     "select_only_indicators", "clear_indicators", "reset_indicators",
-                    "scan_watchlist", "set_star", "set_interval", "sign_out", "language",
+                    "scan_watchlist", "set_star", "adjust_probability",
+                    "summarize_probability", "open_historical_pattern",
+                    "load_more_patterns", "set_interval", "sign_out", "language",
                     "help", "chat", "blocked_trading", "unknown",
                 ],
             },
@@ -241,13 +303,17 @@ def _intent_schema():
             "indicators": {"type": "array", "items": {"type": "string"}},
             "active": {"type": ["boolean", "null"]},
             "threshold": {"type": ["number", "null"]},
+            "side": {"type": ["string", "null"], "enum": ["up", "down", None]},
+            "value": {"type": ["number", "null"]},
+            "index": {"type": ["number", "null"]},
             "interval": {"type": ["string", "null"]},
             "language": {"type": ["string", "null"], "enum": ["en", "zh", "es", "fr", None]},
             "reply": {"type": "string"},
         },
         "required": [
             "intent", "confidence", "page", "direction", "amount", "symbol",
-            "indicators", "active", "threshold", "interval", "language", "reply",
+            "indicators", "active", "threshold", "side", "value", "index",
+            "interval", "language", "reply",
         ],
     }
 
@@ -280,6 +346,9 @@ def _openai_intent(transcript, context):
             "Do not treat words like stock, trade, page, dashboard, portfolio, settings as stock tickers.",
             "Indicator names are strong entities. RSI alone should toggle/select RSI. I want RSI should select RSI. Remove RSI should unselect RSI.",
             "Star/favorite/watchlist commands should return set_star with the ticker or current context symbol.",
+            "Probability slider commands like set upside to 3 percent or 把上涨调到3% should return adjust_probability with side and value.",
+            "Questions like what is the upside probability should return summarize_probability.",
+            "Historical pattern requests like open a historical moment or 打开一个历史时刻我看看 should return open_historical_pattern.",
             "Use scroll only when the transcript clearly asks for scrolling or a follow-up scroll.",
         ],
     }
