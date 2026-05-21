@@ -4086,18 +4086,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           {{ t('installApp') }}
         </button>
         <template v-if="isAuthenticated">
-          <label class="language-selector">
-            <span>{{ t('selectLanguage') }}</span>
-            <select v-model="uiLanguage" :aria-label="t('selectLanguage')">
-              <option
-                v-for="language in languageOptions"
-                :key="language.code"
-                :value="language.code"
-              >
-                {{ language.label }}
-              </option>
-            </select>
-          </label>
           <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
         </template>
       </div>
@@ -5217,6 +5205,18 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </div>
           </div>
           <div class="myself-actions">
+            <label class="language-selector settings-language-selector">
+              <span>{{ t('selectLanguage') }}</span>
+              <select v-model="uiLanguage" :aria-label="t('selectLanguage')">
+                <option
+                  v-for="language in languageOptions"
+                  :key="language.code"
+                  :value="language.code"
+                >
+                  {{ language.label }}
+                </option>
+              </select>
+            </label>
             <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
           </div>
         </article>
