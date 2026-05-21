@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import Fuse from 'fuse.js'
 
 import ChartPanel from './components/ChartPanel.vue'
 import IndicatorSelector from './components/IndicatorSelector.vue'
@@ -343,6 +344,58 @@ const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind', '
 const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'switch on', 'check', 'tick', 'add', 'use', 'include', '选择', '勾选', '打开', '启用', '加入', '使用', 'seleccionar', 'elige', 'elegir', 'activar', 'agregar', 'usar', 'incluye', 'incluire', 'selectionner', 'sélectionner', 'choisir', 'activer', 'ajouter', 'utiliser', 'inclure']
 const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude', '取消', '取消勾选', '关闭', '移除', '不要', 'quitar', 'desactivar', 'remover', 'excluir', 'retirer', 'desactiver', 'désactiver', 'enlever', 'exclure']
 const voiceOnlyPhrases = ['only', 'only use', '只', '只选', '只用', '仅选择', 'solo', 'solamente', 'seulement', 'uniquement']
+const voiceFollowUpPhrases = ['more', 'again', 'keep going', 'continue', 'a little bit more', 'little bit more', 'little more', 'bit more', 'further', 'more please', '再来', '继续', '再来一点', '再一点', '多一点', '再往下', '再往上', 'un poco mas', 'un poco más', 'otra vez', 'continua', 'continúa', 'encore', 'continuez', 'un peu plus']
+const voiceScrollIntentPhrases = [
+  {
+    intent: 'scrollDown',
+    phrases: [
+      'scroll down', 'scrolling down', 'scorll down', 'scorlling down', 'scrool down', 'scroolling down',
+      'move down', 'page down', 'go down', 'down the page', 'lower', 'go lower', 'move lower',
+      'keep going down', 'continue down', 'down more', 'more down', 'scroll more down', 'scrolling down more',
+      '向下滚动', '下滑', '往下', '往下滚', '滚动到下面', '继续往下',
+      'desplazar abajo', 'desplaza abajo', 'bajar', 'baja', 'mas abajo', 'más abajo',
+      'faire defiler vers le bas', 'défiler vers le bas', 'descendre', 'plus bas'
+    ]
+  },
+  {
+    intent: 'scrollUp',
+    phrases: [
+      'scroll up', 'scrolling up', 'scorll up', 'scorlling up', 'scrool up', 'scroolling up',
+      'move up', 'page up', 'go up', 'up the page', 'higher', 'go higher', 'move higher',
+      'keep going up', 'continue up', 'up more', 'more up', 'scroll more up', 'scrolling up more',
+      '向上滚动', '上滑', '往上', '往上滚', '滚动到上面', '继续往上',
+      'desplazar arriba', 'desplaza arriba', 'subir', 'sube', 'mas arriba', 'más arriba',
+      'faire defiler vers le haut', 'défiler vers le haut', 'monter', 'plus haut'
+    ]
+  },
+  {
+    intent: 'scrollTop',
+    phrases: [
+      'scroll to top', 'go to top', 'back to top', 'top of page', 'top of the page',
+      '回到顶部', '到顶部', '顶部',
+      'ir arriba', 'arriba del todo', 'haut de page', 'aller en haut'
+    ]
+  },
+  {
+    intent: 'scrollBottom',
+    phrases: [
+      'scroll to bottom', 'go to bottom', 'bottom of page', 'bottom of the page',
+      '到底部', '底部',
+      'ir abajo', 'abajo del todo', 'bas de page', 'aller en bas'
+    ]
+  }
+]
+const voiceScrollIntentDocuments = voiceScrollIntentPhrases.flatMap(({ intent, phrases }) => (
+  phrases.map((phrase) => ({ intent, phrase: normalizeVoiceText(phrase) }))
+))
+const voiceScrollIntentFuse = new Fuse(voiceScrollIntentDocuments, {
+  keys: ['phrase'],
+  includeScore: true,
+  ignoreLocation: true,
+  threshold: 0.42,
+  distance: 120,
+  minMatchCharLength: 3
+})
 
 const activePage = ref('Home')
 const uiLanguage = ref('en')
@@ -390,6 +443,7 @@ const voiceCommandLog = ref([])
 const voicePreferredVoiceName = ref('System voice')
 const voiceIsSpeaking = ref(false)
 const voiceInputDraft = ref('')
+const voiceLastIntent = ref({ type: '', direction: '', at: 0 })
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
@@ -2157,6 +2211,54 @@ function includesVoicePhrase(command, phrases) {
   return phrases.some((phrase) => normalizedCommand.includes(normalizeVoiceText(phrase)))
 }
 
+function fuzzyMatchVoicePhrase(command, documents, fuse, { maxScore = 0.42 } = {}) {
+  const normalizedCommand = normalizeVoiceText(command)
+
+  if (!normalizedCommand || !documents.length) {
+    return null
+  }
+
+  const exactMatch = documents.find((document) => (
+    normalizedCommand.includes(document.phrase) || document.phrase.includes(normalizedCommand)
+  ))
+
+  if (exactMatch) {
+    return { ...exactMatch, score: 0 }
+  }
+
+  const tokens = normalizedCommand.split(' ').filter((token) => token.length > 2)
+  const tokenWindows = []
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    tokenWindows.push(tokens[index])
+
+    if (tokens[index + 1]) {
+      tokenWindows.push(`${tokens[index]} ${tokens[index + 1]}`)
+    }
+
+    if (tokens[index + 2]) {
+      tokenWindows.push(`${tokens[index]} ${tokens[index + 1]} ${tokens[index + 2]}`)
+    }
+  }
+
+  const queries = [normalizedCommand, ...tokenWindows]
+  let bestMatch = null
+
+  queries.forEach((query) => {
+    const [result] = fuse.search(query, { limit: 1 })
+
+    if (!result || result.score > maxScore) {
+      return
+    }
+
+    if (!bestMatch || result.score < bestMatch.score) {
+      bestMatch = { ...result.item, score: result.score }
+    }
+  })
+
+  return bestMatch
+}
+
 function findVoicePage(command) {
   const sortedAliases = [...voicePageAliases].sort((left, right) => {
     const leftLength = Math.max(...left.phrases.map((phrase) => phrase.length))
@@ -2196,7 +2298,7 @@ function setOnlyVoiceIndicators(indicatorNames) {
   }))
 }
 
-function resolveVoiceSymbol(rawValue) {
+function resolveVoiceSymbol(rawValue, { allowLooseTicker = true } = {}) {
   const cleanedValue = normalizeVoiceText(rawValue)
   if (!cleanedValue) {
     return ''
@@ -2211,14 +2313,14 @@ function resolveVoiceSymbol(rawValue) {
     return voiceSymbolAliases[compactValue]
   }
 
-  if (/^[a-z0-9]{1,10}$/.test(compactValue)) {
+  if (allowLooseTicker && /^[a-z0-9]{1,10}$/.test(compactValue)) {
     return compactValue.toUpperCase()
   }
 
   return ''
 }
 
-function extractVoiceSymbol(command) {
+function extractVoiceSymbol(command, { allowLooseTicker = true } = {}) {
   for (const [alias, symbol] of Object.entries(voiceSymbolAliases)) {
     if (command.includes(alias)) {
       return symbol
@@ -2229,9 +2331,14 @@ function extractVoiceSymbol(command) {
     'generate', 'search', 'analyze', 'analyse', 'run', 'for', 'stock', 'crypto', 'ticker', 'symbol',
     'quote', 'price', 'open', 'go', 'to', 'page', 'trade', 'look', 'up', 'down', 'top', 'bottom',
     'scroll', 'scrolling', 'move', 'screen', 'little', 'bit', 'more', 'less', 'back', 'forward',
-    'show', 'the', 'a'
+    'show', 'the', 'a', 'stocks', 'market', 'markets', 'analysis', 'scorlling', 'scorll',
+    'scrool', 'scroolling', 'lower', 'higher', 'again', 'continue', 'further'
   ])
   const tokens = command.split(' ').filter(Boolean)
+
+  if (!allowLooseTicker) {
+    return ''
+  }
 
   for (let index = tokens.length - 1; index >= 0; index -= 1) {
     const token = tokens[index]
@@ -2255,15 +2362,59 @@ function extractVoiceProbability(command, fallback = watchlistScanThreshold.valu
 }
 
 function getScrollDistance(command) {
-  if (includesVoicePhrase(command, ['a little', 'little bit', 'small scroll'])) {
-    return 0.36
+  if (includesVoicePhrase(command, ['a little', 'little bit', 'small scroll', 'little more', 'bit more', 'a little bit more', '再来一点', '再一点', '一点', 'un poco', 'un peu'])) {
+    return 0.3
   }
 
-  if (includesVoicePhrase(command, ['a lot', 'big scroll', 'far down', 'far up'])) {
-    return 0.95
+  if (includesVoicePhrase(command, ['a lot', 'big scroll', 'far down', 'far up', 'much more', 'a lot more', '很多', '多一点', 'mucho mas', 'mucho más', 'beaucoup plus'])) {
+    return 1
   }
 
   return 0.68
+}
+
+function rememberVoiceIntent(type, direction = '') {
+  voiceLastIntent.value = {
+    type,
+    direction,
+    at: Date.now()
+  }
+}
+
+function hasVoiceScrollDirection(command) {
+  return includesVoicePhrase(command, [
+    'scroll', 'scorll', 'scrool', 'down', 'up', 'lower', 'higher', 'top', 'bottom',
+    '滚动', '下', '上', '顶部', '底部',
+    'abajo', 'arriba', 'bajar', 'subir',
+    'defiler', 'défiler', 'bas', 'haut', 'descendre', 'monter'
+  ])
+}
+
+function getVoiceScrollIntent(command) {
+  const normalizedCommand = normalizeVoiceText(command)
+  const recentScroll = voiceLastIntent.value.type === 'scroll'
+    && Date.now() - voiceLastIntent.value.at < 45 * 1000
+
+  if (recentScroll && includesVoicePhrase(normalizedCommand, voiceFollowUpPhrases)) {
+    return voiceLastIntent.value.direction === 'up' ? 'scrollUp' : 'scrollDown'
+  }
+
+  if (includesVoicePhrase(normalizedCommand, voiceFollowUpPhrases) && !hasVoiceScrollDirection(normalizedCommand)) {
+    return ''
+  }
+
+  const directIntent = fuzzyMatchVoicePhrase(
+    normalizedCommand,
+    voiceScrollIntentDocuments,
+    voiceScrollIntentFuse,
+    { maxScore: normalizedCommand.length <= 12 ? 0.36 : 0.46 }
+  )
+
+  if (directIntent) {
+    return directIntent.intent
+  }
+
+  return ''
 }
 
 function runVoiceScreenControl(command) {
@@ -2273,24 +2424,29 @@ function runVoiceScreenControl(command) {
 
   const distance = Math.max(220, window.innerHeight * getScrollDistance(command))
   const smoothScrollBy = (top) => window.scrollBy({ top, left: 0, behavior: 'smooth' })
+  const scrollIntent = getVoiceScrollIntent(command)
 
-  if (includesVoicePhrase(command, ['scroll down', 'scrolling down', 'move down', 'page down', 'go down', 'down the page', '下滑', '向下滚动', '往下', '滚动到下面', 'desplazar abajo', 'desplaza abajo', 'bajar', 'baja', 'faire defiler vers le bas', 'défiler vers le bas', 'descendre'])) {
+  if (scrollIntent === 'scrollDown') {
     smoothScrollBy(distance)
+    rememberVoiceIntent('scroll', 'down')
     return 'Scrolling down.'
   }
 
-  if (includesVoicePhrase(command, ['scroll up', 'scrolling up', 'move up', 'page up', 'go up', 'up the page', '上滑', '向上滚动', '往上', '滚动到上面', 'desplazar arriba', 'desplaza arriba', 'subir', 'sube', 'faire defiler vers le haut', 'défiler vers le haut', 'monter'])) {
+  if (scrollIntent === 'scrollUp') {
     smoothScrollBy(-distance)
+    rememberVoiceIntent('scroll', 'up')
     return 'Scrolling up.'
   }
 
-  if (includesVoicePhrase(command, ['scroll to top', 'go to top', 'back to top', 'top of page', 'top of the page', '回到顶部', '到顶部', '顶部', 'ir arriba', 'arriba del todo', 'haut de page', 'aller en haut'])) {
+  if (scrollIntent === 'scrollTop') {
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    rememberVoiceIntent('scroll', 'up')
     return 'Going to the top.'
   }
 
-  if (includesVoicePhrase(command, ['scroll to bottom', 'go to bottom', 'bottom of page', 'bottom of the page', '到底部', '底部', 'ir abajo', 'abajo del todo', 'bas de page', 'aller en bas'])) {
+  if (scrollIntent === 'scrollBottom') {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
+    rememberVoiceIntent('scroll', 'down')
     return 'Going to the bottom.'
   }
 
@@ -2513,7 +2669,7 @@ function buildConversationalReply(command) {
     return localReplies.advice
   }
 
-  const maybeSymbol = extractVoiceSymbol(command)
+  const maybeSymbol = extractVoiceSymbol(command, { allowLooseTicker: false })
   if (maybeSymbol) {
     return `I heard ${maybeSymbol}. If you want action, say Search ${maybeSymbol} or Generate ${maybeSymbol}.`
   }
@@ -4686,6 +4842,68 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           >
             {{ exploreViewMode === 'full' ? 'Back To Ranked View' : 'Open Full Market Board' }}
           </button>
+        </div>
+      </section>
+
+      <section class="table-surface watchlist-scan-panel explore-watchlist-scan-panel">
+        <div class="table-header">
+          <div>
+            <h2>Starred Watchlist Scan</h2>
+            <p>Scan every starred stock with Generate logic and rank only names above your probability target.</p>
+          </div>
+          <span class="section-chip">{{ starredSymbols.length }} saved</span>
+        </div>
+        <form class="watchlist-scan-bar" @submit.prevent="scanStarredWatchlist">
+          <label class="watchlist-scan-input">
+            <span>Minimum upside probability</span>
+            <span class="percent-input-shell">
+              <input
+                v-model.number="watchlistScanThreshold"
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                inputmode="decimal"
+                aria-label="Minimum probability threshold"
+              />
+              <strong>%</strong>
+            </span>
+          </label>
+          <button class="topbar-button" type="submit" :disabled="isWatchlistScanning || !starredSymbols.length">
+            {{ isWatchlistScanning ? 'Scanning...' : 'Scan' }}
+          </button>
+        </form>
+        <p v-if="watchlistScanMessage" class="watchlist-scan-message">
+          {{ watchlistScanMessage }}
+          <span v-if="watchlistScanScannedAt">Last scan {{ watchlistScanScannedAt }}</span>
+        </p>
+        <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
+          <div class="table-header compact">
+            <h3>Generated Matches</h3>
+            <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
+          </div>
+          <div class="data-table">
+            <div class="data-row data-head watchlist-scan-head">
+              <span>Rank</span>
+              <span>Symbol</span>
+              <span>Upside Probability</span>
+              <span>Price</span>
+              <span>Signal</span>
+            </div>
+            <div
+              v-for="(result, index) in sortedWatchlistScanResults"
+              :key="`explore-scan-${result.symbol}`"
+              class="data-row watchlist-scan-row"
+            >
+              <span>#{{ index + 1 }}</span>
+              <button class="watchlist-link explore-symbol-link" @click="openAnalysis(result.symbol)">
+                {{ result.symbol }}
+              </button>
+              <strong class="positive">{{ result.probability.toFixed(2) }}%</strong>
+              <span>{{ result.price }}</span>
+              <span>{{ result.signal }}</span>
+            </div>
+          </div>
         </div>
       </section>
 

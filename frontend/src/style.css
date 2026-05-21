@@ -2696,6 +2696,25 @@ select {
     rgba(255, 255, 255, 0.74);
 }
 
+.watchlist-scan-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.watchlist-scan-panel .table-header p {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.explore-watchlist-scan-panel {
+  border-color: rgba(255, 138, 0, 0.14);
+  background:
+    linear-gradient(135deg, rgba(255, 250, 244, 0.95), rgba(255, 255, 255, 0.92)),
+    radial-gradient(circle at 12% 0%, rgba(255, 138, 0, 0.13), transparent 34%);
+}
+
 .watchlist-scan-input {
   display: grid;
   gap: 6px;
