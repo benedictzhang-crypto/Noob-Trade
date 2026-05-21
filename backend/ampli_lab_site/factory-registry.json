@@ -1,0 +1,114 @@
+{
+  "updatedAt": "2026-05-21T04:45:00Z",
+  "factoryName": "Ampli Lab Research Factory",
+  "factorLibrary": [
+    {
+      "id": "trend-core",
+      "name": "Trend Core",
+      "family": "price-action",
+      "factors": ["BOLL", "MACD", "MA", "EMA"],
+      "status": "ready",
+      "source": "lab/config/default_scoring_space.json",
+      "purpose": "Primary generate-stage signal strength."
+    },
+    {
+      "id": "momentum-confirm",
+      "name": "Momentum Confirm",
+      "family": "confirmation",
+      "factors": ["RSI", "KDJ", "VOL"],
+      "status": "ready",
+      "source": "lab/config/stage1_weight_candidates_raw0p1.jsonl",
+      "purpose": "Filter weak trend candidates before replay."
+    },
+    {
+      "id": "flow-context",
+      "name": "Flow Context",
+      "family": "market-microstructure",
+      "factors": ["OBV", "OI"],
+      "status": "ready",
+      "source": "lab/config/legacy_48_victory_symbols.json",
+      "purpose": "Add volume and open-interest context."
+    },
+    {
+      "id": "similarity-path",
+      "name": "Historical Similarity",
+      "family": "path-memory",
+      "factors": ["lookback-window", "forward-touch", "path-blend"],
+      "status": "prototype",
+      "source": "lab/scripts/render_historical_similarity_charts.py",
+      "purpose": "Compare current candidates with prior winning paths."
+    }
+  ],
+  "dataLibrary": [
+    {
+      "id": "render-noobtrade-db",
+      "name": "Render noobtrade-db",
+      "type": "remote-postgres",
+      "status": "planned",
+      "location": "Render NoobTrade database",
+      "tables": ["market history", "symbols", "user strategy metadata"],
+      "policy": "read-only snapshot before research runs"
+    },
+    {
+      "id": "desktop-full-market-db",
+      "name": "Desktop Full Market Snapshot",
+      "type": "sqlite",
+      "status": "ready",
+      "location": "/Users/benedict/Desktop/stock history sata/noobtrade_market_full_20260424-113547.db",
+      "tables": ["daily prices", "market history"],
+      "policy": "freeze into immutable manifest"
+    },
+    {
+      "id": "desktop-non-top50-db",
+      "name": "Desktop Non Top50 Snapshot",
+      "type": "sqlite",
+      "status": "ready",
+      "location": "/Users/benedict/Desktop/NoobTrade-Postgres-Extra-Backup/noobtrade_non_top50_market_20260424-113200.db",
+      "tables": ["non-top50 market history"],
+      "policy": "freeze into immutable manifest"
+    },
+    {
+      "id": "backtest-evidence-folder",
+      "name": "Backtest Evidence Folder",
+      "type": "filesystem",
+      "status": "ready",
+      "location": "/Users/benedict/Desktop/Ampli Lab 回测",
+      "tables": ["oracle results", "TP/SL matrices", "charts", "reports"],
+      "policy": "read evidence, do not mutate original runs"
+    }
+  ],
+  "knowledgeChains": [
+    {
+      "id": "generate-to-exit-v1",
+      "name": "Generate To Exit V1",
+      "status": "active",
+      "steps": ["freeze", "feature-cache", "weight-search", "generate-score", "oracle-replay", "tp-sl-matrix", "best30", "evidence-pack"],
+      "source": "lab/config/generate_to_exit_pipeline.json",
+      "output": "ranked strategy evidence pack"
+    },
+    {
+      "id": "smart-stage-search",
+      "name": "Smart Stage Search",
+      "status": "active",
+      "steps": ["coarse-factor-family", "local-neighborhood", "strict-replay", "finalist-matrix"],
+      "source": "docs/smart-search-factory.md",
+      "output": "shortlisted factor recipes"
+    },
+    {
+      "id": "legacy-oracle-reference",
+      "name": "Legacy Oracle Reference",
+      "status": "reference",
+      "steps": ["legacy-signals", "oracle-replay", "compare-baseline"],
+      "source": "docs/legacy-oracle.md",
+      "output": "baseline comparison"
+    }
+  ],
+  "assemblyFlow": [
+    "select factors",
+    "select data snapshots",
+    "select knowledge chain",
+    "freeze manifests",
+    "run backtest",
+    "publish evidence"
+  ]
+}
