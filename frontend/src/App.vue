@@ -295,19 +295,101 @@ const voiceCommandExamples = [
 ]
 const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
 const voiceSymbolAliases = {
+  aapl: 'AAPL',
+  apl: 'AAPL',
+  appl: 'AAPL',
+  'a p l': 'AAPL',
+  'a p p l': 'AAPL',
   apple: 'AAPL',
+  iphone: 'AAPL',
+  msft: 'MSFT',
+  'm s f t': 'MSFT',
   tesla: 'TSLA',
+  tsla: 'TSLA',
+  't s l a': 'TSLA',
   nvidia: 'NVDA',
+  nvda: 'NVDA',
+  'n v d a': 'NVDA',
   microsoft: 'MSFT',
+  amzn: 'AMZN',
+  'a m z n': 'AMZN',
   amazon: 'AMZN',
   meta: 'META',
+  facebook: 'META',
+  googl: 'GOOGL',
+  'g o o g l': 'GOOGL',
   google: 'GOOGL',
   alphabet: 'GOOGL',
+  berkshire: 'BRK.B',
+  'berkshire hathaway': 'BRK.B',
+  brkb: 'BRK.B',
+  'brk b': 'BRK.B',
+  lilly: 'LLY',
+  'eli lilly': 'LLY',
+  broadcom: 'AVGO',
+  jpmorgan: 'JPM',
+  'jp morgan': 'JPM',
+  chase: 'JPM',
+  visa: 'V',
+  exxon: 'XOM',
+  'exxon mobil': 'XOM',
+  unitedhealth: 'UNH',
+  'united health': 'UNH',
+  mastercard: 'MA',
+  costco: 'COST',
+  'johnson and johnson': 'JNJ',
+  'home depot': 'HD',
+  oracle: 'ORCL',
+  'procter gamble': 'PG',
+  merck: 'MRK',
+  netflix: 'NFLX',
+  abbvie: 'ABBV',
+  'bank of america': 'BAC',
+  'coca cola': 'KO',
+  coke: 'KO',
+  'advanced micro devices': 'AMD',
+  chevron: 'CVX',
+  pepsi: 'PEP',
+  pepsico: 'PEP',
+  salesforce: 'CRM',
+  walmart: 'WMT',
+  'thermo fisher': 'TMO',
+  accenture: 'ACN',
+  cisco: 'CSCO',
+  mcdonalds: 'MCD',
+  'mcdonald s': 'MCD',
+  abbott: 'ABT',
+  ibm: 'IBM',
+  'international business machines': 'IBM',
+  'general electric': 'GE',
+  'ge aerospace': 'GE',
+  linde: 'LIN',
+  disney: 'DIS',
+  adobe: 'ADBE',
+  servicenow: 'NOW',
+  'service now': 'NOW',
+  intuit: 'INTU',
+  qualcomm: 'QCOM',
+  caterpillar: 'CAT',
+  'texas instruments': 'TXN',
+  'american express': 'AXP',
+  amex: 'AXP',
+  'applied materials': 'AMAT',
+  booking: 'BKNG',
+  'booking holdings': 'BKNG',
+  uber: 'UBER',
+  'uber technologies': 'UBER',
+  goldman: 'GS',
+  'goldman sachs': 'GS',
   bitcoin: 'BTC',
+  btc: 'BTC',
   ethereum: 'ETH',
+  eth: 'ETH',
   solana: 'SOL',
+  sol: 'SOL',
   'o k b': 'OKB',
   okb: 'OKB',
+  's p y': 'SPY',
   spy: 'SPY'
 }
 const voiceIndicatorAliases = [
@@ -341,6 +423,7 @@ const voiceIntervalAliases = [
 ]
 const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue', '确认', '是的', '继续', 'sí', 'si', 'confirmar', 'oui', 'confirmer']
 const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind', '取消', '停止', '不要', 'no', 'cancelar', 'parar', 'non', 'annuler', 'arreter', 'arrêter']
+const voiceStopSpeechPhrases = ['stop talking', 'stop speaking', 'stop reading', 'be quiet', 'quiet', 'shut up', 'cancel speech', 'cancel voice', 'do not read', "don't read", 'pause voice', '停止朗读', '别念', '不要念', '不要读', '停一下', '安静', '闭嘴', 'parar voz', 'silencio', 'arrete de parler', 'arrête de parler']
 const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'switch on', 'check', 'tick', 'add', 'use', 'include', '选择', '勾选', '打开', '启用', '加入', '使用', 'seleccionar', 'elige', 'elegir', 'activar', 'agregar', 'usar', 'incluye', 'incluire', 'selectionner', 'sélectionner', 'choisir', 'activer', 'ajouter', 'utiliser', 'inclure']
 const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude', '取消', '取消勾选', '关闭', '移除', '不要', 'quitar', 'desactivar', 'remover', 'excluir', 'retirer', 'desactiver', 'désactiver', 'enlever', 'exclure']
 const voiceOnlyPhrases = ['only', 'only use', '只', '只选', '只用', '仅选择', 'solo', 'solamente', 'seulement', 'uniquement']
@@ -396,6 +479,19 @@ const voiceScrollIntentFuse = new Fuse(voiceScrollIntentDocuments, {
   distance: 120,
   minMatchCharLength: 3
 })
+const voiceTechnicalErrorPatterns = [
+  'httpsconnectionpool',
+  'connecttimeouterror',
+  'readtimeout',
+  'max retries exceeded',
+  'marketdata.colab.duke.edu',
+  'connection to',
+  'connect timeout',
+  'temporarily disabled after a recent connection failure',
+  'non-json response',
+  'traceback',
+  'requests.exceptions'
+]
 
 const activePage = ref('Home')
 const uiLanguage = ref('en')
@@ -452,6 +548,9 @@ let feedRefreshTimer = null
 let beforeInstallHandler = null
 let voiceVoicesChangedHandler = null
 let voiceRestartTimer = null
+let voiceSpeechToken = 0
+let voiceLastSpeechSignature = ''
+let voiceLastSpeechAt = 0
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -2000,7 +2099,6 @@ function scheduleVoiceRestart(delayMs = 550) {
     || !voiceAssistantEnabled.value
     || !voiceRecognition.value
     || voiceListening.value
-    || voiceIsSpeaking.value
   ) {
     return
   }
@@ -2009,11 +2107,11 @@ function scheduleVoiceRestart(delayMs = 550) {
   voiceRestartTimer = window.setTimeout(() => {
     voiceRestartTimer = null
 
-    if (!voiceAssistantEnabled.value || voiceListening.value || voiceIsSpeaking.value) {
+    if (!voiceAssistantEnabled.value || voiceListening.value) {
       return
     }
 
-    startVoiceListening({ silent: true })
+    startVoiceListening({ silent: true, cancelSpeech: false })
   }, delayMs)
 }
 
@@ -2044,20 +2142,82 @@ function getPreferredVoice() {
   return matchingVoices[0] || voices[0] || null
 }
 
+function getReadableMarketDataError(message, symbol = '') {
+  const rawMessage = String(message || '').trim()
+  const normalizedMessage = rawMessage.toLowerCase()
+  const rawSymbol = symbol || symbolInput.value || activeSymbol.value
+  const normalizedSymbol = rawSymbol
+    ? normalizeTradeSymbolInput(rawSymbol, { isCrypto: activePage.value === 'Crypto Trade' })
+    : ''
+  const symbolLabel = normalizedSymbol || 'This symbol'
+  const hasTechnicalDetails = hasTechnicalMarketDataDetails(rawMessage)
+
+  if (hasTechnicalDetails) {
+    return `${symbolLabel} market data connection timed out. Please try again in a moment.`
+  }
+
+  if (normalizedMessage.includes('temporarily unavailable') || normalizedMessage.includes('temporarily disabled') || normalizedMessage.includes('not accessible')) {
+    return `${symbolLabel} data is not accessible right now. Please try again in a moment.`
+  }
+
+  if (rawMessage.length > 220) {
+    return `${symbolLabel} data request did not finish cleanly. Please try again in a moment.`
+  }
+
+  return rawMessage || 'This data is not accessible right now.'
+}
+
+function hasTechnicalMarketDataDetails(message) {
+  const normalizedMessage = String(message || '').toLowerCase()
+  return voiceTechnicalErrorPatterns.some((pattern) => normalizedMessage.includes(pattern))
+}
+
+function getSpeakableVoiceText(text) {
+  const rawText = String(text || '').trim()
+  const readableText = hasTechnicalMarketDataDetails(rawText)
+    ? getReadableMarketDataError(rawText)
+    : rawText
+
+  if (readableText.length <= 260) {
+    return readableText
+  }
+
+  return `${readableText.slice(0, 240).trim()}...`
+}
+
+function stopVoiceSpeech({ restartListening = true } = {}) {
+  if (typeof window !== 'undefined') {
+    window.speechSynthesis?.cancel()
+  }
+
+  voiceSpeechToken += 1
+  voiceIsSpeaking.value = false
+
+  if (restartListening) {
+    scheduleVoiceRestart(120)
+  }
+}
+
 function speakVoice(text) {
   if (typeof window === 'undefined' || !window.speechSynthesis || !text) {
     return
   }
 
-  if (voiceRecognition.value && voiceListening.value) {
-    try {
-      voiceRecognition.value.stop()
-    } catch {
-      // Recognition may already be stopped while the assistant is answering.
-    }
+  const speakableText = getSpeakableVoiceText(text)
+  const speechSignature = normalizeVoiceText(speakableText)
+  const now = Date.now()
+
+  if (speechSignature && speechSignature === voiceLastSpeechSignature && now - voiceLastSpeechAt < 7000) {
+    return
   }
 
-  const utterance = new SpeechSynthesisUtterance(text)
+  window.speechSynthesis.cancel()
+  const speechToken = voiceSpeechToken + 1
+  voiceSpeechToken = speechToken
+  voiceLastSpeechSignature = speechSignature
+  voiceLastSpeechAt = now
+
+  const utterance = new SpeechSynthesisUtterance(speakableText)
   const preferredVoice = getPreferredVoice()
 
   if (preferredVoice) {
@@ -2072,17 +2232,23 @@ function speakVoice(text) {
   utterance.pitch = 1.08
   utterance.volume = 0.88
   utterance.onstart = () => {
-    voiceIsSpeaking.value = true
+    if (speechToken === voiceSpeechToken) {
+      voiceIsSpeaking.value = true
+      scheduleVoiceRestart(220)
+    }
   }
   utterance.onend = () => {
-    voiceIsSpeaking.value = false
-    scheduleVoiceRestart(420)
+    if (speechToken === voiceSpeechToken) {
+      voiceIsSpeaking.value = false
+      scheduleVoiceRestart(420)
+    }
   }
   utterance.onerror = () => {
-    voiceIsSpeaking.value = false
-    scheduleVoiceRestart(420)
+    if (speechToken === voiceSpeechToken) {
+      voiceIsSpeaking.value = false
+      scheduleVoiceRestart(420)
+    }
   }
-  window.speechSynthesis.cancel()
   window.speechSynthesis.speak(utterance)
 }
 
@@ -2090,14 +2256,21 @@ function setVoiceStatus(message, { speak = false, transcript = '' } = {}) {
   voiceStatus.value = message
 
   if (transcript || message) {
-    voiceCommandLog.value = [
-      {
-        transcript: transcript || 'Noob AI',
-        response: message,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      },
-      ...voiceCommandLog.value
-    ].slice(0, 4)
+    const latestLog = voiceCommandLog.value[0]
+    const sameLog = latestLog
+      && normalizeVoiceText(latestLog.transcript) === normalizeVoiceText(transcript || 'Noob AI')
+      && normalizeVoiceText(latestLog.response) === normalizeVoiceText(message)
+
+    if (!sameLog) {
+      voiceCommandLog.value = [
+        {
+          transcript: transcript || 'Noob AI',
+          response: message,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        },
+        ...voiceCommandLog.value
+      ].slice(0, 4)
+    }
   }
 
   if (speak) {
@@ -2155,12 +2328,11 @@ function disableVoiceAssistant() {
   voicePendingAction.value = null
   clearVoiceRestartTimer()
   stopVoiceListening()
-  window.speechSynthesis?.cancel()
-  voiceIsSpeaking.value = false
+  stopVoiceSpeech({ restartListening: false })
   voiceStatus.value = 'AI Mode is off. Manual controls stay available.'
 }
 
-function startVoiceListening({ silent = false } = {}) {
+function startVoiceListening({ silent = false, cancelSpeech = true } = {}) {
   if (!isAuthenticated.value) {
     setVoiceStatus('Please sign in before using voice control.', { speak: true })
     return
@@ -2174,7 +2346,9 @@ function startVoiceListening({ silent = false } = {}) {
   }
 
   try {
-    window.speechSynthesis?.cancel()
+    if (cancelSpeech) {
+      stopVoiceSpeech({ restartListening: false })
+    }
     voiceRecognition.value.lang = getSpeechLanguage()
     voiceRecognition.value.start()
   } catch {
@@ -2212,6 +2386,81 @@ function normalizeVoiceText(text) {
 function includesVoicePhrase(command, phrases) {
   const normalizedCommand = normalizeVoiceText(command)
   return phrases.some((phrase) => normalizedCommand.includes(normalizeVoiceText(phrase)))
+}
+
+function normalizeTradeSymbolInput(rawValue, { isCrypto = false } = {}) {
+  const rawSymbol = String(rawValue || '').trim()
+  const compactSymbol = rawSymbol.replace(/\s+/g, '').toUpperCase()
+
+  if (!compactSymbol) {
+    return ''
+  }
+
+  if (isCrypto) {
+    return compactSymbol
+  }
+
+  const stockCorrections = {
+    APL: 'AAPL',
+    APPL: 'AAPL',
+    BRKB: 'BRK.B',
+    'BRK-B': 'BRK.B',
+    BRK_B: 'BRK.B',
+    BFB: 'BF.B',
+    'BF-B': 'BF.B',
+    BF_B: 'BF.B'
+  }
+
+  return stockCorrections[compactSymbol] || compactSymbol
+}
+
+function findVoiceSymbolAlias(command) {
+  const normalizedCommand = normalizeVoiceText(command)
+  const framedCommand = ` ${normalizedCommand} `
+  const aliases = Object.entries(voiceSymbolAliases)
+    .map(([alias, symbol]) => [normalizeVoiceText(alias), symbol])
+    .filter(([alias]) => alias)
+    .sort((left, right) => right[0].length - left[0].length)
+
+  for (const [alias, symbol] of aliases) {
+    if (framedCommand.includes(` ${alias} `)) {
+      return symbol
+    }
+  }
+
+  return ''
+}
+
+function isLikelyAssistantSpeechEcho(command) {
+  if (!voiceIsSpeaking.value || !voiceLastSpeechSignature) {
+    return false
+  }
+
+  const normalizedCommand = normalizeVoiceText(command)
+  if (normalizedCommand.length < 8) {
+    return false
+  }
+
+  if (voiceLastSpeechSignature.includes(normalizedCommand) || normalizedCommand.includes(voiceLastSpeechSignature)) {
+    return true
+  }
+
+  const commandTokens = new Set(normalizedCommand.split(' ').filter((token) => token.length > 2))
+  const speechTokens = new Set(voiceLastSpeechSignature.split(' ').filter((token) => token.length > 2))
+  if (!commandTokens.size || !speechTokens.size) {
+    return false
+  }
+
+  const speechTokenList = [...speechTokens]
+  const overlap = [...commandTokens].filter((token) => (
+    speechTokens.has(token)
+    || speechTokenList.some((speechToken) => (
+      token.length > 4
+      && speechToken.length > 4
+      && (speechToken.startsWith(token.slice(0, 5)) || token.startsWith(speechToken.slice(0, 5)))
+    ))
+  )).length
+  return overlap / commandTokens.size >= 0.75
 }
 
 function fuzzyMatchVoicePhrase(command, documents, fuse, { maxScore = 0.42 } = {}) {
@@ -2307,8 +2556,9 @@ function resolveVoiceSymbol(rawValue, { allowLooseTicker = true } = {}) {
     return ''
   }
 
-  if (voiceSymbolAliases[cleanedValue]) {
-    return voiceSymbolAliases[cleanedValue]
+  const directAlias = findVoiceSymbolAlias(cleanedValue)
+  if (directAlias) {
+    return directAlias
   }
 
   const compactValue = cleanedValue.replace(/\s+/g, '')
@@ -2317,17 +2567,16 @@ function resolveVoiceSymbol(rawValue, { allowLooseTicker = true } = {}) {
   }
 
   if (allowLooseTicker && /^[a-z0-9]{1,10}$/.test(compactValue)) {
-    return compactValue.toUpperCase()
+    return normalizeTradeSymbolInput(compactValue)
   }
 
   return ''
 }
 
 function extractVoiceSymbol(command, { allowLooseTicker = true } = {}) {
-  for (const [alias, symbol] of Object.entries(voiceSymbolAliases)) {
-    if (command.includes(alias)) {
-      return symbol
-    }
+  const aliasSymbol = findVoiceSymbolAlias(command)
+  if (aliasSymbol) {
+    return aliasSymbol
   }
 
   const commandWords = new Set([
@@ -2519,7 +2768,7 @@ function runVoiceScreenControl(command) {
 }
 
 function routeVoiceSymbol(symbol) {
-  const normalizedSymbol = String(symbol || '').trim().toUpperCase()
+  const normalizedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: activePage.value === 'Crypto Trade' })
   if (!normalizedSymbol) {
     return
   }
@@ -2534,7 +2783,7 @@ function routeVoiceSymbol(symbol) {
 }
 
 async function runVoiceAnalysis(source, symbol = '', transcript = '') {
-  const normalizedSymbol = resolveVoiceSymbol(symbol) || String(symbolInput.value || activeSymbol.value).trim().toUpperCase()
+  const normalizedSymbol = resolveVoiceSymbol(symbol) || normalizeTradeSymbolInput(symbolInput.value || activeSymbol.value, { isCrypto: activePage.value === 'Crypto Trade' })
 
   if (normalizedSymbol) {
     routeVoiceSymbol(normalizedSymbol)
@@ -2543,12 +2792,12 @@ async function runVoiceAnalysis(source, symbol = '', transcript = '') {
   }
 
   const actionLabel = source === 'generate' ? 'Generating' : 'Searching'
-  const workingSymbol = symbolInput.value.trim().toUpperCase() || activeSymbol.value
+  const workingSymbol = normalizeTradeSymbolInput(symbolInput.value, { isCrypto: activePage.value === 'Crypto Trade' }) || activeSymbol.value
   setVoiceStatus(`${actionLabel} ${workingSymbol}.`, { speak: true, transcript })
   await runSearch(source)
 
   if (errorMessage.value) {
-    setVoiceStatus(errorMessage.value, { speak: true, transcript })
+    setVoiceStatus(getReadableMarketDataError(errorMessage.value, workingSymbol), { speak: true, transcript })
     return
   }
 
@@ -2752,6 +3001,24 @@ async function handleVoiceCommand(rawTranscript) {
   if (!command) {
     setVoiceStatus('I did not catch that. Please try again.', { speak: true, transcript: rawTranscript })
     return
+  }
+
+  if (isLikelyAssistantSpeechEcho(command)) {
+    return
+  }
+
+  if (
+    ['stop', 'cancel', 'pause', '停', '停止', '别念了', '不要念了'].includes(command)
+    || includesVoicePhrase(command, voiceStopSpeechPhrases)
+  ) {
+    stopVoiceSpeech({ restartListening: true })
+    voicePendingAction.value = null
+    setVoiceStatus('Stopped. I am listening.', { speak: false, transcript: rawTranscript })
+    return
+  }
+
+  if (voiceIsSpeaking.value) {
+    stopVoiceSpeech({ restartListening: false })
   }
 
   if (isVoiceCorrectionCommand(command) && voiceLastAssistantPrediction.value) {
@@ -3287,7 +3554,7 @@ function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
 }
 
 async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
-  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode)
 
   if (analysisCache.value[cacheKey]) {
@@ -3300,7 +3567,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   })
   query.set('interval', selectedChartInterval.value)
 
-  const requestUrl = `${API_BASE_URL}/stock/${cleanedSymbol}?${query.toString()}`
+  const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
   const response = await secureFetch(requestUrl, {
     timeoutMs: analysisMode === 'search' ? 12000 : 35000
   })
@@ -3323,19 +3590,20 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
 }
 
 async function runSearch(source = 'search') {
-  const cleanedSymbol = symbolInput.value.trim().toUpperCase()
+  const isCryptoPage = activePage.value === 'Crypto Trade'
+  const cleanedSymbol = normalizeTradeSymbolInput(symbolInput.value, { isCrypto: isCryptoPage })
 
   if (!cleanedSymbol) {
-    errorMessage.value = activePage.value === 'Crypto Trade'
+    errorMessage.value = isCryptoPage
       ? 'Please enter a crypto ticker before searching.'
       : 'Please enter a stock symbol before searching.'
     return
   }
 
-  if (!/^[A-Z0-9]{1,10}$/.test(cleanedSymbol)) {
-    errorMessage.value = activePage.value === 'Crypto Trade'
+  if (!/^[A-Z0-9.]{1,10}$/.test(cleanedSymbol)) {
+    errorMessage.value = isCryptoPage
       ? 'Please enter a valid crypto ticker using letters or numbers, such as BTC or OKB.'
-      : 'Please enter a valid symbol using letters only, such as AAPL.'
+      : 'Please enter a valid symbol, such as AAPL or BRK.B.'
     return
   }
 
@@ -3345,6 +3613,7 @@ async function runSearch(source = 'search') {
     return
   }
 
+  symbolInput.value = cleanedSymbol
   const isGenerateAction = source === 'generate'
   if (isGenerateAction) {
     isGenerating.value = true
@@ -3353,7 +3622,7 @@ async function runSearch(source = 'search') {
   }
   errorMessage.value = ''
 
-  if (activePage.value === 'Crypto Trade') {
+  if (isCryptoPage) {
     cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
     symbolInput.value = cleanedSymbol
     requestAnimationFrame(() => {
@@ -3384,8 +3653,7 @@ async function runSearch(source = 'search') {
       })
     })
   } catch (error) {
-    errorMessage.value =
-      error?.message || 'This data is not accessible right now.'
+    errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
     console.error(error)
   } finally {
     if (isGenerateAction) {

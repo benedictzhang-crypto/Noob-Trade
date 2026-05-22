@@ -46,6 +46,13 @@ class MarketDataService:
     PRODUCTION_MATCH_STEP = 3
     PRODUCTION_MATCH_TARGET = 6
     PRO_SIGNAL_DEEP_CANDIDATE_LIMIT = 2000
+    SYMBOL_ALIASES = {
+        "APL": "AAPL",
+        "APPL": "AAPL",
+        "BRKB": "BRK.B",
+        "BRK-B": "BRK.B",
+        "BRK/B": "BRK.B",
+    }
 
     def __init__(self, config):
         self.config = config
@@ -58,6 +65,11 @@ class MarketDataService:
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
 
+    def _normalize_symbol_code(self, symbol):
+        normalized = str(symbol or "").upper().strip()
+        compact = normalized.replace(" ", "")
+        return self.SYMBOL_ALIASES.get(compact, self.SYMBOL_ALIASES.get(normalized, normalized))
+
     def get_stock_pattern_analysis(
         self,
         symbol,
@@ -69,7 +81,7 @@ class MarketDataService:
         analysis_mode="full",
     ):
         indicators = parse_indicators(raw_indicators, default_indicators)
-        symbol_code = symbol.upper()
+        symbol_code = self._normalize_symbol_code(symbol)
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
         summary_only = str(analysis_mode or "full").lower() != "full"
 
@@ -175,7 +187,7 @@ class MarketDataService:
         return build_mock_stock_pattern_analysis(symbol_code, interval, lookback_window, indicators)
 
     def get_market_news(self, symbol=None, limit=5):
-        normalized_symbol = (symbol or "").upper().strip()
+        normalized_symbol = self._normalize_symbol_code(symbol)
         hour_bucket = datetime.utcnow().strftime("%Y-%m-%d-%H")
         cache_key = f"{normalized_symbol or 'market'}:{limit}:{hour_bucket}"
         cached_value = self.MARKET_NEWS_CACHE.get(cache_key)

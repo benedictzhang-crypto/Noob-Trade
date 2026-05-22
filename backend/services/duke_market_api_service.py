@@ -15,6 +15,8 @@ class DukeMarketApiService:
     _provider_disabled_until = None
     _provider_failure_count = 0
     SYMBOL_ALIASES = {
+        "APL": "AAPL",
+        "APPL": "AAPL",
         "BRK.B": "BRK-B",
         "BRK/A": "BRK-A",
         "BRK/B": "BRK-B",

@@ -88,9 +88,121 @@ GREETING_REPLIES = [
     "Here with you. Do you want analysis, navigation, indicators, or watchlist help?",
 ]
 
+SYMBOL_ALIASES = {
+    "aapl": "AAPL",
+    "apl": "AAPL",
+    "appl": "AAPL",
+    "a p l": "AAPL",
+    "a p p l": "AAPL",
+    "apple": "AAPL",
+    "iphone": "AAPL",
+    "msft": "MSFT",
+    "m s f t": "MSFT",
+    "microsoft": "MSFT",
+    "tsla": "TSLA",
+    "tesla": "TSLA",
+    "nvda": "NVDA",
+    "nvidia": "NVDA",
+    "amzn": "AMZN",
+    "amazon": "AMZN",
+    "meta": "META",
+    "facebook": "META",
+    "googl": "GOOGL",
+    "google": "GOOGL",
+    "alphabet": "GOOGL",
+    "berkshire": "BRK.B",
+    "berkshire hathaway": "BRK.B",
+    "brkb": "BRK.B",
+    "brk b": "BRK.B",
+    "lilly": "LLY",
+    "eli lilly": "LLY",
+    "broadcom": "AVGO",
+    "jpmorgan": "JPM",
+    "jp morgan": "JPM",
+    "chase": "JPM",
+    "visa": "V",
+    "exxon": "XOM",
+    "exxon mobil": "XOM",
+    "unitedhealth": "UNH",
+    "united health": "UNH",
+    "mastercard": "MA",
+    "costco": "COST",
+    "johnson and johnson": "JNJ",
+    "home depot": "HD",
+    "oracle": "ORCL",
+    "procter gamble": "PG",
+    "merck": "MRK",
+    "netflix": "NFLX",
+    "abbvie": "ABBV",
+    "bank of america": "BAC",
+    "coca cola": "KO",
+    "coke": "KO",
+    "advanced micro devices": "AMD",
+    "chevron": "CVX",
+    "pepsi": "PEP",
+    "pepsico": "PEP",
+    "salesforce": "CRM",
+    "walmart": "WMT",
+    "thermo fisher": "TMO",
+    "accenture": "ACN",
+    "cisco": "CSCO",
+    "mcdonalds": "MCD",
+    "mcdonald s": "MCD",
+    "abbott": "ABT",
+    "ibm": "IBM",
+    "international business machines": "IBM",
+    "general electric": "GE",
+    "ge aerospace": "GE",
+    "linde": "LIN",
+    "disney": "DIS",
+    "adobe": "ADBE",
+    "servicenow": "NOW",
+    "service now": "NOW",
+    "intuit": "INTU",
+    "qualcomm": "QCOM",
+    "caterpillar": "CAT",
+    "texas instruments": "TXN",
+    "american express": "AXP",
+    "amex": "AXP",
+    "applied materials": "AMAT",
+    "booking": "BKNG",
+    "booking holdings": "BKNG",
+    "uber": "UBER",
+    "uber technologies": "UBER",
+    "goldman": "GS",
+    "goldman sachs": "GS",
+    "bitcoin": "BTC",
+    "btc": "BTC",
+    "ethereum": "ETH",
+    "eth": "ETH",
+    "solana": "SOL",
+    "sol": "SOL",
+    "okb": "OKB",
+    "o k b": "OKB",
+    "spy": "SPY",
+    "s p y": "SPY",
+}
+
 
 def _normalize_text(value):
     return re.sub(r"\s+", " ", str(value or "").lower()).strip()
+
+
+def _normalize_symbol_entity(value):
+    text = _normalize_text(value)
+    if not text:
+        return None
+
+    if text in SYMBOL_ALIASES:
+        return SYMBOL_ALIASES[text]
+
+    compact = re.sub(r"[^a-z0-9]", "", text)
+    if compact in SYMBOL_ALIASES:
+        return SYMBOL_ALIASES[compact]
+
+    if compact:
+        return compact.upper()
+    return None
 
 
 def _base_intent(intent="chat", confidence=0.5, **kwargs):
@@ -137,22 +249,10 @@ def _feedback_payload_from_intent(intent_payload):
 
 
 def _extract_symbol(text):
-    symbol_aliases = {
-        "apple": "AAPL",
-        "tesla": "TSLA",
-        "nvidia": "NVDA",
-        "microsoft": "MSFT",
-        "amazon": "AMZN",
-        "meta": "META",
-        "google": "GOOGL",
-        "alphabet": "GOOGL",
-        "bitcoin": "BTC",
-        "ethereum": "ETH",
-        "solana": "SOL",
-        "spy": "SPY",
-    }
-    for alias, symbol in symbol_aliases.items():
-        if alias in text:
+    normalized_text = _normalize_text(text)
+    framed_text = f" {normalized_text} "
+    for alias, symbol in sorted(SYMBOL_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+        if f" {alias} " in framed_text:
             return symbol
 
     blocked_words = {
@@ -163,7 +263,7 @@ def _extract_symbol(text):
     tokens = re.findall(r"\b[a-zA-Z]{1,5}\b", text)
     for token in reversed(tokens):
         if token.lower() not in blocked_words:
-            return token.upper()
+            return _normalize_symbol_entity(token)
     return None
 
 
@@ -485,7 +585,7 @@ def _intent_from_rasa_parse(parsed, transcript, context):
         elif entity_name == "page":
             intent_payload["page"] = _normalize_page_entity(value) or intent_payload["page"]
         elif entity_name == "symbol":
-            intent_payload["symbol"] = str(value or "").strip().upper() or intent_payload["symbol"]
+            intent_payload["symbol"] = _normalize_symbol_entity(value) or intent_payload["symbol"]
         elif entity_name == "direction":
             direction = _normalize_text(value)
             if direction in {"up", "down", "top", "bottom"}:
@@ -530,6 +630,9 @@ def _intent_from_rasa_parse(parsed, transcript, context):
     if intent_payload["intent"] in {"generate", "search", "set_star"} and not intent_payload["symbol"]:
         intent_payload["symbol"] = _extract_symbol(text) or context.get("symbol")
 
+    if intent_payload["symbol"]:
+        intent_payload["symbol"] = _normalize_symbol_entity(intent_payload["symbol"]) or intent_payload["symbol"]
+
     if intent_payload["intent"] == "scan_watchlist" and intent_payload["threshold"] is None:
         intent_payload["threshold"] = _extract_first_number(text)
 
@@ -559,6 +662,30 @@ def _rasa_intent(transcript, context):
     return _intent_from_rasa_parse(response.json(), transcript, context)
 
 
+def _finalize_intent_payload(intent_payload, transcript, context):
+    if not isinstance(intent_payload, dict):
+        return intent_payload
+
+    cleaned_payload = dict(intent_payload)
+    if cleaned_payload.get("symbol"):
+        cleaned_payload["symbol"] = _normalize_symbol_entity(cleaned_payload.get("symbol")) or cleaned_payload.get("symbol")
+
+    if cleaned_payload.get("intent") in {"generate", "search", "set_star"} and not cleaned_payload.get("symbol"):
+        cleaned_payload["symbol"] = _extract_symbol(_normalize_text(transcript)) or context.get("symbol")
+
+    if cleaned_payload.get("symbol"):
+        cleaned_payload["symbol"] = _normalize_symbol_entity(cleaned_payload.get("symbol")) or cleaned_payload.get("symbol")
+
+    return cleaned_payload
+
+
+def _intent_response(source, intent_payload, transcript, context):
+    return jsonify({
+        "source": source,
+        "intent": _finalize_intent_payload(intent_payload, transcript, context),
+    })
+
+
 @assistant_blueprint.route("/intent", methods=["POST"])
 def parse_intent():
     payload = request.get_json(silent=True) or {}
@@ -567,7 +694,7 @@ def parse_intent():
 
     rule_intent = _rule_based_intent(transcript, context)
     if rule_intent["confidence"] >= 0.92:
-        return jsonify({"source": "rules", "intent": rule_intent})
+        return _intent_response("rules", rule_intent, transcript, context)
 
     provider = current_app.config.get("ASSISTANT_INTENT_PROVIDER", "openai")
     should_try_rasa = provider in {"rasa", "auto"} or bool(current_app.config.get("ASSISTANT_RASA_URL"))
@@ -576,18 +703,18 @@ def parse_intent():
         try:
             rasa_intent = _rasa_intent(transcript, context)
             if rasa_intent and float(rasa_intent.get("confidence") or 0) >= 0.5:
-                return jsonify({"source": "rasa", "intent": rasa_intent})
+                return _intent_response("rasa", rasa_intent, transcript, context)
         except Exception as error:
             current_app.logger.warning("Rasa assistant intent failed: %s", error)
 
     try:
         cloud_intent = _openai_intent(transcript, context)
         if cloud_intent and float(cloud_intent.get("confidence") or 0) >= 0.5:
-            return jsonify({"source": "openai", "intent": cloud_intent})
+            return _intent_response("openai", cloud_intent, transcript, context)
     except Exception as error:
         current_app.logger.warning("Cloud assistant intent failed: %s", error)
 
-    return jsonify({"source": "rules", "intent": rule_intent})
+    return _intent_response("rules", rule_intent, transcript, context)
 
 
 @assistant_blueprint.route("/feedback", methods=["POST"])

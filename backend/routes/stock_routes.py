@@ -19,6 +19,39 @@ PRIVATE_RESPONSE_KEYS = {
     "fitRatio",
 }
 
+SYMBOL_ALIASES = {
+    "APL": "AAPL",
+    "APPL": "AAPL",
+    "BRKB": "BRK.B",
+    "BRK-B": "BRK.B",
+    "BRK/B": "BRK.B",
+}
+
+TECHNICAL_MARKET_ERROR_TOKENS = (
+    "HTTPSConnectionPool",
+    "ConnectTimeoutError",
+    "ReadTimeout",
+    "Max retries exceeded",
+    "marketdata.colab.duke.edu",
+    "requests.exceptions",
+)
+
+
+def _normalize_symbol_code(symbol):
+    normalized = str(symbol or "").upper().strip()
+    compact = normalized.replace(" ", "")
+    return SYMBOL_ALIASES.get(compact, SYMBOL_ALIASES.get(normalized, normalized))
+
+
+def _public_market_error_message(error, symbol):
+    raw_message = str(error or "")
+    symbol_code = _normalize_symbol_code(symbol) or "This symbol"
+    if any(token.lower() in raw_message.lower() for token in TECHNICAL_MARKET_ERROR_TOKENS):
+        return f"{symbol_code} market data connection timed out. Please try again in a moment."
+    if raw_message:
+        return raw_message[:240]
+    return f"{symbol_code} data is not accessible right now."
+
 
 def _trim_trade_response_payload(payload):
     if not isinstance(payload, dict):
@@ -78,7 +111,7 @@ def _persistence_service():
 
 
 def _build_live_search_payload(market_data_service, symbol: str, interval: str, lookback: int, indicators: list[str]):
-    symbol_code = str(symbol or "").upper().strip()
+    symbol_code = _normalize_symbol_code(symbol)
     prices_payload = market_data_service.market_api.get_daily_prices(
         symbol_code,
         limit=max(lookback + 10, 45),
@@ -173,6 +206,7 @@ def health_check():
 @stock_blueprint.route("/stock/<symbol>", methods=["GET"])
 def get_stock(symbol):
     """Return stock details and persist the generated analysis run."""
+    symbol = _normalize_symbol_code(symbol)
     is_production = str(current_app.config.get("ENVIRONMENT", "")).lower() == "production"
     lookback = request.args.get(
         "lookback",
@@ -210,7 +244,7 @@ def get_stock(symbol):
                 return jsonify(
                     {
                         "status": "error",
-                        "message": str(error),
+                        "message": _public_market_error_message(error, symbol),
                         "symbol": symbol.upper(),
                         "interval": interval,
                         "lookback": lookback,
@@ -255,7 +289,7 @@ def get_stock(symbol):
         return jsonify(
             {
                 "status": "error",
-                "message": str(error),
+                "message": _public_market_error_message(error, symbol),
                 "symbol": symbol.upper(),
                 "interval": interval,
                 "lookback": lookback,
@@ -265,7 +299,7 @@ def get_stock(symbol):
 
 @stock_blueprint.route("/market-news", methods=["GET"])
 def get_market_news():
-    symbol = request.args.get("symbol", default="", type=str).strip()
+    symbol = _normalize_symbol_code(request.args.get("symbol", default="", type=str).strip())
     limit = request.args.get("limit", default=5, type=int)
 
     market_data_service = _market_data_service()
@@ -282,6 +316,7 @@ def get_market_news():
 
 @stock_blueprint.route("/pro-signal/<symbol>", methods=["POST"])
 def get_pro_signal(symbol):
+    symbol = _normalize_symbol_code(symbol)
     payload = request.get_json(silent=True) or {}
     interval = str(payload.get("interval") or "daily")
     lookback = int(payload.get("lookback") or current_app.config["DEFAULT_LOOKBACK"])
@@ -314,7 +349,7 @@ def get_pro_signal(symbol):
         return jsonify(
             {
                 "status": "error",
-                "message": str(error),
+                "message": _public_market_error_message(error, symbol),
                 "symbol": symbol.upper(),
                 "interval": interval,
                 "lookback": lookback,
