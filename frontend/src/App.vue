@@ -1362,22 +1362,15 @@ const dashboardYAxis = computed(() => buildAxisLabels(dashboardAssetPoints.value
 const dashboardXAxis = lastSixMonths.map((item) => item.label)
 
 const dashboardStats = computed(() => {
-  if (isCryptoMode.value) {
-    return [
-      { label: 'Crypto Watch Value', value: '$2.84T', note: 'Tracked market value across saved digital assets' },
-      { label: 'Stable Reserve', value: formatCurrency(cashBalance.value), note: 'Cash stays shared while crypto research mode is active' },
-      { label: 'Saved Assets', value: String(activeStarredSymbols.value.length), note: 'Crypto favorites pinned to this dashboard' },
-      { label: '24H Bias', value: '+2.68%', note: 'Synthetic crypto board pulse for product preview' }
-    ]
-  }
-
-  const openPositions = holdingsWithMetrics.value.length
+  const savedCount = activeStarredSymbols.value.length
+  const qualifiedCount = sortedWatchlistScanResults.value.length
+  const bestMatch = sortedWatchlistScanResults.value[0]
 
   return [
-    { label: 'Total Managed Assets', value: formatCurrency(totalAssetValue.value), note: 'All saved stock accounts combined' },
-    { label: 'Cash Reserve', value: formatCurrency(cashBalance.value), note: 'Separate dry powder for new trades' },
-    { label: 'Open Positions', value: String(openPositions), note: 'Saved holdings across your accounts' },
-    { label: 'Recent P/L', value: formatSignedCurrency(portfolioSummary.value.totalPnl), note: 'Marked against saved cost basis' }
+    { label: 'Saved Symbols', value: String(savedCount), note: `${isCryptoMode.value ? 'Crypto assets' : 'Stocks'} pinned for batch scanning` },
+    { label: 'Scan Threshold', value: watchlistScanThresholdLabel.value, note: 'Minimum upside probability required to pass' },
+    { label: 'Qualified Matches', value: String(qualifiedCount), note: qualifiedCount ? 'Sorted from highest probability to lowest' : 'Run Scan to generate ranked probabilities' },
+    { label: 'Best Probability', value: bestMatch ? `${bestMatch.probability.toFixed(2)}%` : '--', note: bestMatch ? `${bestMatch.symbol} is currently the strongest match` : 'Waiting for the next scan result' }
   ]
 })
 
@@ -5507,27 +5500,25 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <main v-else-if="activePage === 'Dashboard'" class="product-page">
       <section class="hero-surface compact dashboard-landing">
         <div class="dashboard-balance-panel">
-          <p class="eyebrow">{{ modeLabel }} Dashboard</p>
-          <h1 class="page-title">{{ isCryptoMode ? 'Crypto board and favorites at a glance.' : 'Total assets and watchlist at a glance.' }}</h1>
+          <p class="eyebrow">{{ modeLabel }} Probability Dashboard</p>
+          <h1 class="page-title">{{ isCryptoMode ? 'Crypto probability scan center.' : 'Stock probability scan center.' }}</h1>
           <p class="page-subtitle">
             {{ isCryptoMode
-              ? 'Crypto mode keeps the same workspace structure while separating digital asset watchlists, market pulse, and analysis flow from the stock board.'
-              : 'This is the authenticated home page: a cleaner NoobTrade version of an exchange dashboard, with account value, six-month movement, and fast entry points into your core workflow.' }}
+              ? 'Scan saved crypto assets by probability, rank the strongest setups, and open the dedicated crypto trade workspace for deeper review.'
+              : 'Use your saved watchlist as a probability scanner: set a minimum threshold, run Generate logic, and review only the strongest stock setups.' }}
           </p>
 
           <div class="dashboard-balance-row">
             <div>
-              <span class="dashboard-label">{{ isCryptoMode ? 'Crypto Board Estimate' : 'Total Asset Estimate' }}</span>
-              <strong class="dashboard-balance-value">{{ formatCurrency(totalAssetValue) }}</strong>
+              <span class="dashboard-label">Saved Scan Universe</span>
+              <strong class="dashboard-balance-value">{{ activeStarredSymbols.length }}</strong>
             </div>
-            <span class="dashboard-currency-chip">{{ isCryptoMode ? 'Crypto mode' : 'USD' }}</span>
+            <span class="dashboard-currency-chip">{{ watchlistScanThresholdLabel }} min</span>
           </div>
 
           <div class="dashboard-performance">
-            <span>{{ isCryptoMode ? '24H Board Pulse' : '6M Performance' }}</span>
-            <strong :class="sixMonthPnl >= 0 ? 'positive' : 'negative'">
-              {{ isCryptoMode ? '+2.68%' : `${formatSignedCurrency(sixMonthPnl)} (${formatPercent(sixMonthPnlPercent.toFixed(2))})` }}
-            </strong>
+            <span>Qualified Matches</span>
+            <strong class="positive">{{ sortedWatchlistScanResults.length ? `${sortedWatchlistScanResults.length} passed` : 'Ready to scan' }}</strong>
           </div>
 
           <div class="dashboard-action-row">
@@ -5540,29 +5531,26 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <div class="dashboard-chart-panel">
           <div class="dashboard-chart-copy">
-            <span class="section-chip">{{ isCryptoMode ? 'Crypto Preview Curve' : '6 Month Equity Curve' }}</span>
-            <span class="dashboard-chart-note">{{ isCryptoMode ? 'Digital asset board pulse' : 'Cash + active holdings' }}</span>
+            <span class="section-chip">Probability Workflow</span>
+            <span class="dashboard-chart-note">Star symbols, scan probabilities, then open the strongest setup</span>
           </div>
 
-          <div class="dashboard-mini-chart">
-            <div class="dashboard-chart-grid"></div>
-            <div class="dashboard-axis dashboard-axis-y">
-              <span v-for="label in dashboardYAxis" :key="label">{{ label }}</span>
+          <div class="task-list">
+            <div class="task-row">
+              <strong>1. Build Watchlist</strong>
+              <span>Star names from Explore so Dashboard has a focused scan universe.</span>
+              <small>{{ activeStarredSymbols.length }} saved</small>
             </div>
-            <div class="dashboard-axis dashboard-axis-x">
-              <span v-for="label in dashboardXAxis" :key="label">{{ label }}</span>
+            <div class="task-row">
+              <strong>2. Set Probability</strong>
+              <span>Choose the minimum upside probability you want the Generate logic to pass.</span>
+              <small>{{ watchlistScanThresholdLabel }}</small>
             </div>
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="dashboardFill" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" stop-color="rgba(255, 138, 0, 0.28)" />
-                  <stop offset="100%" stop-color="rgba(255, 138, 0, 0.02)" />
-                </linearGradient>
-              </defs>
-              <path class="dashboard-area" :d="dashboardAreaPath" fill="url(#dashboardFill)" />
-              <path class="dashboard-line-shadow" :d="dashboardAssetPath" />
-              <path class="dashboard-line" :d="dashboardAssetPath" />
-            </svg>
+            <div class="task-row">
+              <strong>3. Review Matches</strong>
+              <span>Generated matches appear ranked by probability, ready to open in Trade.</span>
+              <small>{{ sortedWatchlistScanResults.length }} passed</small>
+            </div>
           </div>
         </div>
       </section>
@@ -5676,14 +5664,24 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <article class="table-surface dashboard-card">
           <div class="table-header">
-            <h2>Recent Activity</h2>
-            <span class="section-chip">{{ isCryptoMode ? 'Shared account' : 'Latest orders' }}</span>
+            <h2>Scan Focus</h2>
+            <span class="section-chip">Probability first</span>
           </div>
-          <div class="activity-list">
-            <div v-for="item in recentTransactions.slice(0, 4)" :key="item.id" class="activity-row">
-              <strong>{{ item.side }} {{ item.symbol }}</strong>
-              <span>{{ item.quantity }} shares</span>
-              <small>{{ item.date }}</small>
+          <div class="task-list">
+            <div class="task-row">
+              <strong>Watchlist In</strong>
+              <span>Only starred {{ isCryptoMode ? 'crypto assets' : 'stocks' }} are scanned from Dashboard.</span>
+              <small>{{ activeStarredSymbols.length }} saved</small>
+            </div>
+            <div class="task-row">
+              <strong>Probability Out</strong>
+              <span>Results are filtered by your minimum upside probability and sorted high to low.</span>
+              <small>{{ watchlistScanThresholdLabel }}</small>
+            </div>
+            <div class="task-row">
+              <strong>Deep Dive</strong>
+              <span>Open a symbol to inspect indicators, chart context, and historical matches.</span>
+              <small>{{ isCryptoMode ? 'Crypto Trade' : 'Stock Trade' }}</small>
             </div>
           </div>
         </article>
