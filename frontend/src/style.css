@@ -53,6 +53,110 @@ select {
   min-height: 100vh;
 }
 
+.app-shell.crypto-mode {
+  --app-bg: #050505;
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-strong: #111111;
+  --surface-soft: #181818;
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.26);
+  --text-main: #f8fafc;
+  --text-soft: #cbd5e1;
+  --text-dim: #94a3b8;
+  --accent: #ffffff;
+  --accent-strong: #ffffff;
+  --accent-soft: rgba(255, 255, 255, 0.12);
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at 15% 0%, rgba(255, 255, 255, 0.16), transparent 25%),
+    linear-gradient(145deg, #050505 0%, #101010 46%, #030303 100%);
+}
+
+.app-shell.crypto-mode .topbar {
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+  background: rgba(5, 5, 5, 0.88);
+}
+
+.app-shell.crypto-mode .topbar-nav,
+.app-shell.crypto-mode .topbar-link.active,
+.app-shell.crypto-mode .topbar-button,
+.app-shell.crypto-mode .chip.active,
+.app-shell.crypto-mode .section-chip {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.app-shell.crypto-mode .topbar-button.secondary,
+.app-shell.crypto-mode .chip,
+.app-shell.crypto-mode .source-pill,
+.app-shell.crypto-mode .dashboard-currency-chip {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .mode-switch-button {
+  background: #ffffff;
+  color: #050505;
+}
+
+.app-shell.crypto-mode .panel,
+.app-shell.crypto-mode .hero-surface,
+.app-shell.crypto-mode .table-surface,
+.app-shell.crypto-mode .market-sidebar,
+.app-shell.crypto-mode .more-card,
+.app-shell.crypto-mode .stat-card,
+.app-shell.crypto-mode .public-hero-panel,
+.app-shell.crypto-mode .public-feature-item,
+.app-shell.crypto-mode .dashboard-mini-card,
+.app-shell.crypto-mode .dashboard-card,
+.app-shell.crypto-mode .activity-row,
+.app-shell.crypto-mode .task-row,
+.app-shell.crypto-mode .news-item,
+.app-shell.crypto-mode .post-item,
+.app-shell.crypto-mode .spotlight-item {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.045));
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28);
+}
+
+.app-shell.crypto-mode .watchlist-scan-bar,
+.app-shell.crypto-mode .percent-input-shell,
+.app-shell.crypto-mode .explore-search-field,
+.app-shell.crypto-mode .voice-panel,
+.app-shell.crypto-mode .auth-field input,
+.app-shell.crypto-mode .portfolio-form-grid input,
+.app-shell.crypto-mode .portfolio-form-grid textarea,
+.app-shell.crypto-mode select {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-main);
+}
+
+.app-shell.crypto-mode input,
+.app-shell.crypto-mode textarea,
+.app-shell.crypto-mode select {
+  color: var(--text-main);
+}
+
+.app-shell.crypto-mode input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.app-shell.crypto-mode .dashboard-line,
+.app-shell.crypto-mode .trend-line,
+.app-shell.crypto-mode .portfolio-line,
+.app-shell.crypto-mode .sparkline-line {
+  stroke: #ffffff;
+}
+
+.app-shell.crypto-mode .dashboard-area {
+  opacity: 0.38;
+}
+
 .topbar {
   position: sticky;
   top: 0;

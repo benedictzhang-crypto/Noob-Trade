@@ -11,6 +11,7 @@ import SearchBar from './components/SearchBar.vue'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
+const APP_MODE_KEY = 'noobtrade_app_mode'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -26,6 +27,8 @@ const uiCopy = {
   en: {
     selectLanguage: 'Select your language',
     signOut: 'Sign out',
+    switchToCrypto: 'Switch to Crypto',
+    switchToStock: 'Switch to Stock',
     installApp: 'Install App',
     pageLabels: {
       Home: 'Home',
@@ -91,6 +94,8 @@ const uiCopy = {
   zh: {
     selectLanguage: '选择语言',
     signOut: '退出登录',
+    switchToCrypto: '切换到 Crypto',
+    switchToStock: '切换到 Stock',
     installApp: '安装应用',
     pageLabels: {
       Home: '首页',
@@ -156,6 +161,8 @@ const uiCopy = {
   es: {
     selectLanguage: 'Selecciona tu idioma',
     signOut: 'Cerrar sesión',
+    switchToCrypto: 'Cambiar a Crypto',
+    switchToStock: 'Cambiar a Stock',
     installApp: 'Instalar app',
     pageLabels: {
       Home: 'Inicio',
@@ -221,6 +228,8 @@ const uiCopy = {
   fr: {
     selectLanguage: 'Choisir la langue',
     signOut: 'Se déconnecter',
+    switchToCrypto: 'Passer à Crypto',
+    switchToStock: 'Passer à Stock',
     installApp: 'Installer',
     pageLabels: {
       Home: 'Accueil',
@@ -494,6 +503,7 @@ const voiceTechnicalErrorPatterns = [
 ]
 
 const activePage = ref('Home')
+const appMode = ref('stock')
 const uiLanguage = ref('en')
 const isAuthenticated = ref(false)
 const symbolInput = ref('AAPL')
@@ -572,9 +582,17 @@ const adminUsers = ref([])
 const adminMessage = ref('')
 const isAdminLoading = ref(false)
 const hasAdminUsersCache = ref(false)
+const isCryptoMode = computed(() => appMode.value === 'crypto')
+const modeSwitchLabel = computed(() => (isCryptoMode.value ? t('switchToStock') : t('switchToCrypto')))
+const modeLabel = computed(() => (isCryptoMode.value ? 'Crypto' : 'Stock'))
 const isTradeWorkspacePage = computed(() => tradeWorkspacePages.includes(activePage.value))
 const activeTradeWorkspaceLabel = computed(() => (activePage.value === 'Crypto Trade' ? 'Crypto Trade' : 'Stock Trade'))
-const activeTradeResponse = computed(() => (activePage.value === 'Crypto Trade' ? cryptoResponse.value : stockResponse.value))
+const activeTradeResponse = computed(() => (
+  activePage.value === 'Crypto Trade' || (isCryptoMode.value && activePage.value !== 'Stock Trade')
+    ? cryptoResponse.value
+    : stockResponse.value
+))
+const activeMarketSymbol = computed(() => (isCryptoMode.value ? cryptoResponse.value?.stock?.symbol || 'BTC' : activeSymbol.value))
 const displayedTradeSymbol = computed(() => activeTradeResponse.value?.stock?.symbol || activeSymbol.value)
 const tradeSearchPlaceholder = computed(() => (
   activePage.value === 'Crypto Trade' ? 'Enter Crypto Ticker (e.g. BTC)' : 'Enter Ticker (e.g. AAPL)'
@@ -621,11 +639,18 @@ const portfolioForm = ref({
 const holdings = ref(createInitialHoldings())
 const transactionHistory = ref(createInitialTransactions())
 
-const marketOverviewCards = [
+const stockMarketOverviewCards = [
   { name: 'S&P 500', level: '5,214.08', change: '+0.42%', tone: 'positive' },
   { name: 'NASDAQ 100', level: '18,102.44', change: '+0.78%', tone: 'positive' },
   { name: 'Dow Jones', level: '39,842.12', change: '+0.19%', tone: 'positive' },
   { name: 'VIX', level: '14.82', change: '-1.14%', tone: 'negative' }
+]
+
+const cryptoMarketOverviewCards = [
+  { name: 'Bitcoin', level: '$103,420', change: '+2.84%', tone: 'positive' },
+  { name: 'Ethereum', level: '$4,920', change: '+2.18%', tone: 'positive' },
+  { name: 'Solana', level: '$224.15', change: '+4.31%', tone: 'positive' },
+  { name: 'Crypto Vol', level: '61.8', change: '-0.74%', tone: 'negative' }
 ]
 
 const lastSixMonths = [
@@ -653,8 +678,9 @@ const publicFeatureRows = [
 ]
 
 const starredSymbols = ref(['AAPL', 'NVDA', 'TSLA', 'SPY'])
+const cryptoStarredSymbols = ref(['BTC', 'ETH', 'SOL', 'OKB'])
 
-const dashboardAnnouncements = [
+const stockDashboardAnnouncements = [
   {
     label: 'Desk note',
     detail: 'Your watchlist is leaning toward large-cap tech leadership and rebound setups this week.',
@@ -664,6 +690,19 @@ const dashboardAnnouncements = [
     label: 'Risk prompt',
     detail: 'Review stop-loss placement on TSLA before increasing exposure in any high-beta name.',
     tag: 'Today'
+  }
+]
+
+const cryptoDashboardAnnouncements = [
+  {
+    label: 'Crypto desk note',
+    detail: 'Your crypto board is focused on liquidity leaders, exchange tokens, and Layer 1 momentum.',
+    tag: '24 / 7'
+  },
+  {
+    label: 'Risk prompt',
+    detail: 'Crypto runs continuously, so size and volatility checks matter before chasing fast candles.',
+    tag: 'Live'
   }
 ]
 
@@ -722,12 +761,20 @@ const reportSections = [
   { name: 'Risk Review', detail: 'Highlight drawdown, concentration, and sizing issues that need attention.' }
 ]
 
-const moreFeatures = [
+const stockMoreFeatures = [
   'Public entry pages for unauthenticated users, including registration and sign-in flow.',
   'Authenticated dashboard with total assets, a six-month curve, and self-selected stock monitoring.',
   'Trade workspace that supports buy or sell decisions with a connected trade ticket.',
   'Explore board for ranked stock scanning before drilling into Trade.',
   'Markets and More pages for market context, product story, and feedback channels.'
+]
+
+const cryptoMoreFeatures = [
+  'Crypto mode keeps the same NoobTrade workflow but frames it around digital assets and 24/7 market structure.',
+  'Dashboard favorites, Explore boards, Markets pulse, and Trade search all switch into crypto context together.',
+  'The current crypto workspace is a product-preview shell for future crypto probability research.',
+  'Black-and-white mode separates crypto research from the orange stock workflow visually.',
+  'Settings, Admin, authentication, and account controls stay shared across both modes.'
 ]
 
 const feedbackChannels = [
@@ -970,11 +1017,23 @@ const visiblePages = computed(() => {
     return publicNavPages
   }
 
+  const modePages = authenticatedPages.filter((page) => {
+    if (page === 'Stock Trade') {
+      return !isCryptoMode.value
+    }
+
+    if (page === 'Crypto Trade') {
+      return isCryptoMode.value
+    }
+
+    return true
+  })
+
   if (currentUser.value?.isAdmin) {
-    return [...authenticatedPages, 'Admin']
+    return [...modePages, 'Admin']
   }
 
-  return authenticatedPages
+  return modePages
 })
 function t(key) {
   return activeCopy.value?.[key] ?? uiCopy.en[key] ?? key
@@ -997,10 +1056,24 @@ const appliedIndicatorSet = computed(() => new Set(
 const appliedIndicators = computed(() => indicators.value
   .filter((indicator) => appliedIndicatorSet.value.has(indicator.name))
   .map((indicator) => ({ ...indicator, active: true })))
-const newsFeed = computed(() => marketNewsFeed.value.length ? marketNewsFeed.value : buildHourlyNewsFeed(activeSymbol.value, feedRefreshKey.value))
+const newsFeed = computed(() => {
+  if (isCryptoMode.value) {
+    return buildHourlyCryptoNewsFeed(activeMarketSymbol.value, feedRefreshKey.value)
+  }
+
+  return marketNewsFeed.value.length ? marketNewsFeed.value : buildHourlyNewsFeed(activeSymbol.value, feedRefreshKey.value)
+})
 const scrollingNewsFeed = computed(() => [...newsFeed.value, ...newsFeed.value])
-const socialFeed = computed(() => buildHourlySocialFeed(activeSymbol.value, feedRefreshKey.value))
+const socialFeed = computed(() => (
+  isCryptoMode.value
+    ? buildHourlyCryptoSocialFeed(activeMarketSymbol.value, feedRefreshKey.value)
+    : buildHourlySocialFeed(activeSymbol.value, feedRefreshKey.value)
+))
 const marketFocusLabel = computed(() => {
+  if (isCryptoMode.value) {
+    return `${activeMarketSymbol.value || 'Crypto'} Crypto`
+  }
+
   if (activeSymbol.value && top50Symbols.includes(activeSymbol.value)) {
     return 'Hot Market'
   }
@@ -1009,7 +1082,16 @@ const marketFocusLabel = computed(() => {
 })
 const currentUserName = computed(() => currentUser.value?.fullName || 'Guest')
 const currentUserCode = computed(() => formatAdminUserCode(currentUser.value?.displayCode ?? currentUser.value?.id))
-const currentExploreRows = computed(() => exploreRankings[currentExploreTab.value] || exploreRankings.Watchlist)
+const marketOverviewCards = computed(() => (isCryptoMode.value ? cryptoMarketOverviewCards : stockMarketOverviewCards))
+const dashboardAnnouncements = computed(() => (isCryptoMode.value ? cryptoDashboardAnnouncements : stockDashboardAnnouncements))
+const moreFeatures = computed(() => (isCryptoMode.value ? cryptoMoreFeatures : stockMoreFeatures))
+const currentExploreRows = computed(() => {
+  if (isCryptoMode.value) {
+    return cryptoExploreRows
+  }
+
+  return exploreRankings[currentExploreTab.value] || exploreRankings.Watchlist
+})
 const allExploreRows = computed(() => {
   const merged = new Map()
 
@@ -1051,6 +1133,10 @@ const fullMarketBoardRows = computed(() => {
   })
 })
 const visibleExploreRows = computed(() => {
+  if (isCryptoMode.value) {
+    return cryptoExploreRows
+  }
+
   if (exploreViewMode.value === 'full') {
     return fullMarketBoardRows.value
   }
@@ -1059,12 +1145,13 @@ const visibleExploreRows = computed(() => {
 })
 const filteredExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
+  const sourceRows = isCryptoMode.value ? cryptoExploreRows : (query ? allExploreRows.value : visibleExploreRows.value)
 
   if (!query) {
-    return visibleExploreRows.value
+    return sourceRows
   }
 
-  return allExploreRows.value.filter((row) => {
+  return sourceRows.filter((row) => {
     const symbol = String(row.symbol || '').toUpperCase()
     const name = String(row.name || '').toUpperCase()
     const category = String(row.category || '').toUpperCase()
@@ -1088,10 +1175,32 @@ const filteredCryptoExploreRows = computed(() => {
 const portfolioSymbols = computed(() => {
   return [...new Set(holdings.value.map((holding) => String(holding.symbol || '').trim().toUpperCase()).filter(Boolean))]
 })
-const starredLookup = computed(() => new Set(starredSymbols.value))
+const activeStarredSymbols = computed(() => (isCryptoMode.value ? cryptoStarredSymbols.value : starredSymbols.value))
+const starredLookup = computed(() => new Set(activeStarredSymbols.value))
 const dashboardWatchlistRows = computed(() => {
-  return starredSymbols.value
+  return activeStarredSymbols.value
     .map((symbol) => {
+      if (isCryptoMode.value) {
+        const cryptoRow = cryptoExploreRows.find((row) => row.symbol === symbol)
+        if (cryptoRow) {
+          return {
+            symbol: cryptoRow.symbol,
+            price: cryptoRow.price,
+            change: cryptoRow.change,
+            tone: cryptoRow.tone,
+            note: cryptoRow.category
+          }
+        }
+
+        return {
+          symbol,
+          price: '--',
+          change: '--',
+          tone: 'neutral',
+          note: 'Saved crypto'
+        }
+      }
+
       const marketRow = allExploreRows.value.find((row) => row.symbol === symbol)
       if (marketRow) {
         return {
@@ -1254,8 +1363,16 @@ const dashboardYAxis = computed(() => buildAxisLabels(dashboardAssetPoints.value
 const dashboardXAxis = lastSixMonths.map((item) => item.label)
 
 const dashboardStats = computed(() => {
+  if (isCryptoMode.value) {
+    return [
+      { label: 'Crypto Watch Value', value: '$2.84T', note: 'Tracked market value across saved digital assets' },
+      { label: 'Stable Reserve', value: formatCurrency(cashBalance.value), note: 'Cash stays shared while crypto research mode is active' },
+      { label: 'Saved Assets', value: String(activeStarredSymbols.value.length), note: 'Crypto favorites pinned to this dashboard' },
+      { label: '24H Bias', value: '+2.68%', note: 'Synthetic crypto board pulse for product preview' }
+    ]
+  }
+
   const openPositions = holdingsWithMetrics.value.length
-  const totalValue = cashBalance.value + portfolioSummary.value.marketValue
 
   return [
     { label: 'Total Managed Assets', value: formatCurrency(totalAssetValue.value), note: 'All saved stock accounts combined' },
@@ -1323,6 +1440,11 @@ onMounted(() => {
     if (languageOptions.some((language) => language.code === savedLanguage)) {
       uiLanguage.value = savedLanguage
     }
+
+    const savedMode = window.localStorage?.getItem(APP_MODE_KEY)
+    if (['stock', 'crypto'].includes(savedMode)) {
+      appMode.value = savedMode
+    }
   }
 
   ensureCsrfToken().catch(() => {})
@@ -1346,7 +1468,7 @@ onMounted(() => {
   window.addEventListener('beforeinstallprompt', beforeInstallHandler)
 })
 
-watch([activeSymbol, feedRefreshKey], () => {
+watch([activeMarketSymbol, feedRefreshKey, appMode], () => {
   loadMarketNews()
 })
 
@@ -1359,6 +1481,12 @@ watch(uiLanguage, (language) => {
 
   if (voiceRecognition.value) {
     voiceRecognition.value.lang = getSpeechLanguage()
+  }
+})
+
+watch(appMode, (mode) => {
+  if (typeof window !== 'undefined') {
+    window.localStorage?.setItem(APP_MODE_KEY, mode)
   }
 })
 
@@ -1461,8 +1589,13 @@ async function triggerInstall() {
 }
 
 async function loadMarketNews() {
+  if (isCryptoMode.value) {
+    marketNewsFeed.value = []
+    return
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/market-news?symbol=${encodeURIComponent(activeSymbol.value)}&limit=5`)
+    const response = await fetch(`${API_BASE_URL}/market-news?symbol=${encodeURIComponent(activeMarketSymbol.value)}&limit=5`)
     const payload = await parseJsonResponse(
       response,
       'The server returned a non-JSON response while loading market news.'
@@ -1474,7 +1607,7 @@ async function loadMarketNews() {
 
     marketNewsFeed.value = Array.isArray(payload.items) ? payload.items : []
   } catch (error) {
-    marketNewsFeed.value = buildHourlyNewsFeed(activeSymbol.value, feedRefreshKey.value)
+    marketNewsFeed.value = buildHourlyNewsFeed(activeMarketSymbol.value, feedRefreshKey.value)
   }
 }
 
@@ -1880,6 +2013,11 @@ function getDefaultAddedMonth() {
 function getTrackedPrice(symbol) {
   if (symbol === stockResponse.value.stock.symbol) {
     return Number(stockResponse.value.stock.currentPrice)
+  }
+
+  const cryptoRow = cryptoExploreRows.find((row) => row.symbol === symbol)
+  if (cryptoRow) {
+    return Number(String(cryptoRow.price || '').replace('$', '').replace(',', ''))
   }
 
   const exploreRow = allExploreRows.value.find((row) => row.symbol === symbol)
@@ -3247,8 +3385,10 @@ function navigateTo(page) {
     errorMessage.value = ''
 
     if (normalizedPage === 'Crypto Trade') {
+      appMode.value = 'crypto'
       symbolInput.value = cryptoResponse.value.stock.symbol
     } else if (normalizedPage === 'Stock Trade') {
+      appMode.value = 'stock'
       symbolInput.value = activeSymbol.value
     }
 
@@ -3259,6 +3399,28 @@ function navigateTo(page) {
     if (normalizedPage === 'Admin' && currentUser.value?.isAdmin) {
       loadAdminUsers({ silent: hasAdminUsersCache.value })
     }
+  }
+}
+
+function switchTradingMode() {
+  const nextMode = isCryptoMode.value ? 'stock' : 'crypto'
+  appMode.value = nextMode
+  errorMessage.value = ''
+  watchlistScanResults.value = []
+  watchlistScanMessage.value = ''
+  watchlistScanScannedAt.value = ''
+
+  if (nextMode === 'crypto') {
+    if (activePage.value === 'Stock Trade') {
+      activePage.value = 'Crypto Trade'
+      symbolInput.value = cryptoResponse.value.stock.symbol
+    }
+    return
+  }
+
+  if (activePage.value === 'Crypto Trade') {
+    activePage.value = 'Stock Trade'
+    symbolInput.value = activeSymbol.value
   }
 }
 
@@ -3335,21 +3497,23 @@ async function scanStarredWatchlist() {
 
   const threshold = normalizeProbabilityThreshold(watchlistScanThreshold.value)
   watchlistScanThreshold.value = threshold
-  const symbols = [...new Set(starredSymbols.value.map((symbol) => String(symbol || '').trim().toUpperCase()).filter(Boolean))]
+  const symbols = [...new Set(activeStarredSymbols.value.map((symbol) => String(symbol || '').trim().toUpperCase()).filter(Boolean))]
 
   if (!symbols.length) {
     watchlistScanResults.value = []
-    watchlistScanMessage.value = 'Star stocks first, then run a scan.'
+    watchlistScanMessage.value = isCryptoMode.value ? 'Star crypto assets first, then run a scan.' : 'Star stocks first, then run a scan.'
     return
   }
 
   isWatchlistScanning.value = true
   watchlistScanResults.value = []
-  watchlistScanMessage.value = `Scanning ${symbols.length} saved stocks with Generate logic...`
+  watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} with Generate logic...`
 
   try {
     const scanResults = await runLimitedTasks(symbols, async (symbol) => {
-      const data = await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+      const data = isCryptoMode.value
+        ? createCryptoWorkspaceResponse(symbol)
+        : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
       const probability = getAnalysisUpsideProbability(data)
       const currentPrice = Number(data?.stock?.currentPrice)
 
@@ -3523,6 +3687,7 @@ function openAnalysis(symbol = activeSymbol.value) {
     return
   }
 
+  appMode.value = 'stock'
   symbolInput.value = symbol
   activePage.value = 'Stock Trade'
 
@@ -3539,9 +3704,19 @@ function openCryptoAnalysis(symbol = cryptoResponse.value.stock.symbol) {
   }
 
   const cleanedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
+  appMode.value = 'crypto'
   cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
   symbolInput.value = cleanedSymbol
   activePage.value = 'Crypto Trade'
+}
+
+function openModeAnalysis(symbol) {
+  if (isCryptoMode.value) {
+    openCryptoAnalysis(symbol)
+    return
+  }
+
+  openAnalysis(symbol)
 }
 
 function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
@@ -3726,8 +3901,56 @@ function buildHourlyNewsFeed(symbol, refreshKey) {
   return [...baseFeed, ...generatedStories].slice(0, 5)
 }
 
+function buildCryptoFocusUniverse(symbol, refreshKey) {
+  const symbols = cryptoExploreRows.map((row) => row.symbol)
+  const normalizedSymbol = String(symbol || '').toUpperCase()
+  const baseIndex = hashSeed(`${normalizedSymbol || 'crypto'}-${refreshKey}`) % symbols.length
+  const pool = normalizedSymbol && symbols.includes(normalizedSymbol) ? [normalizedSymbol] : []
+
+  for (let index = 0; index < symbols.length && pool.length < 5; index += 1) {
+    const candidate = symbols[(baseIndex + index) % symbols.length]
+    if (!pool.includes(candidate)) {
+      pool.push(candidate)
+    }
+  }
+
+  return pool
+}
+
+function buildHourlyCryptoNewsFeed(symbol, refreshKey) {
+  const templates = [
+    '{symbol} liquidity leads the crypto board as traders compare spot demand and funding pressure.',
+    '{symbol} stays in focus while digital asset breadth rotates between majors and exchange tokens.',
+    'Crypto desks watch {symbol} for continuation after the latest volatility reset.',
+    '{symbol} traders are weighing whether momentum can hold without chasing overheated candles.',
+    'Digital asset flows keep attention on {symbol} as 24/7 markets digest macro risk.'
+  ]
+  const summaries = [
+    'This crypto-mode feed is a product preview focused on market structure, liquidity, and volatility context.',
+    'NoobTrade keeps the same workflow while separating digital asset research from the stock board.',
+    'The goal is to surface clean crypto context without mixing it into the stock dashboard.',
+    'Momentum looks constructive, but crypto risk can reset faster than regular-market sessions.',
+    'The board emphasizes leaders first so future crypto probability research has a clear starting point.'
+  ]
+  const seed = hashSeed(`${symbol || 'crypto'}-crypto-news-${refreshKey}`)
+
+  return buildCryptoFocusUniverse(symbol, refreshKey).map((focusSymbol, index) => ({
+    title: templates[(seed + index) % templates.length].replaceAll('{symbol}', focusSymbol),
+    source: ['Crypto Desk', 'On-chain Pulse', 'Digital Assets Wire', 'Macro Crypto'][index % 4],
+    time: `${9 + ((seed + index * 13) % 42)} min ago`,
+    summary: summaries[(seed + index * 2) % summaries.length],
+    href: buildCryptoNewsLink(focusSymbol, templates[(seed + index) % templates.length].replaceAll('{symbol}', focusSymbol)),
+    symbol: focusSymbol
+  }))
+}
+
 function buildGoogleNewsLink(symbol, title) {
   const query = `${symbol} stock news ${title}`
+  return `https://news.google.com/search?q=${encodeURIComponent(query)}`
+}
+
+function buildCryptoNewsLink(symbol, title) {
+  const query = `${symbol} crypto news ${title}`
   return `https://news.google.com/search?q=${encodeURIComponent(query)}`
 }
 
@@ -3748,11 +3971,19 @@ function toggleStarredSymbol(symbol) {
   }
 
   if (isStarredSymbol(cleanedSymbol)) {
-    starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
+    if (isCryptoMode.value) {
+      cryptoStarredSymbols.value = cryptoStarredSymbols.value.filter((item) => item !== cleanedSymbol)
+    } else {
+      starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
+    }
     return
   }
 
-  starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
+  if (isCryptoMode.value) {
+    cryptoStarredSymbols.value = [...cryptoStarredSymbols.value, cleanedSymbol]
+  } else {
+    starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
+  }
 }
 
 function setStarredSymbol(symbol, active = true) {
@@ -3763,11 +3994,19 @@ function setStarredSymbol(symbol, active = true) {
   }
 
   if (active && !isStarredSymbol(cleanedSymbol)) {
-    starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
+    if (isCryptoMode.value) {
+      cryptoStarredSymbols.value = [...cryptoStarredSymbols.value, cleanedSymbol]
+    } else {
+      starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
+    }
   }
 
   if (!active && isStarredSymbol(cleanedSymbol)) {
-    starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
+    if (isCryptoMode.value) {
+      cryptoStarredSymbols.value = cryptoStarredSymbols.value.filter((item) => item !== cleanedSymbol)
+    } else {
+      starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
+    }
   }
 
   return true
@@ -3860,6 +4099,28 @@ function buildHourlySocialFeed(symbol, refreshKey) {
       post: socialPostTemplates[(seed + index * 3) % socialPostTemplates.length].replaceAll('{symbol}', focusSymbol),
       href: buildXSearchLink(focusSymbol, socialPostTemplates[(seed + index * 3) % socialPostTemplates.length].replaceAll('{symbol}', focusSymbol))
     }))
+}
+
+function buildHourlyCryptoSocialFeed(symbol, refreshKey) {
+  const cryptoTemplates = [
+    '{symbol} is acting like the liquidity tell for this crypto rotation.',
+    'Watching {symbol} structure here. Clean continuation matters more than a single green candle.',
+    '{symbol} looks tradable only if volume confirms and the next pullback stays controlled.',
+    'Crypto mode keeps me focused on leaders first. {symbol} is still one of the board names to watch.'
+  ]
+  const seed = hashSeed(`${symbol || 'crypto'}-crypto-social-${refreshKey}`)
+
+  return buildCryptoFocusUniverse(symbol, refreshKey)
+    .slice(0, 4)
+    .map((focusSymbol, index) => {
+      const post = cryptoTemplates[(seed + index * 3) % cryptoTemplates.length].replaceAll('{symbol}', focusSymbol)
+      return {
+        handle: ['@chainflow', '@coinstructure', '@volatilitydesk', '@cryptotape'][index % 4],
+        tone: socialTonePool[(seed + index * 2) % socialTonePool.length],
+        post,
+        href: buildXSearchLink(focusSymbol, post)
+      }
+    })
 }
 
 function buildXSearchLink(symbol, postText) {
@@ -4965,7 +5226,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'crypto-mode': isAuthenticated && isCryptoMode }">
     <header class="topbar">
       <div class="topbar-brand-block">
         <div class="topbar-brand">NoobTrade</div>
@@ -4995,7 +5256,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           {{ t('installApp') }}
         </button>
         <template v-if="isAuthenticated">
-          <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
+          <button class="topbar-button mode-switch-button" @click="switchTradingMode">{{ modeSwitchLabel }}</button>
         </template>
       </div>
     </header>
@@ -5247,25 +5508,26 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <main v-else-if="activePage === 'Dashboard'" class="product-page">
       <section class="hero-surface compact dashboard-landing">
         <div class="dashboard-balance-panel">
-          <p class="eyebrow">Dashboard</p>
-          <h1 class="page-title">Total assets and watchlist at a glance.</h1>
+          <p class="eyebrow">{{ modeLabel }} Dashboard</p>
+          <h1 class="page-title">{{ isCryptoMode ? 'Crypto board and favorites at a glance.' : 'Total assets and watchlist at a glance.' }}</h1>
           <p class="page-subtitle">
-            This is the authenticated home page: a cleaner NoobTrade version of an exchange dashboard, with account value,
-            six-month movement, and fast entry points into your core workflow.
+            {{ isCryptoMode
+              ? 'Crypto mode keeps the same workspace structure while separating digital asset watchlists, market pulse, and analysis flow from the stock board.'
+              : 'This is the authenticated home page: a cleaner NoobTrade version of an exchange dashboard, with account value, six-month movement, and fast entry points into your core workflow.' }}
           </p>
 
           <div class="dashboard-balance-row">
             <div>
-              <span class="dashboard-label">Total Asset Estimate</span>
+              <span class="dashboard-label">{{ isCryptoMode ? 'Crypto Board Estimate' : 'Total Asset Estimate' }}</span>
               <strong class="dashboard-balance-value">{{ formatCurrency(totalAssetValue) }}</strong>
             </div>
-            <span class="dashboard-currency-chip">USD</span>
+            <span class="dashboard-currency-chip">{{ isCryptoMode ? 'Crypto mode' : 'USD' }}</span>
           </div>
 
           <div class="dashboard-performance">
-            <span>6M Performance</span>
+            <span>{{ isCryptoMode ? '24H Board Pulse' : '6M Performance' }}</span>
             <strong :class="sixMonthPnl >= 0 ? 'positive' : 'negative'">
-              {{ formatSignedCurrency(sixMonthPnl) }} ({{ formatPercent(sixMonthPnlPercent.toFixed(2)) }})
+              {{ isCryptoMode ? '+2.68%' : `${formatSignedCurrency(sixMonthPnl)} (${formatPercent(sixMonthPnlPercent.toFixed(2))})` }}
             </strong>
           </div>
 
@@ -5277,8 +5539,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <div class="dashboard-chart-panel">
           <div class="dashboard-chart-copy">
-            <span class="section-chip">6 Month Equity Curve</span>
-            <span class="dashboard-chart-note">Cash + active holdings</span>
+            <span class="section-chip">{{ isCryptoMode ? 'Crypto Preview Curve' : '6 Month Equity Curve' }}</span>
+            <span class="dashboard-chart-note">{{ isCryptoMode ? 'Digital asset board pulse' : 'Cash + active holdings' }}</span>
           </div>
 
           <div class="dashboard-mini-chart">
@@ -5315,12 +5577,12 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="dashboard-grid">
         <article class="table-surface dashboard-card dashboard-card--wide">
           <div class="table-header">
-            <h2>Self-Selected Stocks</h2>
-            <span class="section-chip">{{ starredSymbols.length }} saved</span>
+            <h2>{{ isCryptoMode ? 'Self-Selected Crypto' : 'Self-Selected Stocks' }}</h2>
+            <span class="section-chip">{{ activeStarredSymbols.length }} saved</span>
           </div>
           <form class="watchlist-scan-bar" @submit.prevent="scanStarredWatchlist">
             <label class="watchlist-scan-input">
-              <span>Minimum probability of +1% gain in the next 5 days based on historical patterns</span>
+              <span>{{ isCryptoMode ? 'Minimum crypto upside probability based on preview pattern logic' : 'Minimum probability of +1% gain in the next 5 days based on historical patterns' }}</span>
               <span class="percent-input-shell">
                 <input
                   v-model.number="watchlistScanThreshold"
@@ -5350,14 +5612,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Star</span>
             </div>
             <div v-for="row in dashboardWatchlistRows" :key="row.symbol" class="data-row dashboard-watchlist-row">
-              <button class="watchlist-link explore-symbol-link" @click="openAnalysis(row.symbol)">{{ row.symbol }}</button>
+              <button class="watchlist-link explore-symbol-link" @click="openModeAnalysis(row.symbol)">{{ row.symbol }}</button>
               <span>{{ row.price }}</span>
               <strong :class="row.tone">{{ row.change }}</strong>
               <button
                 type="button"
                 class="star-toggle"
                 :class="{ active: isStarredSymbol(row.symbol) }"
-                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred stocks` : `Star ${row.symbol}`"
+                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred ${isCryptoMode ? 'crypto' : 'stocks'}` : `Star ${row.symbol}`"
                 @click="toggleStarredSymbol(row.symbol)"
               >
                 {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
@@ -5365,7 +5627,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </div>
           </div>
           <div v-else class="empty-state empty-state--compact">
-            Star stocks in Explore and they will appear here as your self-selected list.
+            {{ isCryptoMode ? 'Star crypto assets in Explore and they will appear here.' : 'Star stocks in Explore and they will appear here as your self-selected list.' }}
           </div>
           <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
             <div class="table-header compact">
@@ -5386,7 +5648,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 class="data-row watchlist-scan-row"
               >
                 <span>#{{ index + 1 }}</span>
-                <button class="watchlist-link explore-symbol-link" @click="openAnalysis(result.symbol)">
+                <button class="watchlist-link explore-symbol-link" @click="openModeAnalysis(result.symbol)">
                   {{ result.symbol }}
                 </button>
                 <strong class="positive">{{ result.probability.toFixed(2) }}%</strong>
@@ -5400,7 +5662,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <article class="table-surface dashboard-card">
           <div class="table-header">
             <h2>Desk Notices</h2>
-            <span class="section-chip">Updated today</span>
+            <span class="section-chip">{{ isCryptoMode ? '24 / 7' : 'Updated today' }}</span>
           </div>
           <div class="task-list">
             <div v-for="notice in dashboardAnnouncements" :key="notice.label" class="task-row">
@@ -5414,7 +5676,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <article class="table-surface dashboard-card">
           <div class="table-header">
             <h2>Recent Activity</h2>
-            <span class="section-chip">Latest orders</span>
+            <span class="section-chip">{{ isCryptoMode ? 'Shared account' : 'Latest orders' }}</span>
           </div>
           <div class="activity-list">
             <div v-for="item in recentTransactions.slice(0, 4)" :key="item.id" class="activity-row">
@@ -5536,10 +5798,12 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <main v-else-if="activePage === 'Explore'" class="product-page">
       <section class="hero-surface compact explore-hero">
         <div>
-          <p class="eyebrow">Explore</p>
-          <h1 class="page-title">{{ exploreViewMode === 'full' ? 'Full market board for scrolling the entire list.' : 'Ranked market board for scanning all stocks.' }}</h1>
+          <p class="eyebrow">{{ isCryptoMode ? 'Crypto Explore' : 'Explore' }}</p>
+          <h1 class="page-title">{{ isCryptoMode ? 'Ranked crypto board for digital asset discovery.' : exploreViewMode === 'full' ? 'Full market board for scrolling the entire list.' : 'Ranked market board for scanning all stocks.' }}</h1>
           <p class="page-subtitle">
-            {{ exploreViewMode === 'full'
+            {{ isCryptoMode
+              ? 'This crypto discovery page keeps the same Explore workflow, but the table is focused on Bitcoin, Ethereum, exchange tokens, and Layer 1 assets.'
+              : exploreViewMode === 'full'
               ? 'This full-board mode is built for scrolling through the complete market list in one long page before jumping into Trade.'
               : 'This is the broad market discovery page: rankings, movers, gainers, and volume leaders in one place before you drill into Trade.' }}
           </p>
@@ -5548,14 +5812,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
       <section class="explore-toolbar">
         <label class="explore-search-field">
-          <span>Search stocks</span>
+          <span>{{ isCryptoMode ? 'Search crypto' : 'Search stocks' }}</span>
           <input
             v-model="exploreSearchQuery"
             type="search"
-            placeholder="Search symbol or company"
+            :placeholder="isCryptoMode ? 'Search symbol or asset' : 'Search symbol or company'"
           />
         </label>
-        <div class="table-filters">
+        <div v-if="!isCryptoMode" class="table-filters">
           <button
             v-for="tab in exploreTabs"
             :key="tab"
@@ -5566,7 +5830,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             {{ tab }}
           </button>
         </div>
-        <div class="explore-toolbar-actions">
+        <div v-if="!isCryptoMode" class="explore-toolbar-actions">
           <button
             class="topbar-button secondary"
             @click="exploreViewMode = exploreViewMode === 'full' ? 'ranked' : 'full'"
@@ -5576,11 +5840,11 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
       </section>
 
-      <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' }">
+      <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' || isCryptoMode }">
         <article class="table-surface explore-market-panel">
           <div class="table-header">
-            <h2>Stock</h2>
-            <span class="section-chip">{{ exploreSearchQuery ? 'Search Results' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</span>
+            <h2>{{ isCryptoMode ? 'Crypto' : 'Stock' }}</h2>
+            <span class="section-chip">{{ exploreSearchQuery ? 'Search Results' : isCryptoMode ? 'Ranked Crypto' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</span>
           </div>
 
           <div class="data-table">
@@ -5600,7 +5864,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             >
               <button
                 class="watchlist-link explore-symbol-link"
-                @click="openAnalysis(row.symbol)"
+                @click="openModeAnalysis(row.symbol)"
               >
                 {{ row.symbol }}
               </button>
@@ -5613,7 +5877,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 type="button"
                 class="star-toggle"
                 :class="{ active: isStarredSymbol(row.symbol) }"
-                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred stocks` : `Star ${row.symbol}`"
+                :aria-label="isStarredSymbol(row.symbol) ? `Remove ${row.symbol} from starred ${isCryptoMode ? 'crypto' : 'stocks'}` : `Star ${row.symbol}`"
                 @click="toggleStarredSymbol(row.symbol)"
               >
                 {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
@@ -5622,7 +5886,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
         </article>
 
-        <article v-if="exploreViewMode !== 'full'" class="table-surface explore-market-panel crypto-explore-panel">
+        <article v-if="!isCryptoMode && exploreViewMode !== 'full'" class="table-surface explore-market-panel crypto-explore-panel">
           <div class="table-header">
             <h2>Crypto</h2>
             <span class="section-chip">Ranked</span>
@@ -5940,10 +6204,12 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <main v-else-if="activePage === 'Markets'" class="product-page">
       <section class="hero-surface compact market-hero">
         <div>
-          <p class="eyebrow">Markets</p>
-          <h1 class="page-title">Signal, news, and social pulse</h1>
+          <p class="eyebrow">{{ isCryptoMode ? 'Crypto Markets' : 'Markets' }}</p>
+          <h1 class="page-title">{{ isCryptoMode ? 'Digital asset signal, news, and social pulse' : 'Signal, news, and social pulse' }}</h1>
           <p class="page-subtitle">
-            A market desk for monitoring the tape, reading the story, and tracking what traders are saying around your focus symbol.
+            {{ isCryptoMode
+              ? 'A black-and-white crypto desk for watching 24/7 liquidity, leader rotation, and what digital asset traders are saying around your focus symbol.'
+              : 'A market desk for monitoring the tape, reading the story, and tracking what traders are saying around your focus symbol.' }}
           </p>
         </div>
       </section>
@@ -6015,25 +6281,25 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <article class="table-surface intelligence-card spotlight-card">
           <div class="table-header">
             <h2>Market Spotlight</h2>
-            <span class="section-chip">{{ activeSymbol }}</span>
+            <span class="section-chip">{{ activeMarketSymbol }}</span>
           </div>
 
           <div class="spotlight-grid">
             <div class="spotlight-item">
               <span>Current Price</span>
-              <strong>${{ stockResponse.stock.currentPrice }}</strong>
+              <strong>${{ activeTradeResponse.stock.currentPrice }}</strong>
             </div>
             <div class="spotlight-item">
               <span>52W High</span>
-              <strong>${{ stockResponse.stock.week52High }}</strong>
+              <strong>${{ activeTradeResponse.stock.week52High }}</strong>
             </div>
             <div class="spotlight-item">
               <span>52W Low</span>
-              <strong>${{ stockResponse.stock.week52Low }}</strong>
+              <strong>${{ activeTradeResponse.stock.week52Low }}</strong>
             </div>
             <div class="spotlight-item">
               <span>Probability</span>
-              <strong>{{ stockResponse.patternAnalysis.probabilityOfIncrease }}%</strong>
+              <strong>{{ activeTradeResponse.patternAnalysis.probabilityOfIncrease }}%</strong>
             </div>
           </div>
         </article>
@@ -6227,20 +6493,24 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <main v-else class="product-page">
       <section class="hero-surface compact">
         <div>
-          <p class="eyebrow">More</p>
-          <h1 class="page-title">What NoobTrade is building</h1>
+          <p class="eyebrow">{{ isCryptoMode ? 'Crypto More' : 'More' }}</p>
+          <h1 class="page-title">{{ isCryptoMode ? 'What NoobTrade Crypto mode is preparing' : 'What NoobTrade is building' }}</h1>
           <p class="page-subtitle">
-            A beginner-first stock analysis workspace designed to make pattern-based trading more understandable, structured, and less intimidating.
+            {{ isCryptoMode
+              ? 'A preview of how the same NoobTrade workflow can expand into digital asset research without mixing crypto screens into the stock experience.'
+              : 'A beginner-first stock analysis workspace designed to make pattern-based trading more understandable, structured, and less intimidating.' }}
           </p>
         </div>
       </section>
 
       <section class="more-story-grid">
         <article class="more-card feature-story-card">
-          <p class="eyebrow">About NoobTrade</p>
-          <h2>NoobTrade</h2>
+          <p class="eyebrow">{{ isCryptoMode ? 'About Crypto Mode' : 'About NoobTrade' }}</p>
+          <h2>{{ isCryptoMode ? 'NoobTrade Crypto' : 'NoobTrade' }}</h2>
           <p>
-            NoobTrade turns stock pattern analysis into a cleaner workflow: search a symbol, inspect price structure, compare historical matches, and plan exits before acting.
+            {{ isCryptoMode
+              ? 'Crypto mode keeps the same dashboard, trade, explore, markets, settings, and admin shell, but presents it as a separate black-and-white digital asset workspace.'
+              : 'NoobTrade turns stock pattern analysis into a cleaner workflow: search a symbol, inspect price structure, compare historical matches, and plan exits before acting.' }}
           </p>
         </article>
 
@@ -6281,7 +6551,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Roadmap</p>
           <h2>What comes next</h2>
           <p>
-            The next step is turning NoobTrade into a polished mobile product ready for global release on the Apple App Store and Google Play, with a cleaner onboarding flow, stronger production infrastructure, and a launch-ready experience for first-time traders.
+            {{ isCryptoMode
+              ? 'The next crypto step is replacing preview data with a dedicated crypto probability engine, crypto-native indicators, and a research dataset separate from stock history.'
+              : 'The next step is turning NoobTrade into a polished mobile product ready for global release on the Apple App Store and Google Play, with a cleaner onboarding flow, stronger production infrastructure, and a launch-ready experience for first-time traders.' }}
           </p>
         </article>
       </section>
