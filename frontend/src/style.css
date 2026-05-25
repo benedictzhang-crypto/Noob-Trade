@@ -3644,6 +3644,25 @@ select {
     box-shadow: 0 8px 22px rgba(255, 138, 0, 0.14);
   }
 
+  .app-shell.crypto-mode .mobile-tabbar {
+    border-top-color: rgba(255, 255, 255, 0.12);
+    background: rgba(5, 5, 5, 0.96);
+    box-shadow: 0 -18px 36px rgba(0, 0, 0, 0.34);
+  }
+
+  .app-shell.crypto-mode .mobile-tab {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.72);
+  }
+
+  .app-shell.crypto-mode .mobile-tab.active {
+    border-color: rgba(255, 255, 255, 0.36);
+    background: rgba(255, 255, 255, 0.96);
+    color: #050505;
+    box-shadow: 0 10px 24px rgba(255, 255, 255, 0.12);
+  }
+
   .mobile-tab-label {
     white-space: nowrap;
   }
