@@ -15,7 +15,7 @@ const APP_MODE_KEY = 'noobtrade_app_mode'
 const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
-const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Portfolio', 'Explore', 'Markets', 'Settings', 'More']
+const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Explore', 'Markets', 'Settings', 'More']
 const tradeWorkspacePages = ['Stock Trade', 'Crypto Trade']
 const languageOptions = [
   { code: 'en', label: 'English', voiceLang: 'en-US' },
@@ -300,7 +300,7 @@ const voiceCommandExamples = [
   'Generate AAPL',
   'Scan watchlist 60 percent',
   'Search BTC',
-  'Go to Portfolio'
+  'Open Explore'
 ]
 const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
 const voiceSymbolAliases = {
@@ -416,7 +416,6 @@ const voicePageAliases = [
   { page: 'Crypto Trade', phrases: ['crypto trade', 'crypto', 'crypto analysis', '加密', '加密分析', '虚拟货币', 'cripto', 'criptomonedas', 'crypto monnaie', 'cryptomonnaie'] },
   { page: 'Stock Trade', phrases: ['stock trade', 'stock analysis', 'analysis', 'trade page', 'trade', '股票分析', '股票', 'acciones', 'accion', 'análisis de acciones', 'analyse actions', 'actions'] },
   { page: 'Dashboard', phrases: ['dashboard', 'home dashboard', '仪表盘', '面板', 'panel', 'tableau'] },
-  { page: 'Portfolio', phrases: ['portfolio', 'holdings', '投资组合', '持仓', 'portafolio', 'cartera', 'portefeuille'] },
   { page: 'Explore', phrases: ['explore', 'watchlist', 'explorar', 'explorer', '探索', '自选'] },
   { page: 'Markets', phrases: ['markets', 'market', '市场', 'mercados', 'mercado', 'marches', 'marchés'] },
   { page: 'Settings', phrases: ['settings', 'setting', 'myself', 'profile', 'account', 'configuration', 'configuracion', 'ajustes', 'parametres', 'paramètres', 'reglages', 'réglages', '设置', '账户', '账号', '个人信息'] },
@@ -2456,7 +2455,7 @@ function enableVoiceAssistant() {
     return
   }
 
-  const greeting = 'AI Mode is on. You can talk naturally. Try: Generate AAPL, explain RSI, or open Portfolio.'
+  const greeting = 'AI Mode is on. You can talk naturally. Try: Generate AAPL, explain RSI, or open Explore.'
   setVoiceStatus(greeting, { speak: true })
   scheduleVoiceRestart(900)
 }
@@ -5298,9 +5297,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <span>Scan the market, compare setups, and step into a guided trade workflow.</span>
         </article>
         <article class="stat-card home-feature-card">
-          <p>User Account View</p>
-          <h2>Portfolio View</h2>
-          <span>Track holdings, position value, and your account story after signing in.</span>
+          <p>Saved Market View</p>
+          <h2>Watchlist Scan</h2>
+          <span>Pin favorite symbols, scan probabilities, and move into analysis without an account book.</span>
         </article>
       </section>
     </main>
@@ -5532,7 +5531,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
 
           <div class="dashboard-action-row">
-            <button class="topbar-button" @click="navigateTo('Portfolio')">Open Portfolio</button>
+            <button class="topbar-button" @click="navigateTo(isCryptoMode ? 'Crypto Trade' : 'Stock Trade')">
+              Open {{ isCryptoMode ? 'Crypto Trade' : 'Stock Trade' }}
+            </button>
             <button class="topbar-button secondary" @click="navigateTo('Explore')">Open Explore</button>
           </div>
         </div>
