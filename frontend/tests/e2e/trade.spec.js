@@ -26,7 +26,7 @@ test.describe('Analysis workspace', () => {
   test('runs the main analysis workflow and persists data end-to-end', async ({ page, request }) => {
     await page.goto('/')
 
-    await expect(page.getByText('Noob Trade', { exact: true })).toBeVisible()
+    await expect(page.getByText('NoobTrade', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Home' })).toBeVisible()
 
     await signInAndOpenAnalysis(page)

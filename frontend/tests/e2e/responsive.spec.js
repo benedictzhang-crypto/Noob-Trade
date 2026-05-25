@@ -8,7 +8,7 @@ test.describe('Responsive layout smoke', () => {
   test('keeps Home and Markets usable on a mobile viewport', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByText('Noob Trade', { exact: true })).toBeVisible()
+    await expect(page.getByText('NoobTrade', { exact: true })).toBeVisible()
     await expect(page.getByText('Learn the tape before you risk real money.')).toBeVisible()
     await expect.poll(() => page.evaluate(pageFitsViewport)).toBe(true)
 

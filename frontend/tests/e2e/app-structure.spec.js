@@ -8,7 +8,7 @@ test.describe('Required page structure', () => {
     await expect(page.getByText('Learn the tape before you risk real money.')).toBeVisible()
 
     await page.getByRole('button', { name: 'Register' }).click()
-    await expect(page.getByText('Create your Noob Trade account')).toBeVisible()
+    await expect(page.getByText('Register for NoobTrade')).toBeVisible()
 
     await page.getByRole('navigation').getByRole('button', { name: 'Sign In', exact: true }).click()
     await expect(page.getByText('Sign in to your workspace')).toBeVisible()

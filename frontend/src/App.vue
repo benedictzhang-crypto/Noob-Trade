@@ -1443,7 +1443,7 @@ async function triggerInstall() {
     const result = await deferredInstallPrompt.value.userChoice
 
     if (result?.outcome === 'accepted') {
-      installMessage.value = 'Noob Trade is being added as an app on this device.'
+      installMessage.value = 'NoobTrade is being added as an app on this device.'
     } else {
       installMessage.value = 'Install was dismissed. You can trigger it again any time.'
     }
@@ -2052,7 +2052,7 @@ function initializeVoiceAssistant() {
     const errorName = event?.error || 'voice error'
     if (errorName === 'not-allowed') {
       voiceAssistantEnabled.value = false
-      setVoiceStatus('Microphone permission is blocked. Please allow microphone access for Noob Trade.', { speak: false })
+      setVoiceStatus('Microphone permission is blocked. Please allow microphone access for NoobTrade.', { speak: false })
       return
     }
 
@@ -3150,7 +3150,7 @@ async function handleVoiceCommand(rawTranscript) {
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())
     }))
-    setVoiceStatus('Indicators reset to the default Noob Trade selection.', { speak: true, transcript: rawTranscript })
+    setVoiceStatus('Indicators reset to the default NoobTrade selection.', { speak: true, transcript: rawTranscript })
     return
   }
 
@@ -4284,7 +4284,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())
     }))
-    setVoiceStatus('Indicators reset to the default Noob Trade selection.', { speak: true, transcript: rawTranscript })
+    setVoiceStatus('Indicators reset to the default NoobTrade selection.', { speak: true, transcript: rawTranscript })
     return true
   }
 
@@ -4569,7 +4569,7 @@ async function submitRegistration() {
     currentUser.value = payload.user
     isAuthenticated.value = true
     activePage.value = 'Dashboard'
-    authMessage.value = payload.message || `Welcome to Noob Trade, ${payload.user.fullName}.`
+    authMessage.value = payload.message || `Welcome to NoobTrade, ${payload.user.fullName}.`
   } catch (error) {
     authMessage.value = error.message || 'Could not create your account right now.'
   }
@@ -4968,7 +4968,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
   <div class="app-shell">
     <header class="topbar">
       <div class="topbar-brand-block">
-        <div class="topbar-brand">Noob Trade</div>
+        <div class="topbar-brand">NoobTrade</div>
         <div class="topbar-brand-meta">
           {{ isAuthenticated ? '' : 'Stock analysis platform for new traders' }}
         </div>
@@ -5006,7 +5006,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Public Home</p>
           <h1 class="page-title">Learn the tape before you risk real money.</h1>
           <p class="page-subtitle">
-            Noob Trade gives unauthenticated visitors a clear story: search-driven stock analysis,
+            NoobTrade gives unauthenticated visitors a clear story: search-driven stock analysis,
             guided decision support, and a mock trading workflow that becomes richer after sign-in.
           </p>
           <div class="hero-actions">
@@ -5050,7 +5050,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">User Authentication</p>
           <h1>Sign in to your workspace</h1>
           <p class="page-subtitle">
-            Sign in with your registered email and password to open your Noob Trade dashboard.
+            Sign in with your registered email and password to open your NoobTrade dashboard.
           </p>
 
           <form @submit.prevent="submitSignIn">
@@ -5087,7 +5087,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="auth-shell">
         <article class="auth-card">
           <p class="eyebrow">New User Registration</p>
-          <h1>Register for Noob Trade</h1>
+          <h1>Register for NoobTrade</h1>
           <p class="page-subtitle">
             Register with your email and password. Regular users must verify by email, while the preconfigured admin accounts can sign in directly.
           </p>
@@ -5250,7 +5250,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Dashboard</p>
           <h1 class="page-title">Total assets and watchlist at a glance.</h1>
           <p class="page-subtitle">
-            This is the authenticated home page: a cleaner Noob Trade version of an exchange dashboard, with account value,
+            This is the authenticated home page: a cleaner NoobTrade version of an exchange dashboard, with account value,
             six-month movement, and fast entry points into your core workflow.
           </p>
 
@@ -6228,7 +6228,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       <section class="hero-surface compact">
         <div>
           <p class="eyebrow">More</p>
-          <h1 class="page-title">What Noob Trade is building</h1>
+          <h1 class="page-title">What NoobTrade is building</h1>
           <p class="page-subtitle">
             A beginner-first stock analysis workspace designed to make pattern-based trading more understandable, structured, and less intimidating.
           </p>
@@ -6237,10 +6237,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
       <section class="more-story-grid">
         <article class="more-card feature-story-card">
-          <p class="eyebrow">About Noob Trade</p>
-          <h2>Noob Trade</h2>
+          <p class="eyebrow">About NoobTrade</p>
+          <h2>NoobTrade</h2>
           <p>
-            Noob Trade turns stock pattern analysis into a cleaner workflow: search a symbol, inspect price structure, compare historical matches, and plan exits before acting.
+            NoobTrade turns stock pattern analysis into a cleaner workflow: search a symbol, inspect price structure, compare historical matches, and plan exits before acting.
           </p>
         </article>
 
@@ -6281,7 +6281,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Roadmap</p>
           <h2>What comes next</h2>
           <p>
-            The next step is turning Noob Trade into a polished mobile product ready for global release on the Apple App Store and Google Play, with a cleaner onboarding flow, stronger production infrastructure, and a launch-ready experience for first-time traders.
+            The next step is turning NoobTrade into a polished mobile product ready for global release on the Apple App Store and Google Play, with a cleaner onboarding flow, stronger production infrastructure, and a launch-ready experience for first-time traders.
           </p>
         </article>
       </section>
@@ -6352,7 +6352,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         v-if="voiceAssistantOpen"
         id="voice-assistant-panel"
         class="voice-panel"
-        aria-label="Noob Trade voice assistant"
+        aria-label="NoobTrade voice assistant"
       >
         <div class="voice-panel-header">
           <div>
@@ -6444,9 +6444,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <div v-if="showInstallGuide" class="install-guide-backdrop" @click="showInstallGuide = false">
       <div class="install-guide-card" @click.stop>
         <span class="section-chip">iPhone / iPad</span>
-        <h2>Add Noob Trade to Home Screen</h2>
+        <h2>Add NoobTrade to Home Screen</h2>
         <p>
-          In Safari, tap the Share button, then choose <strong>Add to Home Screen</strong>. After that, Noob Trade
+          In Safari, tap the Share button, then choose <strong>Add to Home Screen</strong>. After that, NoobTrade
           will launch like a standalone app from your device.
         </p>
         <div class="auth-actions">
