@@ -459,6 +459,35 @@ select {
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
 }
 
+.app-shell.crypto-mode .explore-search-field {
+  padding: 12px;
+  border-color: rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.075);
+}
+
+.app-shell.crypto-mode .explore-search-field span {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .explore-search-field input {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.96);
+  color: #050505;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.app-shell.crypto-mode .explore-search-field input::placeholder {
+  color: rgba(5, 5, 5, 0.52);
+}
+
+.app-shell.crypto-mode .explore-search-field input:focus {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
 .app-shell.crypto-mode .chip-danger {
   border-color: rgba(248, 113, 113, 0.32);
   background: rgba(248, 113, 113, 0.12);
