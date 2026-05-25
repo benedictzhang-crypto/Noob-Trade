@@ -389,6 +389,67 @@ select {
   color: #ffffff;
 }
 
+.app-shell.crypto-mode .portfolio-stock-cell strong,
+.app-shell.crypto-mode .portfolio-value-cell strong,
+.app-shell.crypto-mode .portfolio-row span,
+.app-shell.crypto-mode .portfolio-holdings-row > span {
+  color: var(--text-main);
+}
+
+.app-shell.crypto-mode .portfolio-stock-cell small,
+.app-shell.crypto-mode .portfolio-value-cell small {
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .portfolio-sparkline-card,
+.app-shell.crypto-mode .portfolio-sparkline-card--muted {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.045));
+}
+
+.app-shell.crypto-mode .portfolio-sparkline-card small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.app-shell.crypto-mode .portfolio-sparkline-grid {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.app-shell.crypto-mode .portfolio-sparkline-line {
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.28));
+}
+
+.app-shell.crypto-mode .portfolio-adjust-input {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .portfolio-adjust-input:focus {
+  border-color: rgba(255, 255, 255, 0.34);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.12);
+}
+
+.app-shell.crypto-mode .chip-danger {
+  border-color: rgba(248, 113, 113, 0.32);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.app-shell.crypto-mode .chip-confirm {
+  border-color: rgba(134, 239, 172, 0.32);
+  background: rgba(34, 197, 94, 0.13);
+  color: #86efac;
+}
+
+.app-shell.crypto-mode .chip-muted {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.72);
+}
+
 .topbar {
   position: sticky;
   top: 0;
