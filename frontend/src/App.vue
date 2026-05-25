@@ -5840,7 +5840,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
       </section>
 
-      <section class="explore-layout" :class="{ 'explore-layout--full': exploreViewMode === 'full' || isCryptoMode }">
+      <section class="explore-layout explore-layout--full">
         <article class="table-surface explore-market-panel">
           <div class="table-header">
             <h2>{{ isCryptoMode ? 'Crypto' : 'Stock' }}</h2>
@@ -5882,41 +5882,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               >
                 {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
               </button>
-            </div>
-          </div>
-        </article>
-
-        <article v-if="!isCryptoMode && exploreViewMode !== 'full'" class="table-surface explore-market-panel crypto-explore-panel">
-          <div class="table-header">
-            <h2>Crypto</h2>
-            <span class="section-chip">Ranked</span>
-          </div>
-
-          <div class="data-table">
-            <div class="data-row data-head explore-head crypto-explore-head">
-              <span>Symbol</span>
-              <span>Name</span>
-              <span>Category</span>
-              <span>Price</span>
-              <span>Market Value</span>
-              <span>1D</span>
-            </div>
-            <div
-              v-for="row in filteredCryptoExploreRows"
-              :key="`crypto-${row.symbol}`"
-              class="data-row explore-row crypto-explore-row"
-            >
-              <button
-                class="watchlist-link explore-symbol-link"
-                @click="openCryptoAnalysis(row.symbol)"
-              >
-                {{ row.symbol }}
-              </button>
-              <span>{{ row.name }}</span>
-              <span>{{ row.category }}</span>
-              <span>{{ row.price }}</span>
-              <span>{{ row.notional }}</span>
-              <strong :class="row.tone">{{ row.change }}</strong>
             </div>
           </div>
         </article>
