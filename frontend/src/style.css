@@ -150,11 +150,38 @@ select {
 .app-shell.crypto-mode .trend-line,
 .app-shell.crypto-mode .portfolio-line,
 .app-shell.crypto-mode .sparkline-line {
-  stroke: #ffffff;
+  stroke: #f8fafc;
 }
 
 .app-shell.crypto-mode .dashboard-area {
-  opacity: 0.38;
+  fill: rgba(255, 255, 255, 0.13);
+  opacity: 0.7;
+}
+
+.app-shell.crypto-mode .dashboard-mini-chart {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.11), transparent 32%),
+    linear-gradient(180deg, rgba(14, 14, 14, 0.96), rgba(3, 3, 3, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.app-shell.crypto-mode .dashboard-chart-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+
+.app-shell.crypto-mode .dashboard-axis {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.app-shell.crypto-mode .dashboard-line-shadow {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.app-shell.crypto-mode .dashboard-line {
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.28));
 }
 
 .app-shell.crypto-mode .data-table {
