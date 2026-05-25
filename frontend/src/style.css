@@ -350,6 +350,45 @@ select {
   stroke: #5eead4;
 }
 
+.app-shell.crypto-mode .indicator-row {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .indicator-row:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .indicator-row.active {
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.96);
+  color: #050505;
+}
+
+.app-shell.crypto-mode .indicator-row:focus,
+.app-shell.crypto-mode .indicator-row:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.16);
+}
+
+.app-shell.crypto-mode .indicator-name {
+  color: inherit;
+}
+
+.app-shell.crypto-mode .check-box {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .indicator-row.active .check-box {
+  border-color: #050505;
+  background: #050505;
+  color: #ffffff;
+}
+
 .topbar {
   position: sticky;
   top: 0;
