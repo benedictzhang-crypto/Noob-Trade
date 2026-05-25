@@ -190,6 +190,166 @@ select {
   color: #ffd166;
 }
 
+.app-shell.crypto-mode .source-banner,
+.app-shell.crypto-mode .source-banner--live,
+.app-shell.crypto-mode .source-banner--mock,
+.app-shell.crypto-mode .market-card,
+.app-shell.crypto-mode .inner-card,
+.app-shell.crypto-mode .suggestion-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.04));
+  color: var(--text-main);
+}
+
+.app-shell.crypto-mode .source-banner-label,
+.app-shell.crypto-mode .source-banner small,
+.app-shell.crypto-mode .section-header,
+.app-shell.crypto-mode .chart-meta,
+.app-shell.crypto-mode .stock-overview,
+.app-shell.crypto-mode .ohlc-bar,
+.app-shell.crypto-mode .chart-interaction-hint {
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .source-banner strong,
+.app-shell.crypto-mode .chart-meta strong,
+.app-shell.crypto-mode .stock-overview span:first-child {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .section-header,
+.app-shell.crypto-mode .section-header.light {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.app-shell.crypto-mode .market-stack-card,
+.app-shell.crypto-mode .indicator-metric-card,
+.app-shell.crypto-mode .indicator-subchart-card {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.075);
+  color: var(--text-main);
+}
+
+.app-shell.crypto-mode .market-stack-name,
+.app-shell.crypto-mode .market-stack-card small,
+.app-shell.crypto-mode .indicator-metric-card span,
+.app-shell.crypto-mode .indicator-metric-card small,
+.app-shell.crypto-mode .indicator-subchart-header span {
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .interval-button,
+.app-shell.crypto-mode .chart-toolbar-button,
+.app-shell.crypto-mode .legend-chip {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-soft);
+  box-shadow: none;
+}
+
+.app-shell.crypto-mode .interval-button.active,
+.app-shell.crypto-mode .legend-chip.price {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.96);
+  color: #050505;
+}
+
+.app-shell.crypto-mode .legend-chip.indicator,
+.app-shell.crypto-mode .legend-chip.macd {
+  background: rgba(148, 163, 184, 0.16);
+  color: #e5e7eb;
+}
+
+.app-shell.crypto-mode .legend-chip.histogram {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+}
+
+.app-shell.crypto-mode .legend-chip.signal {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fca5a5;
+}
+
+.app-shell.crypto-mode .chart-placeholder,
+.app-shell.crypto-mode .indicator-stack-panel,
+.app-shell.crypto-mode .indicator-stack-canvas {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(12, 12, 12, 0.98), rgba(3, 3, 3, 0.98));
+}
+
+.app-shell.crypto-mode .grid-overlay,
+.app-shell.crypto-mode .indicator-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+
+.app-shell.crypto-mode .chart-grid-line,
+.app-shell.crypto-mode .indicator-guide-line {
+  stroke: rgba(255, 255, 255, 0.13);
+}
+
+.app-shell.crypto-mode .chart-grid-line--vertical {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.app-shell.crypto-mode .price-label,
+.app-shell.crypto-mode .indicator-axis-right,
+.app-shell.crypto-mode .shared-time-axis {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.app-shell.crypto-mode .indicator-stack-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .indicator-stack-header strong {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .shared-time-axis {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent);
+}
+
+.app-shell.crypto-mode .price-line-overlay.ma,
+.app-shell.crypto-mode .indicator-line.kdj-k,
+.app-shell.crypto-mode .indicator-line.signal {
+  stroke: #fbbf24;
+}
+
+.app-shell.crypto-mode .price-line-overlay.ema,
+.app-shell.crypto-mode .indicator-line.pbv {
+  stroke: #c4b5fd;
+}
+
+.app-shell.crypto-mode .price-line-overlay.boll,
+.app-shell.crypto-mode .indicator-line.rsi,
+.app-shell.crypto-mode .indicator-line.macd {
+  stroke: #93c5fd;
+}
+
+.app-shell.crypto-mode .price-line-overlay.boll-mid {
+  stroke: #e5e7eb;
+}
+
+.app-shell.crypto-mode .indicator-line.kdj-d {
+  stroke: #f9a8d4;
+}
+
+.app-shell.crypto-mode .indicator-line.kdj-j {
+  stroke: #67e8f9;
+}
+
+.app-shell.crypto-mode .indicator-line.oi {
+  stroke: #5eead4;
+}
+
 .topbar {
   position: sticky;
   top: 0;
