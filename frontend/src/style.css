@@ -488,6 +488,47 @@ select {
     inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
+.app-shell.crypto-mode .symbol-input,
+.app-shell.crypto-mode .lookback-select {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.96);
+  color: #050505;
+}
+
+.app-shell.crypto-mode .symbol-input::placeholder {
+  color: rgba(5, 5, 5, 0.52);
+}
+
+.app-shell.crypto-mode .symbol-input:focus,
+.app-shell.crypto-mode .lookback-select:focus {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.app-shell.crypto-mode .search-button,
+.app-shell.crypto-mode .analysis-button,
+.app-shell.crypto-mode .buy-button {
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: #ffffff;
+  color: #050505;
+  box-shadow: 0 12px 26px rgba(255, 255, 255, 0.1);
+}
+
+.app-shell.crypto-mode .search-button:disabled,
+.app-shell.crypto-mode .analysis-button:disabled {
+  color: rgba(5, 5, 5, 0.62);
+}
+
+.app-shell.crypto-mode .popular-row {
+  color: var(--text-soft);
+}
+
+.app-shell.crypto-mode .popular-link {
+  color: #ffffff;
+}
+
 .app-shell.crypto-mode .chip-danger {
   border-color: rgba(248, 113, 113, 0.32);
   background: rgba(248, 113, 113, 0.12);
