@@ -465,8 +465,12 @@ def create_app():
         if str(app.config.get("ENVIRONMENT", "")).lower() == "production":
             raise RuntimeError(postgres_error)
 
-    # Allow requests from the local frontend during development.
-    CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
+    # Allow browser apps on the configured origin whitelist to call the API.
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}},
+        supports_credentials=True,
+    )
     db.init_app(app)
 
     app.register_blueprint(stock_blueprint)

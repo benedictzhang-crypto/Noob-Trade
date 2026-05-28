@@ -1955,6 +1955,13 @@ select {
   stroke-width: 0.18;
 }
 
+.chart-hover-line {
+  stroke: rgba(15, 23, 42, 0.46);
+  stroke-width: 0.34;
+  stroke-dasharray: 2.2 2.2;
+  pointer-events: none;
+}
+
 .indicator-stack-panel {
   position: relative;
   margin: 0 14px;
@@ -2099,6 +2106,28 @@ select {
 
 .shared-time-axis span:last-child {
   text-align: right;
+}
+
+.hover-time-readout {
+  margin: 8px 14px 0;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 138, 0, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-align: center;
+}
+
+.hover-time-readout.active {
+  color: var(--text-main);
+  background: rgba(255, 247, 240, 0.98);
+  border-color: rgba(255, 138, 0, 0.28);
 }
 
 .candlestick-area {

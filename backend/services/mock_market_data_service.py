@@ -1,6 +1,11 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 VISIBLE_INTERVAL_BARS = {
+    "1min": 390,
+    "5min": 390,
+    "15min": 260,
+    "30min": 220,
+    "1hour": 220,
     "daily": 3200,
     "5day": 700,
     "weekly": 700,
@@ -115,6 +120,37 @@ def build_mock_monthly_candles():
     return build_mock_monthly_candles_from_daily(build_mock_daily_candles("MOCK"))[-24:]
 
 
+def build_mock_intraday_candles(symbol, interval_minutes, bars):
+    """Return deterministic intraday candles for demo chart intervals."""
+    daily_candles = build_mock_daily_candles(symbol)
+    anchor = daily_candles[-1]
+    session_start = datetime.combine(date(2026, 5, 22), datetime.strptime("09:30", "%H:%M").time())
+    close_price = anchor["close"] * 0.985
+    candles = []
+
+    for index in range(bars):
+        timestamp = session_start + timedelta(minutes=index * interval_minutes)
+        wave = ((index % 11) - 5) * 0.018
+        trend = (index / max(bars, 1)) * (anchor["close"] * 0.018)
+        open_price = close_price
+        close_price = max(1, open_price + wave + trend / max(bars, 1))
+        high_price = max(open_price, close_price) + 0.04 + (index % 3) * 0.012
+        low_price = min(open_price, close_price) - 0.04 - (index % 2) * 0.01
+
+        candles.append(
+            {
+                "date": timestamp.isoformat(),
+                "open": round(open_price, 2),
+                "high": round(high_price, 2),
+                "low": round(low_price, 2),
+                "close": round(close_price, 2),
+                "volume": int(12000 + ((index * 947) % 33000)),
+            }
+        )
+
+    return candles
+
+
 def build_mock_interval_series():
     """Return chart series for several trading intervals."""
     daily_candles = build_mock_daily_candles("MOCK")
@@ -123,6 +159,11 @@ def build_mock_interval_series():
     monthly = build_mock_monthly_candles()
 
     return {
+        "1min": build_mock_intraday_candles("MOCK", 1, VISIBLE_INTERVAL_BARS["1min"]),
+        "5min": build_mock_intraday_candles("MOCK", 5, VISIBLE_INTERVAL_BARS["5min"]),
+        "15min": build_mock_intraday_candles("MOCK", 15, VISIBLE_INTERVAL_BARS["15min"]),
+        "30min": build_mock_intraday_candles("MOCK", 30, VISIBLE_INTERVAL_BARS["30min"]),
+        "1hour": build_mock_intraday_candles("MOCK", 60, VISIBLE_INTERVAL_BARS["1hour"]),
         "daily": daily_candles[-VISIBLE_INTERVAL_BARS["daily"]:],
         "5day": weekly_like[-VISIBLE_INTERVAL_BARS["5day"]:],
         "weekly": weekly_like[-VISIBLE_INTERVAL_BARS["weekly"]:],

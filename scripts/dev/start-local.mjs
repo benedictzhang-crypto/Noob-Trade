@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import net from 'node:net'
 
-const projectRoot = '/Users/benedict/Desktop/NoobTrade'
+const projectRoot = '/Users/benedict/Desktop/Noob-Trade'
 const backendDir = path.join(projectRoot, 'backend')
 const frontendDir = path.join(projectRoot, 'frontend')
 const runtimeDir = path.join(projectRoot, '.runtime', 'local-dev')
@@ -127,6 +127,15 @@ async function waitFor(checkFn, timeoutMs) {
 }
 
 function spawnBackend(port, frontendPort) {
+  const corsOrigins = [
+    `http://127.0.0.1:${frontendPort}`,
+    `http://localhost:${frontendPort}`,
+    'http://127.0.0.1:3000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://localhost:5173'
+  ]
+
   const child = spawn(backendPython, ['app.py'], {
     cwd: backendDir,
     env: {
@@ -135,7 +144,7 @@ function spawnBackend(port, frontendPort) {
       HOST: '127.0.0.1',
       FLASK_USE_RELOADER: 'false',
       APP_BASE_URL: `http://127.0.0.1:${frontendPort}`,
-      CORS_ORIGINS: `http://127.0.0.1:${frontendPort},http://localhost:${frontendPort}`,
+      CORS_ORIGINS: corsOrigins.join(','),
       SESSION_COOKIE_SECURE: 'false'
     },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -162,6 +171,10 @@ function spawnFrontend(frontendPort, backendPort) {
 }
 
 function openBrowser(url) {
+  if (process.env.NO_OPEN === 'true') {
+    return
+  }
+
   const child = spawn('open', [url], {
     detached: true,
     stdio: 'ignore'

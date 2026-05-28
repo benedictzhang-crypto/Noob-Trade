@@ -12,7 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
-const chartIntervals = ['daily', '5day', 'weekly', '2week', 'monthly']
+const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
 const authenticatedPages = ['Dashboard', 'Stock Trade', 'Crypto Trade', 'Explore', 'Markets', 'Settings', 'More']
@@ -423,6 +423,11 @@ const voicePageAliases = [
   { page: 'Admin', phrases: ['admin', 'admin page', '后台', '管理员'] }
 ]
 const voiceIntervalAliases = [
+  { interval: '1min', phrases: ['1 minute', 'one minute', 'one min', '1 min'] },
+  { interval: '5min', phrases: ['5 minute', 'five minute', '5 min', 'five min'] },
+  { interval: '15min', phrases: ['15 minute', 'fifteen minute', '15 min', 'fifteen min'] },
+  { interval: '30min', phrases: ['30 minute', 'thirty minute', '30 min', 'thirty min'] },
+  { interval: '1hour', phrases: ['hourly', 'one hour', '1 hour', '60 minute'] },
   { interval: 'daily', phrases: ['daily', 'day chart', 'one day'] },
   { interval: '5day', phrases: ['five day', '5 day', 'five days', '5 days'] },
   { interval: 'weekly', phrases: ['weekly', 'week chart', 'one week'] },
@@ -1255,6 +1260,8 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
+  const providerLabel = activeTradeResponse.value.marketDataProvider || ''
+
   if (activeTradeResponse.value.dataSource === 'crypto-mock') {
     return {
       label: 'Crypto Preview',
@@ -1266,7 +1273,7 @@ const dataSourceMeta = computed(() => {
   if (activeTradeResponse.value.dataSource === 'live') {
     return {
       label: 'Live API',
-      description: 'Connected market feed',
+      description: providerLabel || 'Connected market feed',
       tone: 'live'
     }
   }
@@ -1274,8 +1281,16 @@ const dataSourceMeta = computed(() => {
   if (activeTradeResponse.value.dataSource === 'cached') {
     return {
       label: 'Live API',
-      description: 'Connected market feed',
+      description: providerLabel || 'Connected market feed',
       tone: 'live'
+    }
+  }
+
+  if (activeTradeResponse.value.dataSource === 'demo') {
+    return {
+      label: 'Demo Replay',
+      description: providerLabel || 'Cached replay feed',
+      tone: 'mock'
     }
   }
 
@@ -3720,12 +3735,23 @@ function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
   ].join('|')
 }
 
+function hasChartSeries(response, interval) {
+  const candles = response?.chartData?.series?.[interval]
+  return Array.isArray(candles) && candles.length > 0
+}
+
 async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode)
 
-  if (analysisCache.value[cacheKey]) {
-    return analysisCache.value[cacheKey]
+  const cachedAnalysis = analysisCache.value[cacheKey]
+  if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+    return cachedAnalysis
+  }
+
+  if (cachedAnalysis) {
+    const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
+    analysisCache.value = freshCache
   }
 
   const query = new URLSearchParams({
@@ -3828,6 +3854,30 @@ async function runSearch(source = 'search') {
     } else {
       isSearching.value = false
     }
+  }
+}
+
+async function handleChartIntervalChange(interval) {
+  selectedChartInterval.value = interval
+
+  if (activePage.value === 'Crypto Trade') {
+    return
+  }
+
+  const symbol = stockResponse.value?.stock?.symbol
+  const availableSeries = stockResponse.value?.chartData?.series || {}
+
+  if (!symbol || availableSeries[interval]?.length) {
+    return
+  }
+
+  try {
+    const data = await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+    stockResponse.value = data
+    activeSymbol.value = data.stock.symbol
+    symbolInput.value = data.stock.symbol
+  } catch (error) {
+    errorMessage.value = getReadableMarketDataError(error?.message, symbol)
   }
 }
 
@@ -5755,7 +5805,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :industry="activeTradeResponse.stock.industry"
           :selected-interval="selectedChartInterval"
           :sector="activeTradeResponse.stock.sector"
-          @update:selected-interval="selectedChartInterval = $event"
+          @update:selected-interval="handleChartIntervalChange"
         />
 
         <IndicatorSelector

@@ -16,6 +16,26 @@ services:
         value: "false"
       - key: SECRET_KEY
         generateValue: true
+      - key: MARKET_DATA_PROVIDER
+        value: auto
+      - key: MARKET_DATA_CACHE_TTL_SECONDS
+        value: "90"
+      - key: MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS
+        value: "20"
+      - key: MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS
+        value: "900"
+      - key: YAHOO_DATA_BASE_URL
+        value: https://query1.finance.yahoo.com
+      - key: ALPACA_DATA_FEED
+        value: iex
+      - key: ENABLE_DEMO_FALLBACK
+        value: "true"
+      - key: EXTERNAL_APP_CORS_ORIGINS
+        sync: false
+      - key: ALPACA_API_KEY
+        sync: false
+      - key: ALPACA_API_SECRET
+        sync: false
       - key: MARKET_DATA_TOKEN
         sync: false
       - key: DATABASE_URL

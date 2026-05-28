@@ -43,6 +43,11 @@ const PRICE_RIGHT = 96
 const PRICE_TOP = 5
 const PRICE_BOTTOM = 92
 const DEFAULT_VISIBLE_BARS = {
+  '1min': 90,
+  '5min': 90,
+  '15min': 80,
+  '30min': 70,
+  '1hour': 60,
   daily: 30,
   '5day': 30,
   weekly: 30,
@@ -50,6 +55,11 @@ const DEFAULT_VISIBLE_BARS = {
   monthly: 30
 }
 const MIN_VISIBLE_BARS = {
+  '1min': 30,
+  '5min': 30,
+  '15min': 24,
+  '30min': 20,
+  '1hour': 16,
   daily: 10,
   '5day': 10,
   weekly: 10,
@@ -57,6 +67,11 @@ const MIN_VISIBLE_BARS = {
   monthly: 6
 }
 const MAX_VISIBLE_BARS = {
+  '1min': 390,
+  '5min': 390,
+  '15min': 260,
+  '30min': 220,
+  '1hour': 220,
   daily: 260,
   '5day': 220,
   weekly: 220,
@@ -65,16 +80,36 @@ const MAX_VISIBLE_BARS = {
 }
 
 const stackedIndicatorNames = ['Vol', 'RSI', 'KDJ', 'MACD', 'OBV', 'OI']
+const primaryIntervalOptions = ['1min', '5min', '15min', '30min', '1hour']
+const intradayIntervalMinutes = {
+  '1min': 1,
+  '5min': 5,
+  '15min': 15,
+  '30min': 30,
+  '1hour': 60
+}
 
 const chartViewportRef = ref(null)
 const visibleBarCount = ref(60)
 const viewStartIndex = ref(0)
 const isDragging = ref(false)
+const hoveredBarIndex = ref(null)
 const dragState = ref({ startX: 0, startIndex: 0, width: 1 })
 
 const fullCandles = computed(() => {
   const series = props.chartData?.series || {}
   return series[props.selectedInterval] || []
+})
+
+const chartIntervalOptions = computed(() => {
+  const seen = new Set()
+  return [...primaryIntervalOptions, ...props.chartIntervals].filter((interval) => {
+    if (!interval || seen.has(interval)) {
+      return false
+    }
+    seen.add(interval)
+    return true
+  })
 })
 
 watch(
@@ -107,6 +142,30 @@ const isDenseView = computed(() => visibleDensity.value >= 120)
 const isVeryDenseView = computed(() => visibleDensity.value >= 200)
 
 const latestCandle = computed(() => activeCandles.value[activeCandles.value.length - 1] || null)
+const hoveredCandle = computed(() => {
+  if (hoveredBarIndex.value === null) {
+    return null
+  }
+
+  return activeCandles.value[hoveredBarIndex.value] || null
+})
+const displayCandle = computed(() => hoveredCandle.value || latestCandle.value)
+const hoverX = computed(() => {
+  if (hoveredBarIndex.value === null || !activeCandles.value.length) {
+    return null
+  }
+
+  return toChartX(hoveredBarIndex.value, activeCandles.value.length)
+})
+const hoverTimeLabel = computed(() => {
+  const candle = hoveredCandle.value
+
+  if (!candle) {
+    return `${formatIntervalLabel(props.selectedInterval)}: hover a candle to read its exact timestamp`
+  }
+
+  return buildHoverTimeLabel(candle.date, props.selectedInterval)
+})
 
 const xTicks = computed(() => {
   const candles = activeCandles.value
@@ -454,6 +513,31 @@ function handlePointerMove(event) {
     0,
     Math.max(total - visibleBarCount.value, 0)
   )
+}
+
+function handleChartHover(event) {
+  const candles = activeCandles.value
+
+  if (!candles.length || !chartViewportRef.value) {
+    hoveredBarIndex.value = null
+    return
+  }
+
+  const rect = chartViewportRef.value.getBoundingClientRect()
+  const svgLeft = 12
+  const svgRight = 48
+  const svgWidth = Math.max(rect.width - svgLeft - svgRight, 1)
+  const svgX = ((event.clientX - rect.left - svgLeft) / svgWidth) * 100
+  const ratio = clamp((svgX - PRICE_LEFT) / (PRICE_RIGHT - PRICE_LEFT), 0, 1)
+  hoveredBarIndex.value = clamp(
+    Math.round(ratio * (candles.length - 1)),
+    0,
+    candles.length - 1
+  )
+}
+
+function clearChartHover() {
+  hoveredBarIndex.value = null
 }
 
 function stopDragging() {
@@ -841,6 +925,11 @@ function lastValid(values) {
 
 function formatIntervalLabel(interval) {
   const labels = {
+    '1min': '1 Min',
+    '5min': '5 Min',
+    '15min': '15 Min',
+    '30min': '30 Min',
+    '1hour': '1 Hour',
     daily: 'Daily',
     '5day': '5 Days',
     weekly: 'Weekly',
@@ -901,6 +990,17 @@ function formatDateLabel(rawDate) {
     })
   }
 
+  if (/^\d{4}-\d{2}-\d{2}T/.test(rawDate)) {
+    const date = new Date(rawDate)
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/New_York'
+      })
+    }
+  }
+
   if (/^\d{4}-\d{2}$/.test(rawDate)) {
     const date = new Date(`${rawDate}-01T12:00:00`)
     return date.toLocaleDateString('en-US', {
@@ -910,6 +1010,75 @@ function formatDateLabel(rawDate) {
   }
 
   return rawDate
+}
+
+function formatHoverDate(date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'America/New_York'
+  })
+}
+
+function formatHoverMonth(rawDate) {
+  const monthText = String(rawDate || '').slice(0, 7)
+
+  if (!/^\d{4}-\d{2}$/.test(monthText)) {
+    return rawDate || 'Unknown month'
+  }
+
+  const date = new Date(`${monthText}-01T12:00:00`)
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/New_York'
+  })
+}
+
+function formatHoverTime(date) {
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/New_York'
+  })
+}
+
+function parseCandleDate(rawDate) {
+  if (!rawDate) {
+    return null
+  }
+
+  const parsed = new Date(rawDate)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function buildHoverTimeLabel(rawDate, interval) {
+  const intervalLabel = formatIntervalLabel(interval)
+
+  if (intradayIntervalMinutes[interval]) {
+    const startDate = parseCandleDate(rawDate)
+
+    if (!startDate) {
+      return `${intervalLabel} bar - ${rawDate}`
+    }
+
+    const endDate = new Date(startDate.getTime() + (intradayIntervalMinutes[interval] * 60 * 1000))
+    return `${intervalLabel} bar - ${formatHoverDate(startDate)} - ${formatHoverTime(startDate)} to ${formatHoverTime(endDate)} ET`
+  }
+
+  if (interval === 'monthly') {
+    return `${intervalLabel} bar - ${formatHoverMonth(rawDate)}`
+  }
+
+  const parsedDate = parseCandleDate(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T12:00:00` : rawDate)
+  const dateLabel = parsedDate ? formatHoverDate(parsedDate) : rawDate
+
+  if (interval === 'daily') {
+    return `${intervalLabel} bar - ${dateLabel}`
+  }
+
+  return `${intervalLabel} bar ending ${dateLabel}`
 }
 
 function getPriceOverlayStrokeWidth(className) {
@@ -995,7 +1164,7 @@ function getBarOpacity() {
 
       <div class="interval-toggle">
         <button
-          v-for="interval in chartIntervals"
+          v-for="interval in chartIntervalOptions"
           :key="interval"
           class="interval-button"
           :class="{ active: selectedInterval === interval }"
@@ -1031,12 +1200,13 @@ function getBarOpacity() {
       </div>
     </div>
 
-    <div v-if="latestCandle" class="ohlc-bar">
-      <span>O {{ formatPrice(latestCandle.open) }}</span>
-      <span>H {{ formatPrice(latestCandle.high) }}</span>
-      <span>L {{ formatPrice(latestCandle.low) }}</span>
-      <span>C {{ formatPrice(latestCandle.close) }}</span>
-      <span>Vol {{ Number(latestCandle.volume || 0).toLocaleString() }}</span>
+    <div v-if="displayCandle" class="ohlc-bar">
+      <span>{{ hoveredCandle ? 'Hover' : 'Latest' }}</span>
+      <span>O {{ formatPrice(displayCandle.open) }}</span>
+      <span>H {{ formatPrice(displayCandle.high) }}</span>
+      <span>L {{ formatPrice(displayCandle.low) }}</span>
+      <span>C {{ formatPrice(displayCandle.close) }}</span>
+      <span>Vol {{ Number(displayCandle.volume || 0).toLocaleString() }}</span>
     </div>
 
     <div class="chart-stack">
@@ -1046,6 +1216,8 @@ function getBarOpacity() {
         :class="{ dragging: isDragging }"
         @wheel.prevent="handleWheel"
         @pointerdown="handlePointerDown"
+        @pointermove="handleChartHover"
+        @pointerleave="clearChartHover"
       >
         <div class="chart-placeholder trading-price-chart">
         <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -1109,6 +1281,17 @@ function getBarOpacity() {
               shape-rendering="crispEdges"
             />
           </g>
+
+          <line
+            v-if="hoverX !== null"
+            class="chart-hover-line"
+            vector-effect="non-scaling-stroke"
+            shape-rendering="crispEdges"
+            :x1="hoverX"
+            :x2="hoverX"
+            y1="0"
+            y2="100"
+          />
         </svg>
 
         <div class="price-axis">
@@ -1120,6 +1303,9 @@ function getBarOpacity() {
 
         <div class="shared-time-axis">
           <span v-for="tick in xTicks" :key="`label-${tick.index}`">{{ tick.label }}</span>
+        </div>
+        <div class="hover-time-readout" :class="{ active: hoveredCandle }">
+          {{ hoverTimeLabel }}
         </div>
       </div>
 

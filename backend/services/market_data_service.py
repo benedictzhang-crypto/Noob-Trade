@@ -1,5 +1,7 @@
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from statistics import mean
@@ -7,8 +9,10 @@ from urllib.parse import quote
 
 from config import Config
 from models.market_data import DailyPrice, PatternWindow, Symbol
+from services.alpaca_market_api_service import AlpacaMarketApiService
 from services.persistence_service import PersistenceService
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
+from services.yahoo_market_api_service import YahooMarketApiService
 from services.mock_market_data_service import (
     build_mock_stock_pattern_analysis,
     parse_indicators,
@@ -18,12 +22,62 @@ from services.mock_market_data_service import (
 logger = logging.getLogger(__name__)
 
 VISIBLE_INTERVAL_BARS = {
+    "1min": 390,
+    "5min": 390,
+    "15min": 260,
+    "30min": 220,
+    "1hour": 220,
     "daily": 3200,
     "5day": 700,
     "weekly": 700,
     "2week": 400,
     "monthly": 240,
 }
+
+
+class FallbackMarketApiService:
+    """Try the primary market data provider, then a secondary fallback."""
+
+    def __init__(self, primary, secondary=None):
+        self.primary = primary
+        self.secondary = secondary
+
+    def is_configured(self):
+        return self.primary.is_configured() or bool(self.secondary and self.secondary.is_configured())
+
+    def is_available(self):
+        return self.primary.is_available() or bool(self.secondary and self.secondary.is_available())
+
+    def mark_unavailable(self, cooldown_seconds=None):
+        self.primary.mark_unavailable(cooldown_seconds)
+        if self.secondary:
+            self.secondary.mark_unavailable(cooldown_seconds)
+
+    def mark_available(self):
+        self.primary.mark_available()
+        if self.secondary:
+            self.secondary.mark_available()
+
+    def get_daily_prices(self, symbol, limit):
+        return self._call("get_daily_prices", symbol, limit)
+
+    def get_intraday_prices(self, symbol, interval, limit=390):
+        return self._call("get_intraday_prices", symbol, interval, limit)
+
+    def get_company_overview(self, symbol):
+        return self._call("get_company_overview", symbol)
+
+    def get_stock_news(self, symbol, limit=5):
+        return self._call("get_stock_news", symbol, limit)
+
+    def _call(self, method_name, *args):
+        try:
+            return getattr(self.primary, method_name)(*args)
+        except Exception:
+            if self.secondary and self.secondary.is_configured() and self.secondary.is_available():
+                logger.warning("Primary market data provider failed; trying secondary %s.", method_name, exc_info=True)
+                return getattr(self.secondary, method_name)(*args)
+            raise
 
 
 class MarketDataService:
@@ -35,6 +89,8 @@ class MarketDataService:
     """
 
     MARKET_NEWS_CACHE = {}
+    MARKET_API_CACHE = {}
+    MARKET_API_CACHE_MAX_ENTRIES = 512
     TOP_50_SYMBOLS = list(Config.MATCH_SCORING_SYMBOLS)
     HOT_NEWS_SYMBOLS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "AMZN", "TSLA", "META", "AMD", "JPM"]
     LIVE_MATCH_TARGET = 20
@@ -58,9 +114,55 @@ class MarketDataService:
         self.config = config
         self.top_50_symbols = tuple(config.get("MATCH_SCORING_SYMBOLS") or self.TOP_50_SYMBOLS)
         self.persistence_service = PersistenceService()
-        self.market_api = DukeMarketApiService(
-            base_url=config["MARKET_DATA_BASE_URL"],
-            token=config["MARKET_DATA_TOKEN"],
+        self.market_api = self._build_market_api(config)
+
+    def _build_market_api(self, config):
+        provider = str(config.get("MARKET_DATA_PROVIDER") or "auto").strip().lower()
+
+        if provider == "duke":
+            return DukeMarketApiService(
+                base_url=config["MARKET_DATA_BASE_URL"],
+                token=config["MARKET_DATA_TOKEN"],
+                timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
+                cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
+            )
+
+        if provider == "alpaca":
+            return AlpacaMarketApiService(
+                api_key=config.get("ALPACA_API_KEY", ""),
+                api_secret=config.get("ALPACA_API_SECRET", ""),
+                base_url=config.get("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2"),
+                feed=config.get("ALPACA_DATA_FEED", "iex"),
+                timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
+                cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
+            )
+
+        if provider == "auto":
+            yahoo = YahooMarketApiService(
+                base_url=config.get("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com"),
+                timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
+                cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
+            )
+            alpaca = self._build_alpaca_market_api(config)
+            if alpaca.is_configured():
+                return FallbackMarketApiService(alpaca, yahoo)
+            return yahoo
+
+        if provider != "yahoo":
+            logger.warning("Unknown MARKET_DATA_PROVIDER=%s; using auto market data provider.", provider)
+
+        return YahooMarketApiService(
+            base_url=config.get("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com"),
+            timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
+            cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
+        )
+
+    def _build_alpaca_market_api(self, config):
+        return AlpacaMarketApiService(
+            api_key=config.get("ALPACA_API_KEY", ""),
+            api_secret=config.get("ALPACA_API_SECRET", ""),
+            base_url=config.get("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2"),
+            feed=config.get("ALPACA_DATA_FEED", "iex"),
             timeout=config["MARKET_DATA_TIMEOUT_SECONDS"],
             cooldown_seconds=config["MARKET_DATA_COOLDOWN_SECONDS"],
         )
@@ -69,6 +171,24 @@ class MarketDataService:
         normalized = str(symbol or "").upper().strip()
         compact = normalized.replace(" ", "")
         return self.SYMBOL_ALIASES.get(compact, self.SYMBOL_ALIASES.get(normalized, normalized))
+
+    def _market_provider_label(self):
+        provider = str(self.config.get("MARKET_DATA_PROVIDER") or "auto").strip().lower()
+
+        if provider == "auto":
+            alpaca = self._build_alpaca_market_api(self.config)
+            return "Auto: Alpaca IEX -> Yahoo" if alpaca.is_configured() else "Auto: Yahoo no-key"
+
+        if provider == "alpaca":
+            return "Alpaca IEX"
+
+        if provider == "yahoo":
+            return "Yahoo no-key"
+
+        if provider == "duke":
+            return "Duke API"
+
+        return provider or "Market data"
 
     def get_stock_pattern_analysis(
         self,
@@ -138,6 +258,9 @@ class MarketDataService:
                         exc_info=True,
                     )
 
+            if self._allow_demo_fallback(symbol_code):
+                return self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators)
+
             raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
         if self.market_api.is_configured() and self.market_api.is_available() and self._has_cached_history(symbol_code):
@@ -184,7 +307,24 @@ class MarketDataService:
         if is_production:
             raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
-        return build_mock_stock_pattern_analysis(symbol_code, interval, lookback_window, indicators)
+        return self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators)
+
+    def _allow_demo_fallback(self, symbol):
+        if not (self.config.get("ENABLE_DEMO_FALLBACK") or self.config.get("USE_MOCK_FALLBACK")):
+            return False
+
+        fallback_symbols = tuple(self.config.get("DEMO_FALLBACK_SYMBOLS") or ())
+        return not fallback_symbols or symbol in fallback_symbols
+
+    def _build_demo_fallback_response(self, symbol, interval, lookback_window, indicators):
+        response = build_mock_stock_pattern_analysis(symbol, interval, lookback_window, indicators)
+        response["dataSource"] = "demo"
+        response["marketDataProvider"] = "Demo replay"
+        stock = response.get("stock", {})
+        stock["companyName"] = f"{symbol} Demo Market Data"
+        stock["sector"] = "Demo"
+        stock["industry"] = "Cached replay"
+        return response
 
     def get_market_news(self, symbol=None, limit=5):
         normalized_symbol = self._normalize_symbol_code(symbol)
@@ -402,6 +542,7 @@ class MarketDataService:
 
         response = {
             "dataSource": "cached",
+            "marketDataProvider": "Cached database",
             "_currentWindow": {
                 "featureVector": current_window.feature_vector if current_window is not None else {},
                 "returnPct": self._to_float(current_window.return_pct) if current_window is not None else None,
@@ -482,6 +623,7 @@ class MarketDataService:
 
         return {
             "dataSource": "live",
+            "marketDataProvider": self._market_provider_label(),
             "request": {
                 "symbol": symbol,
                 "interval": interval,
@@ -535,7 +677,7 @@ class MarketDataService:
             interval,
             lookback_window,
         )
-        live_interval_series = None if compact_response else self._build_interval_series(full_recent_candles, prices)
+        live_interval_series = None if compact_response else self._build_interval_series(full_recent_candles, prices, interval, symbol)
 
         if current_window is None:
             raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
@@ -560,6 +702,7 @@ class MarketDataService:
         )
         response = {
             "dataSource": "live",
+            "marketDataProvider": self._market_provider_label(),
             "_currentWindow": {
                 "featureVector": current_window.feature_vector,
                 "returnPct": self._to_float(current_window.return_pct),
@@ -633,7 +776,7 @@ class MarketDataService:
         volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
         returns = self._calculate_returns(prices)
         full_daily_candles = self._build_daily_candles(prices)
-        interval_series = None if compact_response else self._build_interval_series(full_daily_candles, prices)
+        interval_series = None if compact_response else self._build_interval_series(full_daily_candles, prices, interval, symbol)
         live_match_summary = self._build_live_match_summary(
             symbol=symbol.upper(),
             interval=interval,
@@ -653,6 +796,7 @@ class MarketDataService:
 
         response = {
             "dataSource": "live",
+            "marketDataProvider": self._market_provider_label(),
             "request": {
                 "symbol": symbol.upper(),
                 "interval": interval,
@@ -805,14 +949,56 @@ class MarketDataService:
 
     def _fetch_live_overview_and_prices(self, symbol, price_limit):
         with ThreadPoolExecutor(max_workers=2) as executor:
-            overview_future = executor.submit(self.market_api.get_company_overview, symbol)
-            prices_future = executor.submit(self.market_api.get_daily_prices, symbol, limit=price_limit)
+            overview_future = executor.submit(
+                self._get_cached_market_payload,
+                f"overview:{symbol}",
+                self.config.get("MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS", 900),
+                lambda: self.market_api.get_company_overview(symbol),
+            )
+            prices_future = executor.submit(
+                self._get_cached_market_payload,
+                f"daily:{symbol}:{price_limit}",
+                self.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
+                lambda: self.market_api.get_daily_prices(symbol, limit=price_limit),
+            )
             overview_payload = overview_future.result()
             prices_payload = prices_future.result()
 
         overview = self._extract_first_record(overview_payload)
         prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
         return overview, prices
+
+    def _get_cached_market_payload(self, cache_key, ttl_seconds, loader):
+        ttl = max(0, int(ttl_seconds or 0))
+        now = time.time()
+        cached = self.MARKET_API_CACHE.get(cache_key)
+
+        if ttl and cached and cached.get("expires_at", 0) > now:
+            return deepcopy(cached["value"])
+
+        try:
+            value = loader()
+        except Exception:
+            if cached:
+                logger.warning("Using stale market data cache for %s.", cache_key, exc_info=True)
+                return deepcopy(cached["value"])
+            raise
+
+        if ttl:
+            if len(self.MARKET_API_CACHE) >= self.MARKET_API_CACHE_MAX_ENTRIES:
+                oldest_key = min(
+                    self.MARKET_API_CACHE,
+                    key=lambda key: self.MARKET_API_CACHE[key].get("stored_at", 0),
+                )
+                self.MARKET_API_CACHE.pop(oldest_key, None)
+
+            self.MARKET_API_CACHE[cache_key] = {
+                "stored_at": now,
+                "expires_at": now + ttl,
+                "value": deepcopy(value),
+            }
+
+        return value
 
     def _build_google_news_link(self, symbol, title):
         query = f"{symbol} stock news {title}"
@@ -1380,6 +1566,24 @@ class MarketDataService:
 
         return candles
 
+    def _build_intraday_candles(self, prices, candle_limit=None):
+        candles = []
+        selected_prices = prices if candle_limit is None else prices[:candle_limit]
+
+        for item in reversed(selected_prices):
+            candles.append(
+                {
+                    "date": item.get("date", "N/A"),
+                    "open": self._to_float(item.get("open", item.get("close"))),
+                    "high": self._to_float(item.get("high", item.get("close"))),
+                    "low": self._to_float(item.get("low", item.get("close"))),
+                    "close": self._to_float(item.get("close")),
+                    "volume": self._to_int(item.get("volume", 0)),
+                }
+            )
+
+        return candles
+
     def _group_candles_by_size(self, candles, group_size):
         grouped = []
 
@@ -1428,19 +1632,40 @@ class MarketDataService:
 
         return list(grouped.values())
 
-    def _build_interval_series(self, daily_candles, prices):
+    def _build_interval_series(self, daily_candles, prices, selected_interval=None, symbol=None):
         weekly_like = self._group_candles_by_size(daily_candles, 5)
         biweekly = self._group_candles_by_size(daily_candles, 10)
         monthly_source = prices or daily_candles
         monthly = self._build_monthly_candles(monthly_source)
 
-        return {
+        series = {
             "daily": daily_candles[-VISIBLE_INTERVAL_BARS["daily"]:],
             "5day": weekly_like[-VISIBLE_INTERVAL_BARS["5day"]:],
             "weekly": weekly_like[-VISIBLE_INTERVAL_BARS["weekly"]:],
             "2week": biweekly[-VISIBLE_INTERVAL_BARS["2week"]:],
             "monthly": monthly[-VISIBLE_INTERVAL_BARS["monthly"]:]
         }
+
+        if symbol and selected_interval in {"1min", "5min", "15min", "30min", "1hour"} and hasattr(self.market_api, "get_intraday_prices"):
+            try:
+                intraday_limit = VISIBLE_INTERVAL_BARS.get(selected_interval, 390)
+                intraday_payload = self._get_cached_market_payload(
+                    f"intraday:{symbol}:{selected_interval}:{intraday_limit}",
+                    self.config.get("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", 20),
+                    lambda: self.market_api.get_intraday_prices(
+                        symbol,
+                        selected_interval,
+                        limit=intraday_limit,
+                    ),
+                )
+                intraday_prices = intraday_payload.get("data", []) if isinstance(intraday_payload, dict) else []
+                intraday_candles = self._build_intraday_candles(intraday_prices)
+                if intraday_candles:
+                    series[selected_interval] = intraday_candles[-VISIBLE_INTERVAL_BARS.get(selected_interval, 390):]
+            except Exception:
+                logger.warning("Could not fetch %s intraday candles for %s.", selected_interval, symbol, exc_info=True)
+
+        return series
 
     def _load_cached_daily_prices(self, symbol_record, limit=None):
         query = DailyPrice.query.filter(

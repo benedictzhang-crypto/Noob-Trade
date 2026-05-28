@@ -238,7 +238,16 @@ def get_stock(symbol):
         if analysis_mode == "search":
             market_data_service = _market_data_service()
             try:
-                return jsonify(_sanitize_response_payload(_build_live_search_payload(market_data_service, symbol, interval, lookback, indicators)))
+                response_data = market_data_service.get_stock_pattern_analysis(
+                    symbol=symbol,
+                    interval=interval,
+                    lookback_window=lookback,
+                    raw_indicators=raw_indicators,
+                    default_indicators=current_app.config["DEFAULT_INDICATORS"],
+                    compact_response=compact_response,
+                    analysis_mode="search",
+                )
+                return jsonify(_sanitize_response_payload(_trim_trade_response_payload(response_data)))
             except Exception as error:
                 current_app.logger.exception("Production live search failed for %s", symbol)
                 return jsonify(

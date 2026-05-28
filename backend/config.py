@@ -164,9 +164,13 @@ class Config:
     PORT = int(os.getenv("PORT", "5000"))
     CORS_ORIGINS = [
         origin.strip()
-        for origin in os.getenv(
-            "CORS_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173,https://noobtrade.com,https://www.noobtrade.com"
+        for origin in (
+            os.getenv(
+                "CORS_ORIGINS",
+                "http://localhost:4173,http://127.0.0.1:4173,http://localhost:5173,http://127.0.0.1:5173,https://noobtrade.com,https://www.noobtrade.com"
+            )
+            + ","
+            + os.getenv("EXTERNAL_APP_CORS_ORIGINS", "")
         ).split(",")
         if origin.strip()
     ]
@@ -183,8 +187,22 @@ class Config:
         "https://marketdata.colab.duke.edu/api/v1"
     )
     MARKET_DATA_TOKEN = os.getenv("MARKET_DATA_TOKEN", "")
-    MARKET_DATA_TIMEOUT_SECONDS = float(os.getenv("MARKET_DATA_TIMEOUT_SECONDS", "1.5"))
+    MARKET_DATA_PROVIDER = os.getenv("MARKET_DATA_PROVIDER", "auto").strip().lower()
+    MARKET_DATA_TIMEOUT_SECONDS = float(os.getenv("MARKET_DATA_TIMEOUT_SECONDS", "3.5"))
     MARKET_DATA_COOLDOWN_SECONDS = int(os.getenv("MARKET_DATA_COOLDOWN_SECONDS", "10"))
+    MARKET_DATA_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_CACHE_TTL_SECONDS", "90"))
+    MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", "20"))
+    MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS", "900"))
+    ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
+    YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
+    ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", os.getenv("APCA_API_KEY_ID", ""))
+    ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", os.getenv("APCA_API_SECRET_KEY", ""))
+    ALPACA_DATA_FEED = os.getenv("ALPACA_DATA_FEED", "iex")
+    ENABLE_DEMO_FALLBACK = os.getenv("ENABLE_DEMO_FALLBACK", "true").lower() == "true"
+    DEMO_FALLBACK_SYMBOLS = _parse_symbol_list(
+        os.getenv("DEMO_FALLBACK_SYMBOLS"),
+        PRECOMPUTE_DEMO_SYMBOLS,
+    )
     USE_MOCK_FALLBACK = os.getenv("USE_MOCK_FALLBACK", "true").lower() == "true"
     PERSIST_ANALYSIS_RUNS = os.getenv("PERSIST_ANALYSIS_RUNS", "false").lower() == "true"
     ADMIN_ACCOUNTS = _parse_admin_accounts.__func__()
