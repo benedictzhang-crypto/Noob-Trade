@@ -494,9 +494,14 @@ const voiceScrollIntentFuse = new Fuse(voiceScrollIntentDocuments, {
 })
 const voiceTechnicalErrorPatterns = [
   'httpsconnectionpool',
+  'connectionpool',
   'connecttimeouterror',
   'readtimeout',
+  'timeout',
+  'timed out',
   'max retries exceeded',
+  'http 502',
+  'http 503',
   'marketdata.colab.duke.edu',
   'connection to',
   'connect timeout',
@@ -505,6 +510,7 @@ const voiceTechnicalErrorPatterns = [
   'traceback',
   'requests.exceptions'
 ]
+const voiceSpeechMaxCharacters = 160
 
 const activePage = ref('Home')
 const appMode = ref('stock')
@@ -2179,7 +2185,7 @@ function initializeVoiceAssistant() {
   const recognition = new SpeechRecognitionConstructor()
   recognition.lang = getSpeechLanguage()
   recognition.continuous = true
-  recognition.interimResults = false
+  recognition.interimResults = true
   recognition.maxAlternatives = 1
 
   recognition.onstart = () => {
@@ -2209,14 +2215,29 @@ function initializeVoiceAssistant() {
   }
 
   recognition.onresult = (event) => {
-    const transcript = Array.from(event.results || [])
+    const results = Array.from(event.results || [])
       .slice(event.resultIndex || 0)
+
+    const interimTranscript = results
+      .filter((result) => !result?.isFinal)
       .map((result) => result?.[0]?.transcript || '')
       .join(' ')
       .trim()
 
-    if (transcript) {
-      handleVoiceCommand(transcript).catch((error) => {
+    const finalTranscript = results
+      .filter((result) => result?.isFinal)
+      .map((result) => result?.[0]?.transcript || '')
+      .join(' ')
+      .trim()
+
+    const liveTranscript = finalTranscript || interimTranscript
+    if (liveTranscript) {
+      voiceTranscript.value = liveTranscript
+      interruptVoiceSpeechForUserInput(liveTranscript)
+    }
+
+    if (finalTranscript) {
+      handleVoiceCommand(finalTranscript).catch((error) => {
         console.error(error)
         setVoiceStatus('I could not complete that command. Please try again.', { speak: true })
       })
@@ -2323,11 +2344,40 @@ function getSpeakableVoiceText(text) {
     ? getReadableMarketDataError(rawText)
     : rawText
 
-  if (readableText.length <= 260) {
+  if (readableText.length <= voiceSpeechMaxCharacters) {
     return readableText
   }
 
-  return `${readableText.slice(0, 240).trim()}...`
+  const firstSentence = readableText.match(/^.{36,160}?[.!?。！？](?:\s|$)/u)?.[0]?.trim()
+  if (firstSentence) {
+    return firstSentence
+  }
+
+  return `${readableText.slice(0, voiceSpeechMaxCharacters).trim()}...`
+}
+
+function isVoiceOutputActive() {
+  if (typeof window === 'undefined' || !window.speechSynthesis) {
+    return voiceIsSpeaking.value
+  }
+
+  return voiceIsSpeaking.value || window.speechSynthesis.speaking || window.speechSynthesis.pending
+}
+
+function interruptVoiceSpeechForUserInput(transcript) {
+  const normalizedTranscript = normalizeVoiceText(transcript)
+
+  if (!normalizedTranscript || !isVoiceOutputActive()) {
+    return false
+  }
+
+  if (isLikelyAssistantSpeechEcho(normalizedTranscript)) {
+    return false
+  }
+
+  stopVoiceSpeech({ restartListening: false })
+  voiceStatus.value = 'I hear you. Go ahead.'
+  return true
 }
 
 function stopVoiceSpeech({ restartListening = true } = {}) {
@@ -2577,7 +2627,7 @@ function findVoiceSymbolAlias(command) {
 }
 
 function isLikelyAssistantSpeechEcho(command) {
-  if (!voiceIsSpeaking.value || !voiceLastSpeechSignature) {
+  if (!isVoiceOutputActive() || !voiceLastSpeechSignature) {
     return false
   }
 
@@ -3162,7 +3212,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (voiceIsSpeaking.value) {
+  if (isVoiceOutputActive()) {
     stopVoiceSpeech({ restartListening: false })
   }
 
