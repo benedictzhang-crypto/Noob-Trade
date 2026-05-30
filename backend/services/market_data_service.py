@@ -33,6 +33,7 @@ VISIBLE_INTERVAL_BARS = {
     "2week": 400,
     "monthly": 240,
 }
+INTRADAY_INTERVALS = {"1min", "5min", "15min", "30min", "1hour"}
 
 
 class FallbackMarketApiService:
@@ -312,6 +313,9 @@ class MarketDataService:
     def _allow_demo_fallback(self, symbol):
         if not (self.config.get("ENABLE_DEMO_FALLBACK") or self.config.get("USE_MOCK_FALLBACK")):
             return False
+
+        if self.config.get("ENABLE_DEMO_FALLBACK_ALL_SYMBOLS", True):
+            return True
 
         fallback_symbols = tuple(self.config.get("DEMO_FALLBACK_SYMBOLS") or ())
         return not fallback_symbols or symbol in fallback_symbols
@@ -1646,9 +1650,9 @@ class MarketDataService:
             "monthly": monthly[-VISIBLE_INTERVAL_BARS["monthly"]:]
         }
 
-        if symbol and selected_interval in {"1min", "5min", "15min", "30min", "1hour"} and hasattr(self.market_api, "get_intraday_prices"):
+        if symbol and selected_interval in INTRADAY_INTERVALS and hasattr(self.market_api, "get_intraday_prices"):
+            intraday_limit = VISIBLE_INTERVAL_BARS.get(selected_interval, 390)
             try:
-                intraday_limit = VISIBLE_INTERVAL_BARS.get(selected_interval, 390)
                 intraday_payload = self._get_cached_market_payload(
                     f"intraday:{symbol}:{selected_interval}:{intraday_limit}",
                     self.config.get("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", 20),
@@ -1664,6 +1668,12 @@ class MarketDataService:
                     series[selected_interval] = intraday_candles[-VISIBLE_INTERVAL_BARS.get(selected_interval, 390):]
             except Exception:
                 logger.warning("Could not fetch %s intraday candles for %s.", selected_interval, symbol, exc_info=True)
+
+            if not series.get(selected_interval) and self._allow_demo_fallback(symbol):
+                demo_response = self._build_demo_fallback_response(symbol, selected_interval, 30, ["MA", "EMA", "MACD", "BOLL", "Vol"])
+                demo_series = demo_response.get("chartData", {}).get("series", {}).get(selected_interval) or []
+                if demo_series:
+                    series[selected_interval] = demo_series[-intraday_limit:]
 
         return series
 

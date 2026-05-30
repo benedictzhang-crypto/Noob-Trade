@@ -31,6 +31,8 @@ services:
         value: iex
       - key: ENABLE_DEMO_FALLBACK
         value: "true"
+      - key: ENABLE_DEMO_FALLBACK_ALL_SYMBOLS
+        value: "true"
       - key: EXTERNAL_APP_CORS_ORIGINS
         sync: false
       - key: ALPACA_API_KEY

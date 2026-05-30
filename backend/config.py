@@ -177,7 +177,7 @@ class Config:
     DEFAULT_LOOKBACK = 30
     DEFAULT_INTERVAL = "daily"
     DEFAULT_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
-    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B"]
+    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B", "SPY", "QQQ"]
     MATCH_SCORING_SYMBOLS = _parse_symbol_list(
         os.getenv("MATCH_SCORING_SYMBOLS"),
         DEFAULT_MATCH_SCORING_SYMBOLS,
@@ -199,6 +199,7 @@ class Config:
     ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", os.getenv("APCA_API_SECRET_KEY", ""))
     ALPACA_DATA_FEED = os.getenv("ALPACA_DATA_FEED", "iex")
     ENABLE_DEMO_FALLBACK = os.getenv("ENABLE_DEMO_FALLBACK", "true").lower() == "true"
+    ENABLE_DEMO_FALLBACK_ALL_SYMBOLS = os.getenv("ENABLE_DEMO_FALLBACK_ALL_SYMBOLS", "true").lower() == "true"
     DEMO_FALLBACK_SYMBOLS = _parse_symbol_list(
         os.getenv("DEMO_FALLBACK_SYMBOLS"),
         PRECOMPUTE_DEMO_SYMBOLS,
