@@ -145,6 +145,9 @@ function spawnBackend(port, frontendPort) {
       FLASK_USE_RELOADER: 'false',
       APP_BASE_URL: `http://127.0.0.1:${frontendPort}`,
       CORS_ORIGINS: corsOrigins.join(','),
+      OKX_DATA_BASE_URL: process.env.OKX_DATA_BASE_URL || 'https://www.okx.com',
+      COINGECKO_DATA_BASE_URL: process.env.COINGECKO_DATA_BASE_URL || 'https://api.coingecko.com/api/v3',
+      CRYPTO_EXCLUDE_STABLECOINS: process.env.CRYPTO_EXCLUDE_STABLECOINS || 'true',
       SESSION_COOKIE_SECURE: 'false'
     },
     stdio: ['ignore', 'pipe', 'pipe']

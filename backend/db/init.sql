@@ -129,6 +129,91 @@ ON pattern_windows(symbol_id, timeframe, window_size, end_date DESC);
 CREATE INDEX IF NOT EXISTS idx_pattern_windows_timeframe_window
 ON pattern_windows(timeframe, window_size, end_date DESC);
 
+CREATE TABLE IF NOT EXISTS intraday_prices (
+    id BIGSERIAL PRIMARY KEY,
+    symbol_id BIGINT NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    interval VARCHAR(16) NOT NULL,
+    bar_time TIMESTAMPTZ NOT NULL,
+    open NUMERIC(18, 6) NOT NULL,
+    high NUMERIC(18, 6) NOT NULL,
+    low NUMERIC(18, 6) NOT NULL,
+    close NUMERIC(18, 6) NOT NULL,
+    volume BIGINT,
+    source VARCHAR(64) NOT NULL DEFAULT 'crypto_exchange',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(symbol_id, interval, bar_time)
+);
+
+CREATE INDEX IF NOT EXISTS idx_intraday_prices_symbol_interval_time
+ON intraday_prices(symbol_id, interval, bar_time DESC);
+
+CREATE TABLE IF NOT EXISTS intraday_indicators (
+    id BIGSERIAL PRIMARY KEY,
+    symbol_id BIGINT NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    interval VARCHAR(16) NOT NULL,
+    bar_time TIMESTAMPTZ NOT NULL,
+    ma_5 NUMERIC(18, 6),
+    ma_10 NUMERIC(18, 6),
+    ma_20 NUMERIC(18, 6),
+    ma_60 NUMERIC(18, 6),
+    ema_5 NUMERIC(18, 6),
+    ema_10 NUMERIC(18, 6),
+    ema_12 NUMERIC(18, 6),
+    ema_20 NUMERIC(18, 6),
+    ema_26 NUMERIC(18, 6),
+    ema_60 NUMERIC(18, 6),
+    macd NUMERIC(18, 6),
+    macd_signal NUMERIC(18, 6),
+    macd_hist NUMERIC(18, 6),
+    rsi_14 NUMERIC(10, 4),
+    boll_mid NUMERIC(18, 6),
+    boll_upper NUMERIC(18, 6),
+    boll_lower NUMERIC(18, 6),
+    kdj_k NUMERIC(10, 4),
+    kdj_d NUMERIC(10, 4),
+    kdj_j NUMERIC(10, 4),
+    vol_ma_5 NUMERIC(18, 6),
+    vol_ma_20 NUMERIC(18, 6),
+    oi NUMERIC(18, 6),
+    pbv NUMERIC(18, 6),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(symbol_id, interval, bar_time)
+);
+
+CREATE INDEX IF NOT EXISTS idx_intraday_indicators_symbol_interval_time
+ON intraday_indicators(symbol_id, interval, bar_time DESC);
+
+CREATE TABLE IF NOT EXISTS intraday_pattern_windows (
+    id BIGSERIAL PRIMARY KEY,
+    symbol_id BIGINT NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,
+    interval VARCHAR(16) NOT NULL,
+    window_size INTEGER NOT NULL,
+    start_time TIMESTAMPTZ NOT NULL,
+    end_time TIMESTAMPTZ NOT NULL,
+    return_pct NUMERIC(12, 6),
+    avg_return NUMERIC(12, 6),
+    max_drawdown NUMERIC(12, 6),
+    volatility NUMERIC(12, 6),
+    probability_score NUMERIC(12, 6),
+    ma_slope NUMERIC(12, 6),
+    ema_slope NUMERIC(12, 6),
+    macd_trend NUMERIC(12, 6),
+    rsi_avg NUMERIC(12, 6),
+    rsi_min NUMERIC(12, 6),
+    rsi_max NUMERIC(12, 6),
+    volume_change_ratio NUMERIC(12, 6),
+    feature_vector JSONB,
+    source VARCHAR(64) NOT NULL DEFAULT 'crypto_exchange',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(symbol_id, interval, window_size, end_time)
+);
+
+CREATE INDEX IF NOT EXISTS idx_intraday_pattern_windows_lookup
+ON intraday_pattern_windows(symbol_id, interval, window_size, end_time DESC);
+
+CREATE INDEX IF NOT EXISTS idx_intraday_pattern_windows_interval_window
+ON intraday_pattern_windows(interval, window_size, end_time DESC);
+
 CREATE TABLE IF NOT EXISTS analysis_runs (
     id BIGSERIAL PRIMARY KEY,
     symbol_id BIGINT NOT NULL REFERENCES symbols(id) ON DELETE CASCADE,

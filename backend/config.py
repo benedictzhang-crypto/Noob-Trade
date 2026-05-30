@@ -195,6 +195,9 @@ class Config:
     MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS", "900"))
     ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
     YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
+    OKX_DATA_BASE_URL = os.getenv("OKX_DATA_BASE_URL", "https://www.okx.com")
+    COINGECKO_DATA_BASE_URL = os.getenv("COINGECKO_DATA_BASE_URL", "https://api.coingecko.com/api/v3")
+    CRYPTO_EXCLUDE_STABLECOINS = os.getenv("CRYPTO_EXCLUDE_STABLECOINS", "true").lower() == "true"
     ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", os.getenv("APCA_API_KEY_ID", ""))
     ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", os.getenv("APCA_API_SECRET_KEY", ""))
     ALPACA_DATA_FEED = os.getenv("ALPACA_DATA_FEED", "iex")

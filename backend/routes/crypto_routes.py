@@ -1,0 +1,170 @@
+from flask import Blueprint, current_app, jsonify, request
+
+from services.crypto_market_data_service import CryptoMarketDataService
+from services.mock_market_data_service import parse_indicators
+
+
+crypto_blueprint = Blueprint("crypto", __name__, url_prefix="/api")
+
+PRIVATE_RESPONSE_KEYS = {
+    "_currentWindow",
+    "_skipCacheWrite",
+    "featureVector",
+    "scoreBreakdown",
+    "quantScore",
+    "quantMaxScore",
+    "quantFullMaxScore",
+    "quantSelectedPercent",
+    "baseHistoricalProbability",
+    "weightPenalty",
+    "fitRatio",
+}
+
+
+def _crypto_market_data_service():
+    return CryptoMarketDataService(current_app.config)
+
+
+def _persistence_service():
+    from services.persistence_service import PersistenceService
+
+    return PersistenceService()
+
+
+def _normalize_crypto_symbol(symbol):
+    return CryptoMarketDataService(current_app.config)._normalize_symbol_code(symbol)
+
+
+def _sanitize_response_payload(value):
+    if isinstance(value, dict):
+        return {
+            key: _sanitize_response_payload(item)
+            for key, item in value.items()
+            if key not in PRIVATE_RESPONSE_KEYS
+        }
+
+    if isinstance(value, list):
+        return [_sanitize_response_payload(item) for item in value]
+
+    return value
+
+
+def _trim_trade_response_payload(payload):
+    if not isinstance(payload, dict):
+        return payload
+
+    chart_data = payload.get("chartData")
+    if isinstance(chart_data, dict) and "history" in chart_data:
+        trimmed_chart_data = dict(chart_data)
+        trimmed_chart_data.pop("history", None)
+        payload["chartData"] = trimmed_chart_data
+
+    return payload
+
+
+def _public_crypto_error_message(error, symbol):
+    raw_message = str(error or "")
+    symbol_code = str(symbol or "This crypto").upper()
+    technical_tokens = (
+        "HTTPSConnectionPool",
+        "ConnectTimeoutError",
+        "ReadTimeout",
+        "Max retries exceeded",
+        "www.okx.com",
+        "api.coingecko.com",
+        "requests.exceptions",
+    )
+    if any(token.lower() in raw_message.lower() for token in technical_tokens):
+        return f"{symbol_code} crypto market data connection timed out. Please try again in a moment."
+    if raw_message:
+        return raw_message[:240]
+    return f"{symbol_code} crypto data is not accessible right now."
+
+
+@crypto_blueprint.route("/crypto/<symbol>", methods=["GET"])
+def get_crypto(symbol):
+    symbol = _normalize_crypto_symbol(symbol)
+    is_production = str(current_app.config.get("ENVIRONMENT", "")).lower() == "production"
+    lookback = request.args.get(
+        "lookback",
+        default=current_app.config["DEFAULT_LOOKBACK"],
+        type=int,
+    )
+    interval = request.args.get(
+        "interval",
+        default=current_app.config["DEFAULT_INTERVAL"],
+        type=str,
+    )
+    raw_indicators = request.args.get("indicators", default="")
+    prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
+    persist_analysis = request.args.get("persist", default=0, type=int) == 1
+    compact_response = request.args.get("compact", default=0, type=int) == 1
+    analysis_mode = request.args.get("analysis", default="full", type=str).strip().lower()
+    if analysis_mode == "summary":
+        analysis_mode = "search"
+    if analysis_mode not in {"full", "search"}:
+        analysis_mode = "full"
+
+    if is_production:
+        compact_response = compact_response or prefetch_only
+        prefetch_only = False
+        persist_analysis = False
+
+    market_data_service = _crypto_market_data_service()
+    persistence_service = None
+
+    try:
+        response_data = market_data_service.get_crypto_pattern_analysis(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback,
+            raw_indicators=raw_indicators,
+            default_indicators=current_app.config["DEFAULT_INDICATORS"],
+            compact_response=compact_response,
+            analysis_mode=analysis_mode,
+        )
+        response_data = _trim_trade_response_payload(response_data)
+
+        if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
+            persistence_service = persistence_service or _persistence_service()
+            try:
+                response_data = persistence_service.apply_cached_match_preview(response_data)
+            except Exception as error:
+                current_app.logger.warning("Could not apply crypto cached preview: %s", error)
+
+        should_persist = (current_app.config.get("PERSIST_ANALYSIS_RUNS", False) or persist_analysis) and not is_production
+
+        if not prefetch_only and should_persist:
+            persistence_service = persistence_service or _persistence_service()
+            try:
+                response_data = persistence_service.save_analysis_run(response_data)
+            except Exception as error:
+                current_app.logger.warning("Could not persist crypto analysis run: %s", error)
+
+        return jsonify(_sanitize_response_payload(response_data))
+    except Exception as error:
+        current_app.logger.exception("Crypto analysis failed for %s", symbol)
+        return jsonify(
+            {
+                "status": "error",
+                "message": _public_crypto_error_message(error, symbol),
+                "symbol": symbol.upper(),
+                "interval": interval,
+                "lookback": lookback,
+            }
+        ), 500
+
+
+@crypto_blueprint.route("/crypto/top50", methods=["GET"])
+def get_crypto_top50():
+    limit = request.args.get("limit", default=50, type=int)
+    market_data_service = _crypto_market_data_service()
+    assets = market_data_service.get_top_crypto_assets(limit=max(1, min(limit, 100)))
+    return jsonify(
+        {
+            "status": "ok",
+            "dataSource": "live",
+            "marketDataProvider": market_data_service._market_provider_label(),
+            "assets": assets,
+        }
+    )

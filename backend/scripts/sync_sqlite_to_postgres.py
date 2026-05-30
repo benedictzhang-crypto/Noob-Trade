@@ -14,7 +14,14 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 
-SYNC_TABLES = ("daily_prices", "daily_indicators", "pattern_windows")
+SYNC_TABLES = (
+    "daily_prices",
+    "daily_indicators",
+    "pattern_windows",
+    "intraday_prices",
+    "intraday_indicators",
+    "intraday_pattern_windows",
+)
 AUTH_TABLES = ("users", "login_verification_codes", "login_activities")
 BATCH_SIZE = 2000
 
@@ -100,7 +107,7 @@ def _fetch_table_rows(connection, table_name, symbol_ids):
     columns = [column[0] for column in cursor.description]
     rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-    if table_name == "pattern_windows":
+    if table_name in {"pattern_windows", "intraday_pattern_windows"}:
         for row in rows:
             feature_vector = row.get("feature_vector")
             if isinstance(feature_vector, str) and feature_vector.strip():
@@ -304,6 +311,164 @@ def _sync_pattern_windows(db, rows, symbol_map):
         print(f"  pattern_windows: {len(rows)}/{len(rows)}", flush=True)
 
 
+def _sync_intraday_prices(db, rows, symbol_map):
+    sql = text(
+        """
+        INSERT INTO intraday_prices (
+            symbol_id, interval, bar_time, open, high, low, close, volume, source
+        ) VALUES (
+            :symbol_id, :interval, :bar_time, :open, :high, :low, :close, :volume, :source
+        )
+        ON CONFLICT (symbol_id, interval, bar_time) DO UPDATE
+        SET open = EXCLUDED.open,
+            high = EXCLUDED.high,
+            low = EXCLUDED.low,
+            close = EXCLUDED.close,
+            volume = EXCLUDED.volume,
+            source = EXCLUDED.source
+        """
+    )
+
+    batch = []
+    for index, row in enumerate(rows, start=1):
+        batch.append({
+            "symbol_id": symbol_map[row["symbol_id"]],
+            "interval": row["interval"],
+            "bar_time": row["bar_time"],
+            "open": row["open"],
+            "high": row["high"],
+            "low": row["low"],
+            "close": row["close"],
+            "volume": row.get("volume"),
+            "source": row.get("source") or "okx_spot",
+        })
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  intraday_prices: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  intraday_prices: {len(rows)}/{len(rows)}", flush=True)
+
+
+def _sync_intraday_indicators(db, rows, symbol_map):
+    sql = text(
+        """
+        INSERT INTO intraday_indicators (
+            symbol_id, interval, bar_time,
+            ma_5, ma_10, ma_20, ma_60, ema_5, ema_10, ema_12, ema_20, ema_26, ema_60,
+            macd, macd_signal, macd_hist, rsi_14, boll_mid, boll_upper, boll_lower,
+            kdj_k, kdj_d, kdj_j, vol_ma_5, vol_ma_20, oi, pbv
+        ) VALUES (
+            :symbol_id, :interval, :bar_time,
+            :ma_5, :ma_10, :ma_20, :ma_60, :ema_5, :ema_10, :ema_12, :ema_20, :ema_26, :ema_60,
+            :macd, :macd_signal, :macd_hist, :rsi_14, :boll_mid, :boll_upper, :boll_lower,
+            :kdj_k, :kdj_d, :kdj_j, :vol_ma_5, :vol_ma_20, :oi, :pbv
+        )
+        ON CONFLICT (symbol_id, interval, bar_time) DO UPDATE
+        SET ma_5 = EXCLUDED.ma_5,
+            ma_10 = EXCLUDED.ma_10,
+            ma_20 = EXCLUDED.ma_20,
+            ma_60 = EXCLUDED.ma_60,
+            ema_5 = EXCLUDED.ema_5,
+            ema_10 = EXCLUDED.ema_10,
+            ema_12 = EXCLUDED.ema_12,
+            ema_20 = EXCLUDED.ema_20,
+            ema_26 = EXCLUDED.ema_26,
+            ema_60 = EXCLUDED.ema_60,
+            macd = EXCLUDED.macd,
+            macd_signal = EXCLUDED.macd_signal,
+            macd_hist = EXCLUDED.macd_hist,
+            rsi_14 = EXCLUDED.rsi_14,
+            boll_mid = EXCLUDED.boll_mid,
+            boll_upper = EXCLUDED.boll_upper,
+            boll_lower = EXCLUDED.boll_lower,
+            kdj_k = EXCLUDED.kdj_k,
+            kdj_d = EXCLUDED.kdj_d,
+            kdj_j = EXCLUDED.kdj_j,
+            vol_ma_5 = EXCLUDED.vol_ma_5,
+            vol_ma_20 = EXCLUDED.vol_ma_20,
+            oi = EXCLUDED.oi,
+            pbv = EXCLUDED.pbv
+        """
+    )
+
+    batch = []
+    for index, row in enumerate(rows, start=1):
+        params = dict(row)
+        params["symbol_id"] = symbol_map[row["symbol_id"]]
+        params.pop("id", None)
+        params.pop("created_at", None)
+        batch.append(params)
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  intraday_indicators: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  intraday_indicators: {len(rows)}/{len(rows)}", flush=True)
+
+
+def _sync_intraday_pattern_windows(db, rows, symbol_map):
+    sql = text(
+        """
+        INSERT INTO intraday_pattern_windows (
+            symbol_id, interval, window_size, start_time, end_time,
+            return_pct, avg_return, max_drawdown, volatility, probability_score,
+            ma_slope, ema_slope, macd_trend, rsi_avg, rsi_min, rsi_max,
+            volume_change_ratio, feature_vector, source
+        ) VALUES (
+            :symbol_id, :interval, :window_size, :start_time, :end_time,
+            :return_pct, :avg_return, :max_drawdown, :volatility, :probability_score,
+            :ma_slope, :ema_slope, :macd_trend, :rsi_avg, :rsi_min, :rsi_max,
+            :volume_change_ratio, CAST(:feature_vector AS JSONB), :source
+        )
+        ON CONFLICT (symbol_id, interval, window_size, end_time) DO UPDATE
+        SET start_time = EXCLUDED.start_time,
+            return_pct = EXCLUDED.return_pct,
+            avg_return = EXCLUDED.avg_return,
+            max_drawdown = EXCLUDED.max_drawdown,
+            volatility = EXCLUDED.volatility,
+            probability_score = EXCLUDED.probability_score,
+            ma_slope = EXCLUDED.ma_slope,
+            ema_slope = EXCLUDED.ema_slope,
+            macd_trend = EXCLUDED.macd_trend,
+            rsi_avg = EXCLUDED.rsi_avg,
+            rsi_min = EXCLUDED.rsi_min,
+            rsi_max = EXCLUDED.rsi_max,
+            volume_change_ratio = EXCLUDED.volume_change_ratio,
+            feature_vector = EXCLUDED.feature_vector,
+            source = EXCLUDED.source
+        """
+    )
+
+    batch = []
+    for index, row in enumerate(rows, start=1):
+        params = dict(row)
+        params["symbol_id"] = symbol_map[row["symbol_id"]]
+        params["feature_vector"] = json.dumps(row.get("feature_vector") or {})
+        params["source"] = row.get("source") or "okx_spot"
+        params.pop("id", None)
+        params.pop("created_at", None)
+        batch.append(params)
+        if len(batch) >= BATCH_SIZE:
+            db.session.execute(sql, batch)
+            db.session.commit()
+            print(f"  intraday_pattern_windows: {index}/{len(rows)}", flush=True)
+            batch = []
+
+    if batch:
+        db.session.execute(sql, batch)
+        db.session.commit()
+        print(f"  intraday_pattern_windows: {len(rows)}/{len(rows)}", flush=True)
+
+
 def _upsert_users(app_engine, rows):
     sql = text(
         """
@@ -440,6 +605,21 @@ def main():
         db.session.commit()
         print("Committed pattern_windows.", flush=True)
 
+        print(f"Syncing {len(table_rows['intraday_prices'])} intraday_prices rows...", flush=True)
+        _sync_intraday_prices(db, table_rows["intraday_prices"], symbol_map)
+        db.session.commit()
+        print("Committed intraday_prices.", flush=True)
+
+        print(f"Syncing {len(table_rows['intraday_indicators'])} intraday_indicators rows...", flush=True)
+        _sync_intraday_indicators(db, table_rows["intraday_indicators"], symbol_map)
+        db.session.commit()
+        print("Committed intraday_indicators.", flush=True)
+
+        print(f"Syncing {len(table_rows['intraday_pattern_windows'])} intraday_pattern_windows rows...", flush=True)
+        _sync_intraday_pattern_windows(db, table_rows["intraday_pattern_windows"], symbol_map)
+        db.session.commit()
+        print("Committed intraday_pattern_windows.", flush=True)
+
         with db.engines["app"].begin() as app_connection:
             print(f"Syncing {len(auth_rows['users'])} users...", flush=True)
             _upsert_users(app_connection, auth_rows["users"])
@@ -455,6 +635,9 @@ def main():
             "daily_prices": len(table_rows["daily_prices"]),
             "daily_indicators": len(table_rows["daily_indicators"]),
             "pattern_windows": len(table_rows["pattern_windows"]),
+            "intraday_prices": len(table_rows["intraday_prices"]),
+            "intraday_indicators": len(table_rows["intraday_indicators"]),
+            "intraday_pattern_windows": len(table_rows["intraday_pattern_windows"]),
             "users": len(auth_rows["users"]),
             "login_verification_codes": len(auth_rows["login_verification_codes"]),
             "login_activities": len(auth_rows["login_activities"]),

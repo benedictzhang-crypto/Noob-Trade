@@ -1276,6 +1276,14 @@ const dataSourceMeta = computed(() => {
     }
   }
 
+  if (activeTradeResponse.value.dataSource === 'crypto-demo') {
+    return {
+      label: 'Crypto Replay',
+      description: providerLabel || 'Cached crypto replay',
+      tone: 'mock'
+    }
+  }
+
   if (activeTradeResponse.value.dataSource === 'live') {
     return {
       label: 'Live API',
@@ -3569,7 +3577,7 @@ async function scanStarredWatchlist() {
   try {
     const scanResults = await runLimitedTasks(symbols, async (symbol) => {
       const data = isCryptoMode.value
-        ? createCryptoWorkspaceResponse(symbol)
+        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
         : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
       const probability = getAnalysisUpsideProbability(data)
       const currentPrice = Number(data?.stock?.currentPrice)
@@ -3765,6 +3773,7 @@ function openCryptoAnalysis(symbol = cryptoResponse.value.stock.symbol) {
   cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
   symbolInput.value = cleanedSymbol
   activePage.value = 'Crypto Trade'
+  void runSearch()
 }
 
 function openModeAnalysis(symbol) {
@@ -3776,8 +3785,9 @@ function openModeAnalysis(symbol) {
   openAnalysis(symbol)
 }
 
-function buildAnalysisCacheKey(symbol, analysisMode = 'full') {
+function buildAnalysisCacheKey(symbol, analysisMode = 'full', assetType = 'stock') {
   return [
+    assetType,
     String(symbol || '').trim().toUpperCase(),
     selectedChartInterval.value,
     getSelectedIndicators().join(','),
@@ -3792,7 +3802,7 @@ function hasChartSeries(response, interval) {
 
 async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode)
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock')
 
   const cachedAnalysis = analysisCache.value[cacheKey]
   if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
@@ -3821,6 +3831,48 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
       `${cleanedSymbol} data is not accessible right now.`
     )
     throw new Error(payload.message || `${cleanedSymbol} data is not accessible right now.`)
+  }
+
+  const data = await response.json()
+  analysisCache.value = {
+    ...analysisCache.value,
+    [cacheKey]: data
+  }
+
+  return data
+}
+
+async function fetchCryptoAnalysis(symbol, { analysisMode = 'full' } = {}) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto')
+
+  const cachedAnalysis = analysisCache.value[cacheKey]
+  if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+    return cachedAnalysis
+  }
+
+  if (cachedAnalysis) {
+    const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
+    analysisCache.value = freshCache
+  }
+
+  const query = new URLSearchParams({
+    indicators: getSelectedIndicators().join(','),
+    analysis: analysisMode
+  })
+  query.set('interval', selectedChartInterval.value)
+
+  const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
+  const response = await secureFetch(requestUrl, {
+    timeoutMs: analysisMode === 'search' ? 12000 : 35000
+  })
+
+  if (!response.ok) {
+    const payload = await parseErrorResponse(
+      response,
+      `${cleanedSymbol} crypto data is not accessible right now.`
+    )
+    throw new Error(payload.message || `${cleanedSymbol} crypto data is not accessible right now.`)
   }
 
   const data = await response.json()
@@ -3866,17 +3918,26 @@ async function runSearch(source = 'search') {
   errorMessage.value = ''
 
   if (isCryptoPage) {
-    cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
-    symbolInput.value = cleanedSymbol
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      const data = await fetchCryptoAnalysis(cleanedSymbol, {
+        analysisMode: isGenerateAction ? 'full' : 'search'
       })
-    })
-    if (isGenerateAction) {
-      isGenerating.value = false
-    } else {
-      isSearching.value = false
+      cryptoResponse.value = data
+      symbolInput.value = cleanedSymbol
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        })
+      })
+    } catch (error) {
+      errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
+      console.error(error)
+    } finally {
+      if (isGenerateAction) {
+        isGenerating.value = false
+      } else {
+        isSearching.value = false
+      }
     }
     return
   }
@@ -3910,21 +3971,23 @@ async function runSearch(source = 'search') {
 async function handleChartIntervalChange(interval) {
   selectedChartInterval.value = interval
 
-  if (activePage.value === 'Crypto Trade') {
-    return
-  }
-
-  const symbol = stockResponse.value?.stock?.symbol
-  const availableSeries = stockResponse.value?.chartData?.series || {}
+  const isCryptoPage = activePage.value === 'Crypto Trade'
+  const responseRef = isCryptoPage ? cryptoResponse : stockResponse
+  const symbol = responseRef.value?.stock?.symbol
+  const availableSeries = responseRef.value?.chartData?.series || {}
 
   if (!symbol || availableSeries[interval]?.length) {
     return
   }
 
   try {
-    const data = await fetchStockAnalysis(symbol, { analysisMode: 'full' })
-    stockResponse.value = data
-    activeSymbol.value = data.stock.symbol
+    const data = isCryptoPage
+      ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+    responseRef.value = data
+    if (!isCryptoPage) {
+      activeSymbol.value = data.stock.symbol
+    }
     symbolInput.value = data.stock.symbol
   } catch (error) {
     errorMessage.value = getReadableMarketDataError(error?.message, symbol)

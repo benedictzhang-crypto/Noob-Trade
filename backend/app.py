@@ -18,6 +18,7 @@ from models import analysis, auth, market_data, trading
 from models.auth import LoginActivity, LoginVerificationCode, User
 from routes.assistant_routes import assistant_blueprint
 from routes.auth_routes import auth_blueprint
+from routes.crypto_routes import crypto_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
 from services.security_service import hash_secret, verify_secret
@@ -474,6 +475,7 @@ def create_app():
     db.init_app(app)
 
     app.register_blueprint(stock_blueprint)
+    app.register_blueprint(crypto_blueprint)
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(assistant_blueprint)
 

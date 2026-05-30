@@ -26,6 +26,12 @@ services:
         value: "900"
       - key: YAHOO_DATA_BASE_URL
         value: https://query1.finance.yahoo.com
+      - key: OKX_DATA_BASE_URL
+        value: https://www.okx.com
+      - key: COINGECKO_DATA_BASE_URL
+        value: https://api.coingecko.com/api/v3
+      - key: CRYPTO_EXCLUDE_STABLECOINS
+        value: "true"
       - key: ALPACA_DATA_FEED
         value: iex
       - key: ENABLE_DEMO_FALLBACK
