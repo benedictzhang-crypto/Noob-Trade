@@ -14,7 +14,7 @@ load_dotenv()
 
 from config import Config
 from extensions import db
-from models import analysis, auth, market_data, trading
+from models import analysis, auth, crypto_history, market_data, trading
 from models.auth import LoginActivity, LoginVerificationCode, User
 from routes.assistant_routes import assistant_blueprint
 from routes.auth_routes import auth_blueprint
