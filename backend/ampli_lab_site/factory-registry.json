@@ -5,6 +5,7 @@
     {
       "id": "trend-core",
       "name": "Trend Core",
+      "market": "us-equity",
       "family": "price-action",
       "factors": ["BOLL", "MACD", "MA", "EMA"],
       "status": "ready",
@@ -14,6 +15,7 @@
     {
       "id": "momentum-confirm",
       "name": "Momentum Confirm",
+      "market": "us-equity",
       "family": "confirmation",
       "factors": ["RSI", "KDJ", "VOL"],
       "status": "ready",
@@ -23,6 +25,7 @@
     {
       "id": "flow-context",
       "name": "Flow Context",
+      "market": "us-equity",
       "family": "market-microstructure",
       "factors": ["OBV", "OI"],
       "status": "ready",
@@ -32,17 +35,59 @@
     {
       "id": "similarity-path",
       "name": "Historical Similarity",
+      "market": "us-equity",
       "family": "path-memory",
       "factors": ["lookback-window", "forward-touch", "path-blend"],
       "status": "prototype",
       "source": "lab/scripts/render_historical_similarity_charts.py",
       "purpose": "Compare current candidates with prior winning paths."
+    },
+    {
+      "id": "crypto-trend-core",
+      "name": "Crypto Trend Core",
+      "market": "crypto",
+      "family": "multi-timeframe-trend",
+      "factors": ["EMA stack", "VWAP drift", "breakout range", "higher-timeframe trend"],
+      "status": "planned",
+      "source": "future/crypto/factors/trend_core.json",
+      "purpose": "Score trend continuation from minute bars through five-day bars."
+    },
+    {
+      "id": "liquidity-flow",
+      "name": "Liquidity Flow",
+      "market": "crypto",
+      "family": "market-microstructure",
+      "factors": ["volume impulse", "spread proxy", "order-flow imbalance", "turnover shock"],
+      "status": "planned",
+      "source": "future/crypto/factors/liquidity_flow.json",
+      "purpose": "Separate clean moves from thin or unstable liquidity."
+    },
+    {
+      "id": "volatility-regime",
+      "name": "Volatility Regime",
+      "market": "crypto",
+      "family": "risk-regime",
+      "factors": ["ATR expansion", "realized volatility", "wick ratio", "gap proxy"],
+      "status": "planned",
+      "source": "future/crypto/factors/volatility_regime.json",
+      "purpose": "Route strategies through calm, expansion, crash, and recovery regimes."
+    },
+    {
+      "id": "funding-sentiment",
+      "name": "Funding & Sentiment",
+      "market": "crypto",
+      "family": "derivatives-context",
+      "factors": ["funding rate", "open interest shift", "basis pressure", "liquidation proxy"],
+      "status": "planned",
+      "source": "future/crypto/factors/funding_sentiment.json",
+      "purpose": "Add derivatives pressure once exchange-level data is connected."
     }
   ],
   "dataLibrary": [
     {
       "id": "render-noobtrade-db",
       "name": "Render noobtrade-db",
+      "market": "us-equity",
       "type": "remote-postgres",
       "status": "planned",
       "location": "Render NoobTrade database",
@@ -52,6 +97,7 @@
     {
       "id": "desktop-full-market-db",
       "name": "Desktop Full Market Snapshot",
+      "market": "us-equity",
       "type": "sqlite",
       "status": "ready",
       "location": "/Users/benedict/Desktop/stock history sata/noobtrade_market_full_20260424-113547.db",
@@ -61,6 +107,7 @@
     {
       "id": "desktop-non-top50-db",
       "name": "Desktop Non Top50 Snapshot",
+      "market": "us-equity",
       "type": "sqlite",
       "status": "ready",
       "location": "/Users/benedict/Desktop/NoobTrade-Postgres-Extra-Backup/noobtrade_non_top50_market_20260424-113200.db",
@@ -70,17 +117,49 @@
     {
       "id": "backtest-evidence-folder",
       "name": "Backtest Evidence Folder",
+      "market": "us-equity",
       "type": "filesystem",
       "status": "ready",
       "location": "/Users/benedict/Desktop/Ampli Lab 回测",
       "tables": ["oracle results", "TP/SL matrices", "charts", "reports"],
       "policy": "read evidence, do not mutate original runs"
+    },
+    {
+      "id": "crypto-minute-bars",
+      "name": "Crypto Minute-to-5D Detail Pack",
+      "market": "crypto",
+      "type": "multi-timeframe-files",
+      "status": "incoming",
+      "location": "future crypto dataset drop",
+      "tables": ["1m bars", "5m bars", "15m bars", "1h bars", "4h bars", "1d bars", "5d bars"],
+      "policy": "freeze raw files into immutable train, validation, and blind manifests"
+    },
+    {
+      "id": "crypto-exchange-metadata",
+      "name": "Crypto Exchange Metadata",
+      "market": "crypto",
+      "type": "symbol-metadata",
+      "status": "planned",
+      "location": "future/crypto/metadata",
+      "tables": ["symbols", "quote assets", "fee tiers", "session rules"],
+      "policy": "normalize exchange-specific symbols before scoring"
+    },
+    {
+      "id": "crypto-blind-holdout",
+      "name": "Crypto Blind Holdout Vault",
+      "market": "crypto",
+      "type": "sealed-test-manifest",
+      "status": "planned",
+      "location": "future/crypto/blind-tests",
+      "tables": ["sealed symbols", "sealed windows", "run manifest", "audit hash"],
+      "policy": "do not expose holdout windows to factor search"
     }
   ],
   "knowledgeChains": [
     {
       "id": "generate-to-exit-v1",
       "name": "Generate To Exit V1",
+      "market": "us-equity",
       "status": "active",
       "steps": ["freeze", "feature-cache", "weight-search", "generate-score", "oracle-replay", "tp-sl-matrix", "best30", "evidence-pack"],
       "source": "lab/config/generate_to_exit_pipeline.json",
@@ -89,6 +168,7 @@
     {
       "id": "smart-stage-search",
       "name": "Smart Stage Search",
+      "market": "us-equity",
       "status": "active",
       "steps": ["coarse-factor-family", "local-neighborhood", "strict-replay", "finalist-matrix"],
       "source": "docs/smart-search-factory.md",
@@ -97,12 +177,58 @@
     {
       "id": "legacy-oracle-reference",
       "name": "Legacy Oracle Reference",
+      "market": "us-equity",
       "status": "reference",
       "steps": ["legacy-signals", "oracle-replay", "compare-baseline"],
       "source": "docs/legacy-oracle.md",
       "output": "baseline comparison"
+    },
+    {
+      "id": "crypto-scale-blindtest",
+      "name": "Crypto Scale Blind Test",
+      "market": "crypto",
+      "status": "planned",
+      "steps": ["ingest-bars", "normalize-exchange", "build-factor-grid", "train-search", "validation-rank", "sealed-blind-replay", "robustness-rank", "evidence-pack"],
+      "source": "future/crypto/knowledge/scale_blindtest.json",
+      "output": "crypto strategy survivors with sealed holdout evidence"
+    },
+    {
+      "id": "crypto-regime-router",
+      "name": "Crypto Regime Router",
+      "market": "crypto",
+      "status": "planned",
+      "steps": ["volatility-state", "liquidity-state", "trend-state", "strategy-router", "regime-specific-replay"],
+      "source": "future/crypto/knowledge/regime_router.json",
+      "output": "factor recipes grouped by crypto market regime"
+    },
+    {
+      "id": "crypto-mtf-confluence",
+      "name": "Multi-Timeframe Confluence",
+      "market": "crypto",
+      "status": "planned",
+      "steps": ["1m-signal", "15m-confirm", "1h-context", "1d-filter", "5d-regime", "exit-matrix"],
+      "source": "future/crypto/knowledge/mtf_confluence.json",
+      "output": "minute entries filtered by higher-timeframe context"
     }
   ],
+  "factoryFlows": {
+    "us-equity": [
+      "select stock factors",
+      "select equity snapshots",
+      "select stock knowledge chain",
+      "freeze manifests",
+      "run backtest",
+      "publish evidence"
+    ],
+    "crypto": [
+      "ingest crypto bars",
+      "normalize exchange data",
+      "split train/validation/blind",
+      "build factor grid",
+      "run scale backtest",
+      "seal blind evidence"
+    ]
+  },
   "assemblyFlow": [
     "select factors",
     "select data snapshots",

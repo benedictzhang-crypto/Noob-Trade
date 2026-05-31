@@ -1,7 +1,7 @@
 {
   "headline": "Legacy oracle verified, Generate factory active",
   "note": "Framework code stays in Ampli Lab; every run artifact is mirrored into Desktop / Ampli Lab \u56de\u6d4b for reproducible review.",
-  "updatedAt": "2026-05-20T13:54:38",
+  "updatedAt": "2026-05-31T13:35:15",
   "frameworkRoot": "/Users/benedict/Desktop/Ampli Lab",
   "artifactRoot": "/Users/benedict/Desktop/Ampli Lab \u56de\u6d4b",
   "activeRuns": 1,
