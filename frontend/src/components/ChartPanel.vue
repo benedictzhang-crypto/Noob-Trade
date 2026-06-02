@@ -33,6 +33,10 @@ const props = defineProps({
   selectedInterval: {
     type: String,
     required: true
+  },
+  isCryptoMode: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -161,11 +165,14 @@ const hoverTimeLabel = computed(() => {
   const candle = hoveredCandle.value
 
   if (!candle) {
-    return `${formatIntervalLabel(props.selectedInterval)}: hover a candle to read its exact timestamp`
+    return 'Hover a candle to read its exact timestamp'
   }
 
   return buildHoverTimeLabel(candle.date, props.selectedInterval)
 })
+const hoverTimeModeLabel = computed(() => (
+  hoveredCandle.value ? `${formatIntervalLabel(props.selectedInterval)} bar` : formatIntervalLabel(props.selectedInterval)
+))
 
 const xTicks = computed(() => {
   const candles = activeCandles.value
@@ -1155,7 +1162,7 @@ function getBarOpacity() {
 </script>
 
 <template>
-  <div class="inner-card chart-shell">
+  <div class="inner-card chart-shell" :class="{ 'crypto-chart': isCryptoMode }">
     <div class="chart-meta">
       <div class="chart-title-group">
         <span>Ticker: <strong>{{ activeSymbol }}</strong></span>
@@ -1305,7 +1312,9 @@ function getBarOpacity() {
           <span v-for="tick in xTicks" :key="`label-${tick.index}`">{{ tick.label }}</span>
         </div>
         <div class="hover-time-readout" :class="{ active: hoveredCandle }">
-          {{ hoverTimeLabel }}
+          <span class="hover-time-mode">{{ hoverTimeModeLabel }}</span>
+          <span class="hover-time-copy">{{ hoverTimeLabel }}</span>
+          <span class="hover-time-hint">{{ isDragging ? 'Dragging timeline' : 'Drag to pan' }}</span>
         </div>
       </div>
 

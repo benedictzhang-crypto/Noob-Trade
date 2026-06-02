@@ -245,6 +245,28 @@ select {
   color: #ffffff;
 }
 
+.app-shell.crypto-mode .probability-slider-card {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(3, 7, 18, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-shell.crypto-mode .probability-slider-card .suggestion-row {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-shell.crypto-mode .probability-slider-card .suggestion-row span {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.app-shell.crypto-mode .probability-slider-card .positive {
+  color: #4ade80;
+}
+
+.app-shell.crypto-mode .probability-slider-card .negative {
+  color: #fb7185;
+}
+
 .app-shell.crypto-mode .section-header,
 .app-shell.crypto-mode .section-header.light {
   border-bottom-color: rgba(255, 255, 255, 0.1);
@@ -330,18 +352,40 @@ select {
   color: rgba(255, 255, 255, 0.58);
 }
 
-.app-shell.crypto-mode .indicator-stack-header {
-  border-bottom-color: rgba(255, 255, 255, 0.1);
-  color: var(--text-soft);
+.app-shell.crypto-mode .indicator-stack-header,
+.chart-shell.crypto-chart .indicator-stack-header {
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(226, 232, 240, 0.92);
 }
 
-.app-shell.crypto-mode .indicator-stack-header strong {
+.app-shell.crypto-mode .indicator-stack-header strong,
+.chart-shell.crypto-chart .indicator-stack-header strong {
   color: #ffffff;
+}
+
+.app-shell.crypto-mode .indicator-stack-header span,
+.chart-shell.crypto-chart .indicator-stack-header span {
+  color: rgba(226, 232, 240, 0.88);
 }
 
 .app-shell.crypto-mode .shared-time-axis {
   border-top-color: rgba(255, 255, 255, 0.1);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent);
+}
+
+.app-shell.crypto-mode .hover-time-readout,
+.chart-shell.crypto-chart .hover-time-readout {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(6, 6, 6, 0.94);
+  color: #f8fafc;
+}
+
+.app-shell.crypto-mode .hover-time-readout.active,
+.chart-shell.crypto-chart .hover-time-readout.active {
+  border-color: rgba(34, 211, 238, 0.38);
+  background: rgba(15, 23, 42, 0.94);
+  color: #f8fafc;
 }
 
 .app-shell.crypto-mode .price-line-overlay.ma,
@@ -2110,24 +2154,76 @@ select {
 
 .hover-time-readout {
   margin: 8px 14px 0;
-  min-height: 30px;
-  display: flex;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 138, 0, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--text-soft);
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--time-readout-border, rgba(255, 138, 0, 0.16));
+  border-radius: 10px;
+  background: var(--time-readout-bg, rgba(255, 255, 255, 0.92));
+  color: var(--time-readout-text, var(--text-soft));
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
+  cursor: grab;
+  box-shadow: var(--time-readout-shadow, none);
+}
+
+.hover-time-mode,
+.hover-time-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--time-chip-border, rgba(255, 138, 0, 0.18));
+  border-radius: 999px;
+  background: var(--time-chip-bg, rgba(255, 138, 0, 0.1));
+  color: var(--time-chip-text, var(--accent-strong));
+  white-space: nowrap;
+}
+
+.hover-time-copy {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--time-readout-text, var(--text-main));
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hover-time-readout.active {
-  color: var(--text-main);
-  background: rgba(255, 247, 240, 0.98);
-  border-color: rgba(255, 138, 0, 0.28);
+  border-color: var(--time-readout-active-border, rgba(255, 138, 0, 0.28));
+  background: var(--time-readout-active-bg, rgba(255, 247, 240, 0.98));
+  color: var(--time-readout-active-text, var(--text-main));
+}
+
+.chart-main-shell.dragging .hover-time-readout {
+  cursor: grabbing;
+}
+
+.chart-main-shell.dragging .hover-time-hint {
+  border-color: var(--time-drag-chip-border, rgba(255, 138, 0, 0.34));
+  background: var(--time-drag-chip-bg, rgba(255, 138, 0, 0.16));
+  color: var(--time-drag-chip-text, var(--accent-strong));
+}
+
+.chart-shell.crypto-chart {
+  --time-readout-bg: rgba(3, 7, 18, 0.96);
+  --time-readout-active-bg: rgba(8, 13, 24, 0.98);
+  --time-readout-border: rgba(148, 163, 184, 0.34);
+  --time-readout-active-border: rgba(34, 211, 238, 0.46);
+  --time-readout-text: #f8fafc;
+  --time-readout-active-text: #ffffff;
+  --time-readout-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 24px rgba(0, 0, 0, 0.22);
+  --time-chip-bg: rgba(255, 255, 255, 0.1);
+  --time-chip-border: rgba(255, 255, 255, 0.18);
+  --time-chip-text: #e2e8f0;
+  --time-drag-chip-bg: rgba(34, 211, 238, 0.16);
+  --time-drag-chip-border: rgba(34, 211, 238, 0.5);
+  --time-drag-chip-text: #67e8f9;
 }
 
 .candlestick-area {
