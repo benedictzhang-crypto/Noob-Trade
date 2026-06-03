@@ -5702,17 +5702,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="task-row">
               <strong>1. Build Watchlist</strong>
               <span>Star names from Explore so Dashboard has a focused scan universe.</span>
-              <small>{{ activeStarredSymbols.length }} saved</small>
             </div>
             <div class="task-row">
               <strong>2. Set Probability</strong>
               <span>Choose the minimum upside probability you want the Generate logic to pass.</span>
-              <small>{{ watchlistScanThresholdLabel }}</small>
             </div>
             <div class="task-row">
               <strong>3. Review Matches</strong>
               <span>Generated matches appear ranked by probability, ready to open in Trade.</span>
-              <small>{{ sortedWatchlistScanResults.length }} passed</small>
             </div>
           </div>
         </div>
