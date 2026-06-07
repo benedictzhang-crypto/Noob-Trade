@@ -134,7 +134,7 @@ class YahooMarketApiService:
             quotes = ((result.get("indicators") or {}).get("quote") or [{}])[0]
             bars = self._normalize_bars(timestamps, quotes, include_time=include_time)
             if limit:
-                bars = bars[: max(1, int(limit))]
+                bars = bars[-max(1, int(limit)):]
 
             self.mark_available()
             return {"data": bars, "meta": meta}

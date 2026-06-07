@@ -970,7 +970,14 @@ class MarketDataService:
 
         overview = self._extract_first_record(overview_payload)
         prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
-        return overview, prices
+        return overview, self._normalize_price_rows_latest_first(prices)
+
+    def _normalize_price_rows_latest_first(self, prices):
+        return sorted(
+            list(prices or []),
+            key=lambda item: self._parse_datetime((item or {}).get("date")) or datetime.min,
+            reverse=True,
+        )
 
     def _get_cached_market_payload(self, cache_key, ttl_seconds, loader):
         ttl = max(0, int(ttl_seconds or 0))
@@ -1612,8 +1619,12 @@ class MarketDataService:
 
     def _build_monthly_candles(self, prices):
         grouped = {}
+        sorted_prices = sorted(
+            list(prices or []),
+            key=lambda item: self._parse_datetime((item or {}).get("date")) or datetime.min,
+        )
 
-        for item in reversed(prices):
+        for item in sorted_prices:
             date_value = str(item.get("date", ""))
             month_key = date_value[:7]
 
