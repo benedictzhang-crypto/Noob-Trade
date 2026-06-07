@@ -1390,19 +1390,6 @@ const dashboardAreaPath = computed(() => buildMiniAreaPath(dashboardAssetPoints.
 const dashboardYAxis = computed(() => buildAxisLabels(dashboardAssetPoints.value))
 const dashboardXAxis = lastSixMonths.map((item) => item.label)
 
-const dashboardStats = computed(() => {
-  const savedCount = activeStarredSymbols.value.length
-  const qualifiedCount = sortedWatchlistScanResults.value.length
-  const bestMatch = sortedWatchlistScanResults.value[0]
-
-  return [
-    { label: 'Saved Symbols', value: String(savedCount), note: `${isCryptoMode.value ? 'Crypto assets' : 'Stocks'} pinned for batch scanning` },
-    { label: 'Scan Threshold', value: watchlistScanThresholdLabel.value, note: 'Minimum upside probability required to pass' },
-    { label: 'Qualified Matches', value: String(qualifiedCount), note: qualifiedCount ? 'Sorted from highest probability to lowest' : 'Run Scan to generate ranked probabilities' },
-    { label: 'Best Probability', value: bestMatch ? `${bestMatch.probability.toFixed(2)}%` : '--', note: bestMatch ? `${bestMatch.symbol} is currently the strongest match` : 'Waiting for the next scan result' }
-  ]
-})
-
 const portfolioChartPoints = computed(() => dashboardAssetPoints.value)
 const portfolioChartPath = computed(() => buildMiniChartPath(portfolioChartPoints.value))
 const portfolioAreaPath = computed(() => buildMiniAreaPath(portfolioChartPoints.value))
@@ -5670,57 +5657,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               ? 'Scan saved crypto assets by probability, rank the strongest setups, and open the dedicated crypto trade workspace for deeper review.'
               : 'Use your saved watchlist as a probability scanner: set a minimum threshold, run Generate logic, and review only the strongest stock setups.' }}
           </p>
-
-          <div class="dashboard-balance-row">
-            <div>
-              <span class="dashboard-label">Saved Scan Universe</span>
-              <strong class="dashboard-balance-value">{{ activeStarredSymbols.length }}</strong>
-            </div>
-            <span class="dashboard-currency-chip">{{ watchlistScanThresholdLabel }} min</span>
-          </div>
-
-          <div class="dashboard-performance">
-            <span>Qualified Matches</span>
-            <strong class="positive">{{ sortedWatchlistScanResults.length ? `${sortedWatchlistScanResults.length} passed` : 'Ready to scan' }}</strong>
-          </div>
-
-          <div class="dashboard-action-row">
-            <button class="topbar-button" @click="navigateTo(isCryptoMode ? 'Crypto Trade' : 'Stock Trade')">
-              Open {{ isCryptoMode ? 'Crypto Trade' : 'Stock Trade' }}
-            </button>
-            <button class="topbar-button secondary" @click="navigateTo('Explore')">Open Explore</button>
-          </div>
         </div>
-
-        <div class="dashboard-chart-panel">
-          <div class="dashboard-chart-copy">
-            <span class="section-chip">Probability Workflow</span>
-            <span class="dashboard-chart-note">Star symbols, scan probabilities, then open the strongest setup</span>
-          </div>
-
-          <div class="task-list">
-            <div class="task-row">
-              <strong>1. Build Watchlist</strong>
-              <span>Star names from Explore so Dashboard has a focused scan universe.</span>
-            </div>
-            <div class="task-row">
-              <strong>2. Set Probability</strong>
-              <span>Choose the minimum upside probability you want the Generate logic to pass.</span>
-            </div>
-            <div class="task-row">
-              <strong>3. Review Matches</strong>
-              <span>Generated matches appear ranked by probability, ready to open in Trade.</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="stats-strip dashboard-summary-strip">
-        <article v-for="stat in dashboardStats" :key="stat.label" class="stat-card dashboard-stat-card">
-          <p>{{ stat.label }}</p>
-          <h2>{{ stat.value }}</h2>
-          <span>{{ stat.note }}</span>
-        </article>
       </section>
 
       <section class="dashboard-grid">

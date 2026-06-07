@@ -3275,7 +3275,7 @@ select {
 
 .dashboard-landing {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: minmax(0, 780px);
   gap: 24px;
   align-items: stretch;
 }
