@@ -3786,6 +3786,13 @@ function openModeAnalysis(symbol) {
   openAnalysis(symbol)
 }
 
+function openUserGuide() {
+  activePage.value = 'User Guide'
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  })
+}
+
 function buildAnalysisCacheKey(symbol, analysisMode = 'full', assetType = 'stock') {
   return [
     assetType,
@@ -5751,6 +5758,12 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Generated matches appear ranked by probability, ready to open in Trade.</span>
             </div>
           </div>
+
+          <div v-if="!isCryptoMode" class="workflow-guide-actions">
+            <button class="topbar-button secondary" type="button" @click="openUserGuide">
+              How NoobTrade Works
+            </button>
+          </div>
         </div>
       </section>
 
@@ -5883,6 +5896,110 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <small>{{ isCryptoMode ? 'Crypto Trade' : 'Stock Trade' }}</small>
             </div>
           </div>
+        </article>
+      </section>
+    </main>
+
+    <main v-else-if="activePage === 'User Guide'" class="product-page">
+      <section class="hero-surface compact">
+        <div>
+          <p class="eyebrow">User Guide</p>
+          <h1 class="page-title">How NoobTrade Works</h1>
+          <p class="page-subtitle">
+            NoobTrade is a research workspace for reading stocks and crypto with live market data,
+            historical context, probability scoring, and a guided path from watchlist to deeper review.
+          </p>
+          <div class="workflow-guide-actions">
+            <button class="topbar-button secondary" type="button" @click="navigateTo('Dashboard')">Back to Dashboard</button>
+            <button class="topbar-button" type="button" @click="navigateTo(isCryptoMode ? 'Crypto Trade' : 'Stock Trade')">
+              Open {{ isCryptoMode ? 'Crypto Trade' : 'Stock Trade' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="more-story-grid guide-story-grid">
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Purpose</p>
+          <h2>What the site is for</h2>
+          <p>
+            The platform helps users turn a broad market list into a focused research list. It is built for reviewing price action,
+            live quotes, selected indicators, similar historical setups, and probability-style outcomes before deciding what deserves more attention.
+          </p>
+          <p>
+            It is not a promise that a stock or crypto asset will rise or fall. Treat it as a decision-support dashboard, not a broker,
+            investment adviser, or guarantee of future performance.
+          </p>
+        </article>
+
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Quick Start</p>
+          <h2>The normal workflow</h2>
+          <div class="task-list guide-task-list">
+            <div class="task-row">
+              <strong>1. Start in Explore</strong>
+              <span>Star the stocks or crypto assets you want NoobTrade to watch. Starred names become the Dashboard scan universe.</span>
+            </div>
+            <div class="task-row">
+              <strong>2. Use Dashboard Scan</strong>
+              <span>Choose a minimum upside probability, then run Scan to evaluate all starred names together.</span>
+            </div>
+            <div class="task-row">
+              <strong>3. Open the strongest setup</strong>
+              <span>Click a ranked result to open Trade, where you can inspect the chart, indicators, probabilities, and matched historical moments.</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Dashboard Scan</p>
+          <h2>Scan is batch Generate</h2>
+          <p>
+            Dashboard Scan runs the same Generate-style analysis across every starred symbol in your current mode. In stock mode it scans only starred stocks;
+            in crypto mode it scans only starred crypto assets. Results are filtered by your threshold and sorted from stronger upside probability to weaker.
+          </p>
+          <p>
+            This is meant for fast triage. Use it to find which names deserve attention first, then open Trade for the full review.
+          </p>
+        </article>
+
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Single Symbol</p>
+          <h2>Generate one stock or crypto asset</h2>
+          <p>
+            On Stock Trade or Crypto Trade, enter a symbol and run Generate. The page first loads a fast market snapshot so the workspace responds quickly,
+            then refreshes deeper historical context in the background when available.
+          </p>
+          <p>
+            The chart, selected indicators, matched setup panel, suggested risk lines, and future probability ladder are there to help users compare context,
+            not to replace their own judgment.
+          </p>
+        </article>
+
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Probability</p>
+          <h2>Why up and down do not add to 100%</h2>
+          <p>
+            The upside and downside probabilities answer different event questions. For example, an upside value may estimate how often similar setups touched
+            +1% within a forward window, while a downside value may estimate how often similar setups touched -1% within that same window.
+          </p>
+          <p>
+            Both events can happen in the same window, and neither event can happen. That is why the two numbers are not complements and should not be read
+            as “up chance plus down chance equals 100%.”
+          </p>
+        </article>
+
+        <article class="more-card feature-story-card">
+          <p class="eyebrow">Data Separation</p>
+          <h2>Stocks and crypto stay separate</h2>
+          <p>
+            Stock mode and crypto mode share the same product workflow, but they keep separate watchlists, dashboards, trade workspaces, and data sources.
+            This avoids mixing equity history with digital asset history.
+          </p>
+          <p>
+            Live API data is used where available, while historical context is used to frame probability-style research. If a provider is slow or unavailable,
+            the app may use cached context or show a clear data-source label.
+          </p>
         </article>
       </section>
     </main>

@@ -3455,6 +3455,25 @@ select {
   min-height: 152px;
 }
 
+.workflow-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.workflow-guide-actions .topbar-button {
+  min-height: 44px;
+}
+
+.guide-story-grid {
+  align-items: stretch;
+}
+
+.guide-task-list {
+  margin-top: 10px;
+}
+
 .dashboard-watchlist-head,
 .dashboard-watchlist-row {
   grid-template-columns: 1.1fr 1fr 1fr 1.2fr;
