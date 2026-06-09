@@ -3055,6 +3055,68 @@ select {
   white-space: nowrap;
 }
 
+.app-shell.crypto-mode .matched-card {
+  border-color: rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 34%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(3, 7, 18, 0.96));
+  color: #f8fafc;
+}
+
+.app-shell.crypto-mode .match-row {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.app-shell.crypto-mode .match-row--active {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.app-shell.crypto-mode .match-name,
+.app-shell.crypto-mode .match-detail-header h3 {
+  color: #f8fafc;
+}
+
+.app-shell.crypto-mode .match-meta,
+.app-shell.crypto-mode .match-stats,
+.app-shell.crypto-mode .match-detail-eyebrow,
+.app-shell.crypto-mode .match-detail-meta,
+.app-shell.crypto-mode .match-detail-stats,
+.app-shell.crypto-mode .match-detail-price-axis,
+.app-shell.crypto-mode .match-detail-time-axis {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+.app-shell.crypto-mode .match-score,
+.app-shell.crypto-mode .match-detail-score {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .match-detail-card {
+  border-color: rgba(255, 255, 255, 0.16);
+  background:
+    radial-gradient(circle at 88% 0%, rgba(255, 255, 255, 0.09), transparent 28%),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(2, 6, 12, 0.98));
+  color: #f8fafc;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-shell.crypto-mode .match-detail-plot {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(3, 7, 18, 0.94));
+}
+
+.app-shell.crypto-mode .match-detail-grid line {
+  stroke: rgba(226, 232, 240, 0.14);
+}
+
+.app-shell.crypto-mode .match-detail-card .empty-state {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(226, 232, 240, 0.9);
+}
+
 .empty-state--compact {
   margin-top: 14px;
   min-height: auto;
