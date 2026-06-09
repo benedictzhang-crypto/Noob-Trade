@@ -568,6 +568,7 @@ let feedRefreshTimer = null
 let beforeInstallHandler = null
 let voiceVoicesChangedHandler = null
 let voiceRestartTimer = null
+let analysisRequestVersion = 0
 let voiceSpeechToken = 0
 let voiceLastSpeechSignature = ''
 let voiceLastSpeechAt = 0
@@ -3898,6 +3899,55 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
   return data
 }
 
+function scrollAnalysisWorkspaceToTop() {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  })
+}
+
+function applyAnalysisResponse(data, isCryptoPage) {
+  if (isCryptoPage) {
+    cryptoResponse.value = data
+    symbolInput.value = data.stock.symbol
+    return
+  }
+
+  stockResponse.value = data
+  activeSymbol.value = data.stock.symbol
+  symbolInput.value = data.stock.symbol
+  activePage.value = 'Stock Trade'
+}
+
+async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
+  try {
+    const data = isCryptoPage
+      ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+
+    if (requestVersion !== analysisRequestVersion) {
+      return
+    }
+
+    const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
+    if (responseSymbol !== String(symbol || '').toUpperCase()) {
+      return
+    }
+
+    if (isCryptoPage && activePage.value !== 'Crypto Trade') {
+      return
+    }
+    if (!isCryptoPage && activePage.value !== 'Stock Trade') {
+      return
+    }
+
+    applyAnalysisResponse(data, isCryptoPage)
+  } catch (error) {
+    console.warn('Full Generate refresh could not finish.', error)
+  }
+}
+
 async function runSearch(source = 'search') {
   const isCryptoPage = activePage.value === 'Crypto Trade'
   const cleanedSymbol = normalizeTradeSymbolInput(symbolInput.value, { isCrypto: isCryptoPage })
@@ -3924,6 +3974,7 @@ async function runSearch(source = 'search') {
 
   symbolInput.value = cleanedSymbol
   const isGenerateAction = source === 'generate'
+  const requestVersion = ++analysisRequestVersion
   if (isGenerateAction) {
     isGenerating.value = true
   } else {
@@ -3934,15 +3985,13 @@ async function runSearch(source = 'search') {
   if (isCryptoPage) {
     try {
       const data = await fetchCryptoAnalysis(cleanedSymbol, {
-        analysisMode: isGenerateAction ? 'full' : 'search'
+        analysisMode: 'search'
       })
-      cryptoResponse.value = data
-      symbolInput.value = cleanedSymbol
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        })
-      })
+      applyAnalysisResponse(data, true)
+      scrollAnalysisWorkspaceToTop()
+      if (isGenerateAction) {
+        void refreshFullGenerateInBackground(cleanedSymbol, true, requestVersion)
+      }
     } catch (error) {
       errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
       console.error(error)
@@ -3958,18 +4007,14 @@ async function runSearch(source = 'search') {
 
   try {
     const data = await fetchStockAnalysis(cleanedSymbol, {
-      analysisMode: isGenerateAction ? 'full' : 'search'
+      analysisMode: 'search'
     })
 
-    stockResponse.value = data
-    activeSymbol.value = data.stock.symbol
-    symbolInput.value = data.stock.symbol
-    activePage.value = 'Stock Trade'
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' })
-      })
-    })
+    applyAnalysisResponse(data, false)
+    scrollAnalysisWorkspaceToTop()
+    if (isGenerateAction) {
+      void refreshFullGenerateInBackground(cleanedSymbol, false, requestVersion)
+    }
   } catch (error) {
     errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
     console.error(error)

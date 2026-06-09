@@ -92,6 +92,9 @@ class MarketDataService:
     MARKET_NEWS_CACHE = {}
     MARKET_API_CACHE = {}
     MARKET_API_CACHE_MAX_ENTRIES = 512
+    ANALYSIS_RESPONSE_CACHE = {}
+    ANALYSIS_RESPONSE_CACHE_MAX_ENTRIES = 256
+    ANALYSIS_RESPONSE_CACHE_TTL_SECONDS = 90
     TOP_50_SYMBOLS = list(Config.MATCH_SCORING_SYMBOLS)
     HOT_NEWS_SYMBOLS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "AMZN", "TSLA", "META", "AMD", "JPM"]
     LIVE_MATCH_TARGET = 20
@@ -207,6 +210,22 @@ class MarketDataService:
         summary_only = str(analysis_mode or "full").lower() != "full"
 
         if is_production:
+            cache_key = self._analysis_response_cache_key(
+                symbol=symbol_code,
+                interval=interval,
+                lookback_window=lookback_window,
+                indicators=indicators,
+                compact_response=compact_response,
+                analysis_mode=analysis_mode,
+            )
+            cached_response = self._get_cached_analysis_response(cache_key)
+            if cached_response is not None:
+                return cached_response
+
+            def cache_response(response):
+                self._store_analysis_response(cache_key, response)
+                return response
+
             if self.market_api.is_configured() and self.market_api.is_available():
                 try:
                     response = self._build_live_current_vs_cached_response(
@@ -218,17 +237,17 @@ class MarketDataService:
                     )
 
                     if summary_only:
-                        return response
+                        return cache_response(response)
 
                     try:
-                        return self.persistence_service.apply_cached_match_preview(response)
+                        return cache_response(self.persistence_service.apply_cached_match_preview(response))
                     except Exception:
                         logger.warning(
                             "Production cached match preview failed for %s; returning live response.",
                             symbol_code,
                             exc_info=True,
                         )
-                        return response
+                        return cache_response(response)
                 except DukeMarketApiUnavailable:
                     logger.warning(
                         "Production live market data provider is unavailable for %s; falling back to cached history when possible.",
@@ -244,14 +263,14 @@ class MarketDataService:
 
             if self._has_cached_history(symbol_code):
                 try:
-                    return self._build_cached_db_response(
+                    return cache_response(self._build_cached_db_response(
                         symbol=symbol_code,
                         interval=interval,
                         lookback_window=lookback_window,
                         indicators=indicators,
                         compact_response=compact_response,
                         apply_match_preview=not summary_only,
-                    )
+                    ))
                 except Exception:
                     logger.warning(
                         "Production cached database response failed for %s.",
@@ -260,7 +279,7 @@ class MarketDataService:
                     )
 
             if self._allow_demo_fallback(symbol_code):
-                return self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators)
+                return cache_response(self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators))
 
             raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
@@ -1010,6 +1029,55 @@ class MarketDataService:
             }
 
         return value
+
+    def _analysis_response_cache_key(
+        self,
+        symbol,
+        interval,
+        lookback_window,
+        indicators,
+        compact_response,
+        analysis_mode,
+    ):
+        normalized_indicators = ",".join(parse_indicators(",".join(indicators or []), ""))
+        return "|".join(
+            [
+                self.__class__.__name__,
+                self._market_provider_label(),
+                str(symbol or "").upper(),
+                str(interval or "daily"),
+                str(int(lookback_window or 0)),
+                normalized_indicators,
+                str(analysis_mode or "full").lower(),
+                "compact" if compact_response else "full",
+            ]
+        )
+
+    def _get_cached_analysis_response(self, cache_key):
+        cached = self.ANALYSIS_RESPONSE_CACHE.get(cache_key)
+        if cached and cached.get("expires_at", 0) > time.time():
+            return deepcopy(cached["value"])
+        if cached:
+            self.ANALYSIS_RESPONSE_CACHE.pop(cache_key, None)
+        return None
+
+    def _store_analysis_response(self, cache_key, response):
+        if not cache_key or not isinstance(response, dict):
+            return
+
+        if len(self.ANALYSIS_RESPONSE_CACHE) >= self.ANALYSIS_RESPONSE_CACHE_MAX_ENTRIES:
+            oldest_key = min(
+                self.ANALYSIS_RESPONSE_CACHE,
+                key=lambda key: self.ANALYSIS_RESPONSE_CACHE[key].get("stored_at", 0),
+            )
+            self.ANALYSIS_RESPONSE_CACHE.pop(oldest_key, None)
+
+        now = time.time()
+        self.ANALYSIS_RESPONSE_CACHE[cache_key] = {
+            "stored_at": now,
+            "expires_at": now + self.ANALYSIS_RESPONSE_CACHE_TTL_SECONDS,
+            "value": deepcopy(response),
+        }
 
     def _build_google_news_link(self, symbol, title):
         query = f"{symbol} stock news {title}"
