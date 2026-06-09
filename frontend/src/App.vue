@@ -3572,13 +3572,13 @@ async function scanStarredWatchlist() {
 
   isWatchlistScanning.value = true
   watchlistScanResults.value = []
-  watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} with Generate logic...`
+  watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} together with Generate logic...`
 
   try {
     const scanResults = await runLimitedTasks(symbols, async (symbol) => {
       const data = isCryptoMode.value
-        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
-        : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false })
+        : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false })
       const probability = getAnalysisUpsideProbability(data)
       const currentPrice = Number(data?.stock?.currentPrice)
 
@@ -3590,7 +3590,7 @@ async function scanStarredWatchlist() {
         matchedCount: Number(data?.patternAnalysis?.matchedPatternsCount || data?.patternAnalysis?.matchedHistoricalPatterns?.length || 0),
         dataSource: data?.dataSource || 'live'
       }
-    })
+    }, symbols.length)
 
     const passedResults = []
     const failedSymbols = []
@@ -3800,18 +3800,20 @@ function hasChartSeries(response, interval) {
   return Array.isArray(candles) && candles.length > 0
 }
 
-async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
+async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock')
 
-  const cachedAnalysis = analysisCache.value[cacheKey]
-  if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
-    return cachedAnalysis
-  }
+  if (cacheResult) {
+    const cachedAnalysis = analysisCache.value[cacheKey]
+    if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+      return cachedAnalysis
+    }
 
-  if (cachedAnalysis) {
-    const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
-    analysisCache.value = freshCache
+    if (cachedAnalysis) {
+      const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
+      analysisCache.value = freshCache
+    }
   }
 
   const query = new URLSearchParams({
@@ -3819,6 +3821,9 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
     analysis: analysisMode,
   })
   query.set('interval', selectedChartInterval.value)
+  if (compact) {
+    query.set('compact', '1')
+  }
 
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
   const response = await secureFetch(requestUrl, {
@@ -3834,26 +3839,30 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full' } = {}) {
   }
 
   const data = await response.json()
-  analysisCache.value = {
-    ...analysisCache.value,
-    [cacheKey]: data
+  if (cacheResult) {
+    analysisCache.value = {
+      ...analysisCache.value,
+      [cacheKey]: data
+    }
   }
 
   return data
 }
 
-async function fetchCryptoAnalysis(symbol, { analysisMode = 'full' } = {}) {
+async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto')
 
-  const cachedAnalysis = analysisCache.value[cacheKey]
-  if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
-    return cachedAnalysis
-  }
+  if (cacheResult) {
+    const cachedAnalysis = analysisCache.value[cacheKey]
+    if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+      return cachedAnalysis
+    }
 
-  if (cachedAnalysis) {
-    const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
-    analysisCache.value = freshCache
+    if (cachedAnalysis) {
+      const { [cacheKey]: _staleAnalysis, ...freshCache } = analysisCache.value
+      analysisCache.value = freshCache
+    }
   }
 
   const query = new URLSearchParams({
@@ -3861,6 +3870,9 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full' } = {}) {
     analysis: analysisMode
   })
   query.set('interval', selectedChartInterval.value)
+  if (compact) {
+    query.set('compact', '1')
+  }
 
   const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
   const response = await secureFetch(requestUrl, {
@@ -3876,9 +3888,11 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full' } = {}) {
   }
 
   const data = await response.json()
-  analysisCache.value = {
-    ...analysisCache.value,
-    [cacheKey]: data
+  if (cacheResult) {
+    analysisCache.value = {
+      ...analysisCache.value,
+      [cacheKey]: data
+    }
   }
 
   return data
