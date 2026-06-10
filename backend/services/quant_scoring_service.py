@@ -109,8 +109,18 @@ class QuantScoringService:
     def get_weight(self, indicator_name):
         return self.WEIGHT_BY_INDICATOR.get(self.normalize_indicator_name(indicator_name), 0)
 
-    def score_match(self, current_window, candidate_window, indicators, include_breakdown=True):
+    def score_match(
+        self,
+        current_window,
+        candidate_window,
+        indicators,
+        include_breakdown=True,
+        indicator_weights=None,
+        indicator_fit_weight=None,
+        path_weight=None,
+    ):
         selected_indicators = self.normalize_indicator_names(indicators)
+        custom_weights = self._normalize_indicator_weights(indicator_weights)
         current_snapshot = self._indicator_snapshot(current_window)
         candidate_snapshot = self._indicator_snapshot(candidate_window)
 
@@ -125,7 +135,7 @@ class QuantScoringService:
             candidate_value = candidate_snapshot.get(indicator_name)
             sim_pct = self._similarity_percent(indicator_name, current_value, candidate_value)
             full_score = self.get_full_score(indicator_name)
-            weight = self.get_weight(indicator_name)
+            weight = self._resolve_indicator_weight(indicator_name, custom_weights)
             score = self.calc_indicator_score(indicator_name, sim_pct)
             soft_similarity = self._soft_similarity_score(indicator_name, sim_pct)
 
@@ -154,8 +164,14 @@ class QuantScoringService:
             current_window.feature_vector if current_window else {},
             candidate_window.feature_vector if candidate_window else {},
         )
-        display_fit_ratio = self._combine_display_fit(indicator_fit_ratio, path_similarity)
-        weight_ratio = (total_weight / self.FULL_WEIGHT_SUM) if self.FULL_WEIGHT_SUM else 0.0
+        display_fit_ratio = self._combine_display_fit(
+            indicator_fit_ratio,
+            path_similarity,
+            indicator_fit_weight=indicator_fit_weight,
+            path_weight=path_weight,
+        )
+        full_weight_sum = self._full_weight_sum(custom_weights)
+        weight_ratio = (total_weight / full_weight_sum) if full_weight_sum else 0.0
         weight_penalty = self._adaptive_weight_penalty(weight_ratio)
 
         return {
@@ -174,6 +190,34 @@ class QuantScoringService:
             "breakdown": breakdown or [],
             "is_bullish": bool(candidate_window.return_pct is not None and float(candidate_window.return_pct) > 0),
         }
+
+    def _normalize_indicator_weights(self, indicator_weights):
+        if not isinstance(indicator_weights, dict):
+            return None
+
+        normalized_weights = {}
+        for indicator_name, raw_weight in indicator_weights.items():
+            normalized_name = self.normalize_indicator_name(indicator_name)
+            try:
+                weight = float(raw_weight)
+            except Exception:
+                continue
+            if weight <= 0:
+                continue
+            normalized_weights[normalized_name] = weight
+
+        return normalized_weights or None
+
+    def _resolve_indicator_weight(self, indicator_name, indicator_weights):
+        indicator_name = self.normalize_indicator_name(indicator_name)
+        if indicator_weights is not None:
+            return indicator_weights.get(indicator_name, 0.0)
+        return self.get_weight(indicator_name)
+
+    def _full_weight_sum(self, indicator_weights):
+        if indicator_weights is not None:
+            return sum(indicator_weights.values())
+        return self.FULL_WEIGHT_SUM
 
     def summarize_probability(self, selected_indicators, scored_matches):
         usable_matches = [
@@ -348,5 +392,27 @@ class QuantScoringService:
         similarity = 1 / (1 + (mean_abs_diff / 6))
         return max(0.0, min(1.0, similarity))
 
-    def _combine_display_fit(self, indicator_fit_ratio, path_similarity):
-        return max(0.0, min(1.0, (indicator_fit_ratio * 0.75) + (path_similarity * 0.25)))
+    def _combine_display_fit(self, indicator_fit_ratio, path_similarity, indicator_fit_weight=None, path_weight=None):
+        try:
+            indicator_weight = float(indicator_fit_weight)
+        except Exception:
+            indicator_weight = 0.75
+        try:
+            path_component_weight = float(path_weight)
+        except Exception:
+            path_component_weight = 0.25
+
+        if indicator_weight < 0:
+            indicator_weight = 0.0
+        if path_component_weight < 0:
+            path_component_weight = 0.0
+
+        total_weight = indicator_weight + path_component_weight
+        if total_weight <= 0:
+            indicator_weight = 0.75
+            path_component_weight = 0.25
+            total_weight = 1.0
+
+        indicator_share = indicator_weight / total_weight
+        path_share = path_component_weight / total_weight
+        return max(0.0, min(1.0, (indicator_fit_ratio * indicator_share) + (path_similarity * path_share)))

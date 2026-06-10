@@ -1128,11 +1128,12 @@ class MarketDataService:
                 continue
 
             candidate_record = self._build_live_window_record(candidate_window, interval, lookback_window)
-            score = self.persistence_service.quant_scoring_service.score_match(
+            score = self._score_live_candidate_match(
                 current_window,
                 candidate_record,
                 indicators,
-                include_breakdown=False,
+                interval=interval,
+                lookback_window=lookback_window,
             )
 
             candidates.append(
@@ -1220,6 +1221,15 @@ class MarketDataService:
                 for match in matched_patterns
             ]
         return response
+
+    def _score_live_candidate_match(self, current_window, candidate_record, indicators, interval, lookback_window):
+        del interval, lookback_window
+        return self.persistence_service.quant_scoring_service.score_match(
+            current_window,
+            candidate_record,
+            indicators,
+            include_breakdown=False,
+        )
 
     def _build_deep_pro_signal_summary(
         self,
