@@ -10,3 +10,8 @@ rules:
     steps:
       - intent: blocked_trading
       - action: action_route_noobtrade_command
+
+  - rule: route open news command
+    steps:
+      - intent: open_news
+      - action: action_route_noobtrade_command

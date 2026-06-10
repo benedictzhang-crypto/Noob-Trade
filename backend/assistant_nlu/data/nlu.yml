@@ -77,6 +77,12 @@ nlu:
       - run generate for [NVDA](symbol)
       - analyze [Tesla](symbol)
       - 生成[AAPL](symbol)
+      - 我要generate [AAPL](symbol)
+      - 我想生成 [BTC](symbol)
+      - please generate [AAPL](symbol)
+      - quiero generate [AAPL](symbol)
+      - necesito analizar [BTC](symbol)
+      - je veux generate [AAPL](symbol)
 
   - intent: search
     examples: |
@@ -84,6 +90,11 @@ nlu:
       - look up [MSFT](symbol)
       - what is the price of [NVDA](symbol)
       - 查询[AAPL](symbol)
+      - 我要search [AAPL](symbol)
+      - 我想查询 [BTC](symbol)
+      - please search [AAPL](symbol)
+      - quiero buscar [BTC](symbol)
+      - je veux chercher [AAPL](symbol)
 
   - intent: set_star
     examples: |
@@ -93,6 +104,11 @@ nlu:
       - unstar [MSFT](symbol)
       - 给[AAPL](symbol)加星标
       - 取消[AAPL](symbol)星标
+      - 我要给[AAPL](symbol)加星标
+      - 我想取消[AAPL](symbol)星标
+      - please star [AAPL](symbol)
+      - quiero guardar [AAPL](symbol)
+      - je veux ajouter [AAPL](symbol) aux favoris
 
   - intent: scan_watchlist
     examples: |
@@ -100,6 +116,12 @@ nlu:
       - scan starred stocks above [70](threshold)
       - scan my favorites
       - 扫描自选 [60](threshold)%
+      - 我要scan
+      - 我想扫描自选
+      - please scan my watchlist
+      - quiero escanear favoritos
+      - necesito scan
+      - je veux scanner mes favoris
 
   - intent: adjust_probability
     examples: |
@@ -124,6 +146,22 @@ nlu:
       - open the second historical pattern
       - 打开一个历史时刻我看看
       - 看一个相似历史窗口
+
+  - intent: open_news
+    examples: |
+      - open news
+      - show news
+      - open market news
+      - read latest news
+      - 打开新闻
+      - 我想看新闻
+      - 我要打开新闻
+      - 看一下市场新闻
+      - abrir noticias
+      - quiero ver noticias
+      - necesito noticias
+      - ouvrir les nouvelles
+      - je veux voir les nouvelles
 
   - intent: load_more_patterns
     examples: |

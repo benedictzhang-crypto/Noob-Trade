@@ -14,6 +14,7 @@ intents:
   - adjust_probability
   - summarize_probability
   - open_historical_pattern
+  - open_news
   - load_more_patterns
   - set_interval
   - sign_out

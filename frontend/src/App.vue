@@ -294,14 +294,121 @@ const uiCopy = {
   }
 }
 const voiceCommandExamples = [
-  'Open Stock Trade',
-  'Scroll down',
-  'Enable MACD and Bollinger',
+  'Scan watchlist',
   'Generate AAPL',
-  'Scan watchlist 60 percent',
-  'Search BTC',
-  'Open Explore'
+  'Star AAPL',
+  'Open News'
 ]
+const voiceShortReplies = {
+  en: {
+    ready: 'Ready.',
+    listen: 'Listening.',
+    scanStart: 'OK, scanning now.',
+    scanDone: 'Scan complete.',
+    generateStart: 'OK, generating now.',
+    generateDone: 'Generate complete.',
+    searchStart: 'OK, searching now.',
+    searchDone: 'Search complete.',
+    starAdded: 'Star added.',
+    starRemoved: 'Star removed.',
+    dashboard: 'Back to Dashboard.',
+    news: 'News opened.',
+    done: 'Done.',
+    pageOpened: 'Page opened.',
+    indicators: 'Indicators updated.',
+    interval: 'Interval changed.',
+    probability: 'Probability updated.',
+    history: 'History opened.',
+    more: 'Loaded more.',
+    stopped: 'Stopped.',
+    blockedTrading: 'Manual trading only.',
+    signIn: 'Please sign in.',
+    unsupported: 'Voice unsupported.',
+    misunderstood: 'I could not understand. Please say it again.',
+    manualFallback: 'Please use manual controls. AI is improving.',
+  },
+  zh: {
+    ready: '我在。',
+    listen: '正在听。',
+    scanStart: '好的，我这就scan。',
+    scanDone: 'scan完成。',
+    generateStart: '好的，我这就generate。',
+    generateDone: 'generate完成。',
+    searchStart: '好的，我这就search。',
+    searchDone: 'search完成。',
+    starAdded: '已添加星标。',
+    starRemoved: '已取消星标。',
+    dashboard: '已回到dashboard。',
+    news: '我已经打开新闻。',
+    done: '已完成。',
+    pageOpened: '页面已打开。',
+    indicators: '指标已更新。',
+    interval: '周期已切换。',
+    probability: '概率已更新。',
+    history: '历史窗口已打开。',
+    more: '已加载更多。',
+    stopped: '已停止。',
+    blockedTrading: '请手动操作。',
+    signIn: '请先登录。',
+    unsupported: '语音暂不支持。',
+    misunderstood: '无法理解您说的，请再说一遍。',
+    manualFallback: '请手动操作，AI智能提升中。',
+  },
+  es: {
+    ready: 'Listo.',
+    listen: 'Escuchando.',
+    scanStart: 'Bien, escaneando.',
+    scanDone: 'Scan completo.',
+    generateStart: 'Bien, generando.',
+    generateDone: 'Generate completo.',
+    searchStart: 'Bien, buscando.',
+    searchDone: 'Búsqueda completa.',
+    starAdded: 'Favorito añadido.',
+    starRemoved: 'Favorito quitado.',
+    dashboard: 'Volví al Dashboard.',
+    news: 'Noticias abiertas.',
+    done: 'Hecho.',
+    pageOpened: 'Página abierta.',
+    indicators: 'Indicadores actualizados.',
+    interval: 'Intervalo cambiado.',
+    probability: 'Probabilidad actualizada.',
+    history: 'Historial abierto.',
+    more: 'Más cargado.',
+    stopped: 'Detenido.',
+    blockedTrading: 'Operación manual solamente.',
+    signIn: 'Inicie sesión.',
+    unsupported: 'Voz no soportada.',
+    misunderstood: 'No entendí. Repítalo, por favor.',
+    manualFallback: 'Use controles manuales. La IA está mejorando.',
+  },
+  fr: {
+    ready: 'Prêt.',
+    listen: 'Écoute.',
+    scanStart: 'D’accord, je scan.',
+    scanDone: 'Scan terminé.',
+    generateStart: 'D’accord, je generate.',
+    generateDone: 'Generate terminé.',
+    searchStart: 'D’accord, je cherche.',
+    searchDone: 'Recherche terminée.',
+    starAdded: 'Favori ajouté.',
+    starRemoved: 'Favori retiré.',
+    dashboard: 'Retour Dashboard.',
+    news: 'Nouvelles ouvertes.',
+    done: 'Terminé.',
+    pageOpened: 'Page ouverte.',
+    indicators: 'Indicateurs mis à jour.',
+    interval: 'Intervalle changé.',
+    probability: 'Probabilité mise à jour.',
+    history: 'Historique ouvert.',
+    more: 'Plus chargé.',
+    stopped: 'Arrêté.',
+    blockedTrading: 'Trading manuel uniquement.',
+    signIn: 'Connectez-vous.',
+    unsupported: 'Voix non prise en charge.',
+    misunderstood: "Je n'ai pas compris. Répétez, s'il vous plaît.",
+    manualFallback: "Utilisez les contrôles manuels. L'IA s'améliore.",
+  }
+}
 const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
 const voiceSymbolAliases = {
   aapl: 'AAPL',
@@ -510,7 +617,7 @@ const voiceTechnicalErrorPatterns = [
   'traceback',
   'requests.exceptions'
 ]
-const voiceSpeechMaxCharacters = 160
+const voiceSpeechMaxCharacters = 96
 
 const activePage = ref('Home')
 const appMode = ref('stock')
@@ -561,6 +668,7 @@ const voiceIsSpeaking = ref(false)
 const voiceInputDraft = ref('')
 const voiceLastIntent = ref({ type: '', direction: '', at: 0 })
 const voiceLastAssistantPrediction = ref(null)
+const voiceMisunderstandingCount = ref(0)
 const predictionSummaryRef = ref(null)
 const matchedPatternsRef = ref(null)
 
@@ -2186,7 +2294,7 @@ function initializeVoiceAssistant() {
 
   if (!voiceSupported.value || voiceRecognition.value) {
     if (!voiceSupported.value) {
-      voiceStatus.value = 'Voice control is not supported in this browser yet. Try Chrome or Edge over HTTPS.'
+      voiceStatus.value = getVoiceShortReply('unsupported')
     }
     return
   }
@@ -2199,7 +2307,7 @@ function initializeVoiceAssistant() {
 
   recognition.onstart = () => {
     voiceListening.value = true
-    voiceStatus.value = 'AI Mode is listening. Speak naturally.'
+    voiceStatus.value = getVoiceShortReply('listen')
   }
 
   recognition.onend = () => {
@@ -2212,12 +2320,12 @@ function initializeVoiceAssistant() {
     const errorName = event?.error || 'voice error'
     if (errorName === 'not-allowed') {
       voiceAssistantEnabled.value = false
-      setVoiceStatus('Microphone permission is blocked. Please allow microphone access for NoobTrade.', { speak: false })
+      setVoiceShortStatus('unsupported', { speak: false })
       return
     }
 
     if (errorName !== 'no-speech' && errorName !== 'aborted') {
-      setVoiceStatus(`Voice input paused: ${errorName}. I will keep trying while AI Mode is on.`, { speak: false })
+      setVoiceShortStatus('misunderstood', { speak: false, resetErrorCount: false })
     }
 
     scheduleVoiceRestart(900)
@@ -2248,7 +2356,7 @@ function initializeVoiceAssistant() {
     if (finalTranscript) {
       handleVoiceCommand(finalTranscript).catch((error) => {
         console.error(error)
-        setVoiceStatus('I could not complete that command. Please try again.', { speak: true })
+        reportVoiceMisunderstanding(finalTranscript)
       })
     }
   }
@@ -2385,7 +2493,7 @@ function interruptVoiceSpeechForUserInput(transcript) {
   }
 
   stopVoiceSpeech({ restartListening: false })
-  voiceStatus.value = 'I hear you. Go ahead.'
+  voiceStatus.value = getVoiceShortReply('listen')
   return true
 }
 
@@ -2482,6 +2590,71 @@ function setVoiceStatus(message, { speak = false, transcript = '' } = {}) {
   }
 }
 
+function detectVoiceReplyLanguage(text = '') {
+  const rawText = String(text || '')
+  const normalizedText = normalizeVoiceText(rawText)
+
+  if (/[\u4e00-\u9fff]/u.test(rawText)) {
+    return 'zh'
+  }
+
+  if (includesVoicePhrase(normalizedText, ['hola', 'espanol', 'español', 'gracias', 'ayuda', 'abrir', 'buscar', 'escanear', 'quiero', 'necesito', 'noticias'])) {
+    return 'es'
+  }
+
+  if (includesVoicePhrase(normalizedText, ['bonjour', 'francais', 'français', 'merci', 'aide', 'ouvrir', 'chercher', 'scanner', 'je veux', 'j ai besoin', 'nouvelles'])) {
+    return 'fr'
+  }
+
+  return uiLanguage.value || 'en'
+}
+
+function getVoiceShortReply(key, language = uiLanguage.value) {
+  const replies = voiceShortReplies[language] || voiceShortReplies.en
+  return replies[key] || voiceShortReplies.en[key] || ''
+}
+
+function setVoiceShortStatus(key, { speak = true, transcript = '', resetErrorCount = true, language = '' } = {}) {
+  if (resetErrorCount) {
+    voiceMisunderstandingCount.value = 0
+  }
+
+  const message = getVoiceShortReply(key, language || detectVoiceReplyLanguage(transcript))
+  setVoiceStatus(message, { speak, transcript })
+}
+
+function reportVoiceMisunderstanding(transcript = '') {
+  voiceMisunderstandingCount.value += 1
+  setVoiceShortStatus(
+    voiceMisunderstandingCount.value >= 3 ? 'manualFallback' : 'misunderstood',
+    {
+      speak: true,
+      transcript,
+      resetErrorCount: false
+    }
+  )
+}
+
+function getNavigationShortReply(page, transcript = '') {
+  const language = detectVoiceReplyLanguage(transcript)
+  return page === 'Dashboard' ? getVoiceShortReply('dashboard', language) : getVoiceShortReply('pageOpened', language)
+}
+
+function openVoiceNewsPanel(transcript = '') {
+  navigateTo('Markets')
+
+  if (typeof window !== 'undefined') {
+    window.setTimeout(() => {
+      document.querySelector('.news-ticker-window')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      })
+    }, 120)
+  }
+
+  setVoiceShortStatus('news', { transcript })
+}
+
 function toggleVoiceAssistant() {
   if (voiceAssistantEnabled.value) {
     disableVoiceAssistant()
@@ -2497,7 +2670,7 @@ function openVoiceAssistantPanel() {
   refreshPreferredVoice()
 
   if (!voiceAssistantEnabled.value) {
-    voiceStatus.value = 'AI Mode is off. Turn it on when you want hands-free help.'
+    voiceStatus.value = getVoiceShortReply('ready')
   }
 }
 
@@ -2507,7 +2680,7 @@ function minimizeVoiceAssistantPanel() {
 
 function enableVoiceAssistant() {
   if (!isAuthenticated.value) {
-    setVoiceStatus('Please sign in before using AI Mode.', { speak: true })
+    setVoiceShortStatus('signIn')
     return
   }
 
@@ -2518,12 +2691,11 @@ function enableVoiceAssistant() {
 
   if (!voiceSupported.value || !voiceRecognition.value) {
     voiceAssistantEnabled.value = false
-    setVoiceStatus('Voice chat needs browser microphone support. Please try Chrome or Edge over HTTPS.', { speak: true })
+    setVoiceShortStatus('unsupported')
     return
   }
 
-  const greeting = 'AI Mode is on. You can talk naturally. Try: Generate AAPL, explain RSI, or open Explore.'
-  setVoiceStatus(greeting, { speak: true })
+  setVoiceShortStatus('ready')
   scheduleVoiceRestart(900)
 }
 
@@ -2533,19 +2705,19 @@ function disableVoiceAssistant() {
   clearVoiceRestartTimer()
   stopVoiceListening()
   stopVoiceSpeech({ restartListening: false })
-  voiceStatus.value = 'AI Mode is off. Manual controls stay available.'
+  voiceStatus.value = getVoiceShortReply('stopped')
 }
 
 function startVoiceListening({ silent = false, cancelSpeech = true } = {}) {
   if (!isAuthenticated.value) {
-    setVoiceStatus('Please sign in before using voice control.', { speak: true })
+    setVoiceShortStatus('signIn')
     return
   }
 
   initializeVoiceAssistant()
 
   if (!voiceSupported.value || !voiceRecognition.value) {
-    setVoiceStatus('Voice control is not supported in this browser yet. Try Chrome or Edge over HTTPS.', { speak: true })
+    setVoiceShortStatus('unsupported')
     return
   }
 
@@ -2557,7 +2729,7 @@ function startVoiceListening({ silent = false, cancelSpeech = true } = {}) {
     voiceRecognition.value.start()
   } catch {
     if (!silent) {
-      setVoiceStatus('I am already listening. Say a command now.', { speak: false })
+      setVoiceShortStatus('listen', { speak: false })
     }
   }
 }
@@ -2896,25 +3068,25 @@ function executeVoiceScrollIntent(direction, amount = 'normal') {
   if (normalizedDirection === 'down') {
     window.scrollBy({ top: distance, left: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'down')
-    return 'Scrolling down.'
+    return getVoiceShortReply('done')
   }
 
   if (normalizedDirection === 'up') {
     window.scrollBy({ top: -distance, left: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'up')
-    return 'Scrolling up.'
+    return getVoiceShortReply('done')
   }
 
   if (normalizedDirection === 'top') {
     window.scrollTo({ top: 0, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'up')
-    return 'Going to the top.'
+    return getVoiceShortReply('done')
   }
 
   if (normalizedDirection === 'bottom') {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' })
     rememberVoiceIntent('scroll', 'down')
-    return 'Going to the bottom.'
+    return getVoiceShortReply('done')
   }
 
   return ''
@@ -2950,22 +3122,22 @@ function runVoiceScreenControl(command) {
 
   if (includesVoicePhrase(command, ['go back', 'back page', 'previous page'])) {
     window.history.back()
-    return 'Going back.'
+    return getVoiceShortReply('done')
   }
 
   if (includesVoicePhrase(command, ['minimize ai', 'shrink ai', 'hide ai', 'close panel', 'close ai panel'])) {
     minimizeVoiceAssistantPanel()
-    return 'AI panel minimized. I can keep listening if AI Mode is still on.'
+    return getVoiceShortReply('done')
   }
 
   if (includesVoicePhrase(command, ['open ai panel', 'show ai panel', 'expand ai', 'open assistant'])) {
     openVoiceAssistantPanel()
-    return 'AI panel opened.'
+    return getVoiceShortReply('done')
   }
 
   if (includesVoicePhrase(command, ['turn off ai', 'disable ai mode', 'stop ai mode'])) {
     disableVoiceAssistant()
-    return 'AI Mode is off.'
+    return getVoiceShortReply('stopped')
   }
 
   return ''
@@ -2995,22 +3167,15 @@ async function runVoiceAnalysis(source, symbol = '', transcript = '') {
     navigateTo('Stock Trade')
   }
 
-  const actionLabel = source === 'generate' ? 'Generating' : 'Searching'
-  const workingSymbol = normalizeTradeSymbolInput(symbolInput.value, { isCrypto: activePage.value === 'Crypto Trade' }) || activeSymbol.value
-  setVoiceStatus(`${actionLabel} ${workingSymbol}.`, { speak: true, transcript })
+  setVoiceShortStatus(source === 'generate' ? 'generateStart' : 'searchStart', { transcript })
   await runSearch(source)
 
   if (errorMessage.value) {
-    setVoiceStatus(getReadableMarketDataError(errorMessage.value, workingSymbol), { speak: true, transcript })
+    reportVoiceMisunderstanding(transcript)
     return
   }
 
-  const finishedSymbol = activeTradeResponse.value?.stock?.symbol || workingSymbol
-  const probability = getAnalysisUpsideProbability(activeTradeResponse.value)
-  const probabilityText = source === 'generate' && Number.isFinite(probability)
-    ? ` Upside probability is ${probability.toFixed(2)}%.`
-    : ''
-  setVoiceStatus(`${finishedSymbol} is ready.${probabilityText} I loaded the latest analysis workspace for you.`, { speak: true, transcript })
+  setVoiceShortStatus(source === 'generate' ? 'generateDone' : 'searchDone', { transcript })
 }
 
 function queueVoiceAction(action) {
@@ -3022,7 +3187,7 @@ function confirmVoiceAction() {
   const action = voicePendingAction.value
 
   if (!action) {
-    setVoiceStatus('There is no pending action to confirm.', { speak: true })
+    reportVoiceMisunderstanding()
     return
   }
 
@@ -3030,13 +3195,13 @@ function confirmVoiceAction() {
 
   if (action.type === 'signOut') {
     signOut()
-    setVoiceStatus('Signed out safely.', { speak: true })
+    setVoiceShortStatus('stopped')
   }
 }
 
 function cancelVoiceAction() {
   voicePendingAction.value = null
-  setVoiceStatus('Cancelled.', { speak: true })
+  setVoiceShortStatus('stopped')
 }
 
 function getIndicatorExplanation(command) {
@@ -3077,112 +3242,15 @@ function getAssistantContextSummary() {
 }
 
 function buildConversationalReply(command) {
-  const indicatorExplanation = getIndicatorExplanation(command)
-
-  const replies = {
-    zh: {
-      greeting: '我在，可以自然说中文。我能回答问题，也能帮你操作页面。',
-      wake: '我在。你想让我帮你看行情、切换页面、选择指标，还是运行 Generate？',
-      thanks: '不客气。我会继续保持 AI 模式，你也可以随时手动操作。',
-      scrollHelp: '我可以控制页面滚动。你可以说：向下滚动、向上滚动、回到顶部、到底部。',
-      indicatorHelp: '我可以选择或取消指标。比如：选择 MACD 和布林带，取消 EMA，选择 RSI，移除成交量。',
-      generateHelp: '你可以说 Generate AAPL，或者说生成 AAPL，我会切到对应页面并运行分析。',
-      capabilities: '我可以聊天、滚动屏幕、切换页面、选择或取消指标、切换周期、搜索股票、扫描自选、运行 Generate。不能语音下单，也不提供投资建议。',
-      advice: '我不能提供投资建议，但可以帮你打开分析、解释指标、展示模型结果供你判断。',
-      fallback: '我在听，但还不确定你想让我做什么。你可以说：生成 AAPL、打开股票分析、选择 MACD、向下滚动。',
-    },
-    es: {
-      greeting: 'Estoy aquí. Puedes hablar en español; puedo responder o controlar la página.',
-      wake: 'Estoy aquí. ¿Quieres que analice, navegue, cambie indicadores o escanee tu lista?',
-      thanks: 'Con gusto. Sigo en AI Mode, y también puedes usar la página manualmente.',
-      scrollHelp: 'Puedo controlar la pantalla. Prueba: desplaza abajo, sube, ir arriba o ir abajo.',
-      indicatorHelp: 'Puedo seleccionar o quitar indicadores. Prueba: selecciona MACD, quita EMA, elige RSI o remueve volumen.',
-      generateHelp: 'Di Generate AAPL o analiza AAPL, y abriré el análisis.',
-      capabilities: 'Puedo conversar, desplazar la pantalla, abrir páginas, seleccionar indicadores, cambiar intervalos, buscar símbolos, escanear favoritos y ejecutar Generate. No puedo colocar órdenes ni dar asesoría financiera.',
-      advice: 'No puedo dar asesoría financiera. Puedo abrir el análisis, explicar indicadores y mostrar el resultado del modelo.',
-      fallback: 'Estoy escuchando, pero no estoy segura de la acción. Puedes decir Generate AAPL, abrir Acciones, seleccionar MACD o desplaza abajo.',
-    },
-    fr: {
-      greeting: 'Je suis là. Vous pouvez parler en français; je peux répondre ou contrôler la page.',
-      wake: 'Je suis là. Voulez-vous analyser, naviguer, changer des indicateurs ou scanner vos favoris ?',
-      thanks: 'Avec plaisir. Je reste en mode IA, et vous pouvez aussi utiliser la page manuellement.',
-      scrollHelp: 'Je peux contrôler l’écran. Essayez : défiler vers le bas, monter, aller en haut ou aller en bas.',
-      indicatorHelp: 'Je peux sélectionner ou retirer des indicateurs. Essayez : sélectionner MACD, retirer EMA, choisir RSI ou enlever le volume.',
-      generateHelp: 'Dites Generate AAPL ou analyser AAPL, et j’ouvrirai l’analyse.',
-      capabilities: 'Je peux discuter, faire défiler l’écran, ouvrir des pages, sélectionner des indicateurs, changer d’intervalle, rechercher des symboles, scanner les favoris et lancer Generate. Je ne peux pas passer d’ordres ni donner de conseil financier.',
-      advice: 'Je ne peux pas donner de conseil financier. Je peux ouvrir l’analyse, expliquer les indicateurs et montrer le résultat du modèle.',
-      fallback: 'J’écoute, mais je ne suis pas sûre de l’action. Vous pouvez dire Generate AAPL, ouvrir Actions, sélectionner MACD ou défiler vers le bas.',
-    },
-    en: {
-      greeting: 'Hi, I am here. You can talk normally, and I will either answer or operate the page for you.',
-      wake: 'I am here. What can I help you with? I can analyze, navigate, adjust indicators, or answer questions.',
-      thanks: 'Anytime. I am staying in AI Mode, so you can keep talking or use the page manually.',
-      scrollHelp: 'I can control the screen. Try saying scroll down, scroll up, go to top, or go to bottom.',
-      indicatorHelp: 'I can select or remove indicators. Try select MACD and Bollinger, unselect EMA, choose RSI, or remove volume.',
-      generateHelp: 'Say Generate followed by a ticker, like Generate AAPL. I will switch to the right workspace and run it.',
-      capabilities: 'I can chat, scroll the screen, open pages, select or unselect indicators, switch intervals, search tickers, scan your starred watchlist, and run Generate. I cannot place trades or give investment advice.',
-      advice: 'I cannot give investment advice. I can help you open the analysis, explain indicators, and show the model output so you can review it.',
-      fallback: 'I am listening, but I am not sure what action you want. You can ask a question, or say something like Generate AAPL, open Crypto Trade, or enable MACD.',
-    }
-  }
-  const localReplies = replies[uiLanguage.value] || replies.en
-
-  if (indicatorExplanation && includesVoicePhrase(command, ['what is', 'explain', 'tell me about', 'how does'])) {
-    return indicatorExplanation
-  }
-
   if (includesVoicePhrase(command, ['hello', 'hi', 'hey', 'good morning', 'good afternoon', 'are you there', 'you there', 'noob trade', 'assistant', '你好', '您好', '嗨', '你在吗', '在吗', 'hola', 'bonjour', 'salut'])) {
-    return includesVoicePhrase(command, ['hey', 'are you there', 'you there', 'noob trade', 'assistant', '你在吗', '在吗'])
-      ? localReplies.wake
-      : localReplies.greeting
+    return getVoiceShortReply('ready')
   }
 
   if (includesVoicePhrase(command, ['thank you', 'thanks', 'nice', 'great', '谢谢', '感谢', 'gracias', 'merci'])) {
-    return localReplies.thanks
+    return getVoiceShortReply('ready')
   }
 
-  if (includesVoicePhrase(command, ['where am i', 'what page', 'current page', 'where are we'])) {
-    return getAssistantContextSummary()
-  }
-
-  if (includesVoicePhrase(command, ['scroll', 'scrolling', 'move down', 'move up', 'page down', 'page up', '滚动', '下滑', '上滑', 'desplaza', 'desplazar', 'defiler', 'défiler'])) {
-    return localReplies.scrollHelp
-  }
-
-  if (includesVoicePhrase(command, ['what symbol', 'current symbol', 'which ticker', 'what ticker'])) {
-    const symbol = activeTradeResponse.value?.stock?.symbol || activeSymbol.value
-    return `The current ticker is ${symbol}. Say Generate ${symbol} if you want me to run the full analysis.`
-  }
-
-  if (includesVoicePhrase(command, ['which indicators', 'selected indicators', 'what indicators', 'indicators are on'])) {
-    const selected = getSelectedIndicators()
-    return selected.length
-      ? `Selected indicators are ${selected.join(', ')}. You can say enable RSI, disable EMA, or only MACD and Bollinger.`
-      : 'No indicators are selected. You can say enable all indicators, or enable MACD and Bollinger.'
-  }
-
-  if (includesVoicePhrase(command, ['how to generate', 'how do i generate', 'how can i generate'])) {
-    return localReplies.generateHelp
-  }
-
-  if (includesVoicePhrase(command, ['indicator', 'indicators', 'select', 'unselect', 'choose', 'remove', '指标', '选择', '取消', 'indicador', 'indicadores', 'selecciona', 'quitar', 'indicateur', 'indicateurs', 'selectionner', 'sélectionner', 'retirer'])) {
-    return localReplies.indicatorHelp
-  }
-
-  if (includesVoicePhrase(command, ['what can you do', 'help', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
-    return localReplies.capabilities
-  }
-
-  if (includesVoicePhrase(command, ['financial advice', 'should i buy', 'should i sell', 'recommend', 'advice', '投资建议', '该买吗', '该卖吗', '建议', 'asesoria', 'comprar', 'vender', 'conseil', 'acheter', 'vendre'])) {
-    return localReplies.advice
-  }
-
-  const maybeSymbol = extractVoiceSymbol(command, { allowLooseTicker: false })
-  if (maybeSymbol) {
-    return `I heard ${maybeSymbol}. If you want action, say Search ${maybeSymbol} or Generate ${maybeSymbol}.`
-  }
-
-  return localReplies.fallback
+  return getVoiceShortReply('misunderstood')
 }
 
 async function submitVoiceTextCommand() {
@@ -3203,7 +3271,7 @@ async function handleVoiceCommand(rawTranscript) {
   voiceTranscript.value = rawTranscript
 
   if (!command) {
-    setVoiceStatus('I did not catch that. Please try again.', { speak: true, transcript: rawTranscript })
+    reportVoiceMisunderstanding(rawTranscript)
     return
   }
 
@@ -3217,7 +3285,7 @@ async function handleVoiceCommand(rawTranscript) {
   ) {
     stopVoiceSpeech({ restartListening: true })
     voicePendingAction.value = null
-    setVoiceStatus('Stopped. I am listening.', { speak: false, transcript: rawTranscript })
+    setVoiceShortStatus('stopped', { speak: false, transcript: rawTranscript })
     return
   }
 
@@ -3229,10 +3297,7 @@ async function handleVoiceCommand(rawTranscript) {
     const correctionText = extractVoiceCorrectionText(rawTranscript)
     if (!correctionText) {
       await saveAssistantFeedback({ correctionTranscript: rawTranscript })
-      setVoiceStatus('Thanks, I saved that correction for NoobTrade AI training. Please say the command again in the way you want it handled.', {
-        speak: true,
-        transcript: rawTranscript
-      })
+      reportVoiceMisunderstanding(rawTranscript)
       return
     }
 
@@ -3240,33 +3305,30 @@ async function handleVoiceCommand(rawTranscript) {
     effectiveTranscript = correctionText
     command = normalizeVoiceText(correctionText)
     voiceTranscript.value = correctionText
-    setVoiceStatus('Thanks, I saved that correction and will use it for NoobTrade AI training. Let me do what you meant now.', {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
   }
 
   if (includesVoicePhrase(command, ['中文', 'chinese', 'mandarin', '普通话'])) {
     uiLanguage.value = 'zh'
-    setVoiceStatus('已切换到中文。我现在可以听中文指令。', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['spanish', 'espanol', 'español'])) {
     uiLanguage.value = 'es'
-    setVoiceStatus('Idioma cambiado a español. Ahora puedo escuchar comandos en español.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['french', 'francais', 'français'])) {
     uiLanguage.value = 'fr'
-    setVoiceStatus('Langue changée en français. Je peux maintenant écouter les commandes en français.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['english', '英语', 'anglais', 'ingles'])) {
     uiLanguage.value = 'en'
-    setVoiceStatus('Language switched to English.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return
   }
 
@@ -3306,33 +3368,32 @@ async function handleVoiceCommand(rawTranscript) {
   }
 
   if (includesVoicePhrase(command, ['help', 'what can you do', 'commands', '帮助', '帮我', '你会什么', 'ayuda', 'que puedes hacer', 'aide', 'que peux tu faire'])) {
-    setVoiceStatus(buildConversationalReply(command), {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['buy ', 'sell ', 'place order', 'submit order', 'market order', 'limit order', 'short ', 'go long', 'go short', '买入', '卖出', '下单', '做空', '做多', 'comprar', 'vender', 'orden', 'acheter', 'vendre', 'ordre'])) {
-    setVoiceStatus('Voice trading orders are disabled. I can control analysis and navigation only.', {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('blockedTrading', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['sign out', 'log out', 'logout', '退出登录', '登出', 'cerrar sesion', 'cerrar sesión', 'deconnexion', 'déconnexion'])) {
     queueVoiceAction({
       type: 'signOut',
-      prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
+      prompt: getVoiceShortReply('ready')
     })
+    return
+  }
+
+  if (includesVoicePhrase(command, ['open news', 'show news', 'read news', 'market news', 'latest news', '打开新闻', '查看新闻', '看新闻', '市场新闻', 'abrir noticias', 'mostrar noticias', 'ver noticias', 'ouvrir nouvelles', 'voir nouvelles', 'ouvrir les nouvelles'])) {
+    openVoiceNewsPanel(rawTranscript)
     return
   }
 
   const requestedPage = findVoicePage(command)
   if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à'])) {
     navigateTo(requestedPage)
-    setVoiceStatus(`Opened ${requestedPage}.`, { speak: true, transcript: rawTranscript })
+    setVoiceStatus(getNavigationShortReply(requestedPage, rawTranscript), { speak: true, transcript: rawTranscript })
     return
   }
 
@@ -3344,7 +3405,7 @@ async function handleVoiceCommand(rawTranscript) {
 
   if (includesVoicePhrase(command, ['clear indicators', 'turn off all indicators', 'disable all indicators', '清空指标', '关闭所有指标', '取消所有指标', 'quitar todos los indicadores', 'desactivar todos los indicadores', 'retirer tous les indicateurs', 'desactiver tous les indicateurs'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
-    setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('indicators', { transcript: rawTranscript })
     return
   }
 
@@ -3354,29 +3415,23 @@ async function handleVoiceCommand(rawTranscript) {
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())
     }))
-    setVoiceStatus('Indicators reset to the default NoobTrade selection.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('indicators', { transcript: rawTranscript })
     return
   }
 
-  if (includesVoicePhrase(command, ['scan', '扫描', 'escanear', 'scanner']) && includesVoicePhrase(command, ['watchlist', 'starred', 'stars', 'favorites', 'self selected', 'self-selected', '自选', '星标', 'favoritos', 'favoris'])) {
+  if (includesVoicePhrase(command, ['scan', '扫描', 'escanear', 'scanner'])) {
     const threshold = extractVoiceProbability(command)
     watchlistScanThreshold.value = threshold
     navigateTo('Dashboard')
-    setVoiceStatus(`Scanning your starred watchlist for probabilities at or above ${threshold.toFixed(0)} percent.`, {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('scanStart', { transcript: rawTranscript })
     await scanStarredWatchlist()
-    setVoiceStatus(watchlistScanMessage.value || 'Watchlist scan is complete.', {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('scanDone', { transcript: rawTranscript })
     return
   }
 
   if (includesVoicePhrase(command, ['select all indicators', 'enable all indicators', 'turn on all indicators', '选择所有指标', '打开所有指标', 'seleccionar todos los indicadores', 'activar todos los indicadores', 'selectionner tous les indicateurs', 'activer tous les indicateurs'])) {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: true }))
-    setVoiceStatus('All indicators are on.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('indicators', { transcript: rawTranscript })
     return
   }
 
@@ -3384,27 +3439,27 @@ async function handleVoiceCommand(rawTranscript) {
   if (mentionedIndicators.length) {
     if (includesVoicePhrase(command, voiceOnlyPhrases)) {
       setOnlyVoiceIndicators(mentionedIndicators)
-      setVoiceStatus(`Only ${mentionedIndicators.join(', ')} are selected.`, { speak: true, transcript: rawTranscript })
+      setVoiceShortStatus('indicators', { transcript: rawTranscript })
       return
     }
 
     if (includesVoicePhrase(command, voiceDisablePhrases)) {
       setIndicatorActive(mentionedIndicators, false)
-      setVoiceStatus(`${mentionedIndicators.join(', ')} turned off.`, { speak: true, transcript: rawTranscript })
+      setVoiceShortStatus('indicators', { transcript: rawTranscript })
       return
     }
 
     if (!includesVoicePhrase(command, voiceEnablePhrases) && !includesVoicePhrase(command, ['indicator', 'indicators'])) {
       const toggledIndicator = toggleVoiceIndicator(mentionedIndicators[0])
       if (toggledIndicator) {
-        setVoiceStatus(`${toggledIndicator.name} turned ${toggledIndicator.active ? 'on' : 'off'}.`, { speak: true, transcript: rawTranscript })
+        setVoiceShortStatus('indicators', { transcript: rawTranscript })
         return
       }
     }
 
     if (includesVoicePhrase(command, voiceEnablePhrases) || includesVoicePhrase(command, ['indicator', 'indicators'])) {
       setIndicatorActive(mentionedIndicators, true)
-      setVoiceStatus(`${mentionedIndicators.join(', ')} turned on.`, { speak: true, transcript: rawTranscript })
+      setVoiceShortStatus('indicators', { transcript: rawTranscript })
       return
     }
   }
@@ -3412,7 +3467,7 @@ async function handleVoiceCommand(rawTranscript) {
   const requestedInterval = findVoiceInterval(command)
   if (requestedInterval && includesVoicePhrase(command, ['interval', 'chart', 'time frame', 'timeframe', 'switch', '周期', '图表', '切换', 'intervalo', 'grafico', 'gráfico', 'cambiar', 'intervalle', 'graphique', 'changer'])) {
     selectedChartInterval.value = requestedInterval
-    setVoiceStatus(`Chart interval set to ${requestedInterval}.`, { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('interval', { transcript: rawTranscript })
     return
   }
 
@@ -3432,10 +3487,7 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  setVoiceStatus(buildConversationalReply(command), {
-    speak: true,
-    transcript: rawTranscript
-  })
+  reportVoiceMisunderstanding(rawTranscript)
 }
 
 function navigateTo(page) {
@@ -4520,12 +4572,10 @@ function openVoiceHistoricalPattern(index = 0) {
 
 function summarizeHistoricalPattern(pattern) {
   if (!pattern) {
-    return 'I could not find an available historical match yet.'
+    return getVoiceShortReply('misunderstood')
   }
 
-  const score = Number(pattern.matchScore)
-  const scoreText = Number.isFinite(score) ? `${score.toFixed(1)}% match` : 'matched setup'
-  return `Opened a historical window from ${pattern.date || 'the matched period'} with ${scoreText}. Future 5D return was ${formatPercent(pattern.futureReturn5d)}.`
+  return getVoiceShortReply('history')
 }
 
 function buildAssistantIntentContext() {
@@ -4648,23 +4698,20 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
   }
 
   if (intent === 'blocked_trading') {
-    setVoiceStatus(
-      intentPayload.reply || 'Voice trading orders are disabled. I can control analysis and navigation only.',
-      { speak: true, transcript: rawTranscript }
-    )
+    setVoiceShortStatus('blockedTrading', { transcript: rawTranscript })
     return true
   }
 
   if (intent === 'navigate' && intentPayload.page) {
     navigateTo(intentPayload.page)
-    setVoiceStatus(intentPayload.reply || `Opened ${intentPayload.page}.`, { speak: true, transcript: rawTranscript })
+    setVoiceStatus(getNavigationShortReply(intentPayload.page, rawTranscript), { speak: true, transcript: rawTranscript })
     return true
   }
 
   if (intent === 'scroll') {
     const reply = executeVoiceScrollIntent(intentPayload.direction, intentPayload.amount)
     if (reply) {
-      setVoiceStatus(intentPayload.reply || reply, { speak: true, transcript: rawTranscript })
+      setVoiceStatus(reply, { speak: true, transcript: rawTranscript })
       return true
     }
   }
@@ -4684,25 +4731,16 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
       watchlistScanThreshold.value = normalizeProbabilityThreshold(intentPayload.threshold)
     }
     navigateTo('Dashboard')
-    setVoiceStatus(`Scanning your starred watchlist for probabilities at or above ${watchlistScanThreshold.value.toFixed(0)} percent.`, {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('scanStart', { transcript: rawTranscript })
     await scanStarredWatchlist()
-    setVoiceStatus(watchlistScanMessage.value || 'Watchlist scan is complete.', {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('scanDone', { transcript: rawTranscript })
     return true
   }
 
   if (intent === 'adjust_probability') {
     const snapshot = setVoiceProbabilityThreshold(intentPayload.side, intentPayload.value)
     if (snapshot) {
-      setVoiceStatus(`${formatProbabilitySide(snapshot.side)} threshold is now ${snapshot.side === 'down' ? '-' : '+'}${Number(snapshot.threshold).toFixed(1)}%. Probability is ${snapshot.probability}.`, {
-        speak: true,
-        transcript: rawTranscript
-      })
+      setVoiceShortStatus('probability', { transcript: rawTranscript })
       return true
     }
   }
@@ -4711,10 +4749,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
     const snapshot = getVoiceProbabilitySnapshot(intentPayload.side || 'up', intentPayload.value)
     if (snapshot) {
       const thresholdPrefix = snapshot.side === 'down' ? '-' : '+'
-      setVoiceStatus(`For ${thresholdPrefix}${Number(snapshot.threshold).toFixed(1)}% ${formatProbabilitySide(snapshot.side)} within 5 trading days, probability is ${snapshot.probability}. The headline +1% upside probability is ${snapshot.headlineProbability}, based on ${snapshot.matchedPatternCount} similar historical setups.`, {
-        speak: true,
-        transcript: rawTranscript
-      })
+      setVoiceStatus(`${thresholdPrefix}${Number(snapshot.threshold).toFixed(1)}%: ${snapshot.probability}.`, { speak: true, transcript: rawTranscript })
       return true
     }
   }
@@ -4723,40 +4758,36 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
     const index = Number.isFinite(Number(intentPayload.index)) ? Math.max(Number(intentPayload.index) - 1, 0) : 0
     const opened = openVoiceHistoricalPattern(index)
     if (opened) {
-      setVoiceStatus(summarizeHistoricalPattern(opened.pattern), {
-        speak: true,
-        transcript: rawTranscript
-      })
+      setVoiceShortStatus('history', { transcript: rawTranscript })
       return true
     }
 
-    setVoiceStatus('No historical pattern window is available yet. Run Generate first, then ask me again.', {
-      speak: true,
-      transcript: rawTranscript
-    })
+    reportVoiceMisunderstanding(rawTranscript)
+    return true
+  }
+
+  if (intent === 'open_news') {
+    openVoiceNewsPanel(rawTranscript)
     return true
   }
 
   if (intent === 'load_more_patterns') {
     matchedPatternsRef.value?.loadMorePatterns?.()
-    setVoiceStatus('Loaded more historical matches.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('more', { transcript: rawTranscript })
     return true
   }
 
   if (intent === 'set_star') {
     const targetSymbol = intentPayload.symbol || activeTradeResponse.value?.stock?.symbol || activeSymbol.value
     if (setStarredSymbol(targetSymbol, intentPayload.active !== false)) {
-      setVoiceStatus(`${String(targetSymbol).toUpperCase()} ${intentPayload.active === false ? 'removed from' : 'added to'} your starred watchlist.`, {
-        speak: true,
-        transcript: rawTranscript
-      })
+      setVoiceShortStatus(intentPayload.active === false ? 'starRemoved' : 'starAdded', { transcript: rawTranscript })
       return true
     }
   }
 
   if (intent === 'clear_indicators') {
     indicators.value = indicators.value.map((indicator) => ({ ...indicator, active: false }))
-    setVoiceStatus('All indicators are off.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('indicators', { transcript: rawTranscript })
     return true
   }
 
@@ -4766,7 +4797,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())
     }))
-    setVoiceStatus('Indicators reset to the default NoobTrade selection.', { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('indicators', { transcript: rawTranscript })
     return true
   }
 
@@ -4774,7 +4805,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
     const normalizedIndicators = intentPayload.indicators.map(normalizeAssistantIndicatorName).filter(Boolean)
     if (normalizedIndicators.length) {
       setOnlyVoiceIndicators(normalizedIndicators)
-      setVoiceStatus(`Only ${normalizedIndicators.join(', ')} are selected.`, { speak: true, transcript: rawTranscript })
+      setVoiceShortStatus('indicators', { transcript: rawTranscript })
       return true
     }
   }
@@ -4783,42 +4814,33 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
     const normalizedIndicators = intentPayload.indicators.map(normalizeAssistantIndicatorName).filter(Boolean)
     if (normalizedIndicators.length) {
       setIndicatorActive(normalizedIndicators, intentPayload.active !== false)
-      setVoiceStatus(`${normalizedIndicators.join(', ')} turned ${intentPayload.active === false ? 'off' : 'on'}.`, {
-        speak: true,
-        transcript: rawTranscript
-      })
+      setVoiceShortStatus('indicators', { transcript: rawTranscript })
       return true
     }
   }
 
   if (intent === 'set_interval' && intentPayload.interval) {
     selectedChartInterval.value = intentPayload.interval
-    setVoiceStatus(`Chart interval set to ${intentPayload.interval}.`, { speak: true, transcript: rawTranscript })
+    setVoiceShortStatus('interval', { transcript: rawTranscript })
     return true
   }
 
   if (intent === 'sign_out') {
     queueVoiceAction({
       type: 'signOut',
-      prompt: 'Confirm sign out? Say confirm to leave your account, or cancel to stay signed in.'
+      prompt: getVoiceShortReply('ready')
     })
     return true
   }
 
   if (intent === 'language' && intentPayload.language) {
     uiLanguage.value = intentPayload.language
-    setVoiceStatus(intentPayload.reply || `Language switched to ${intentPayload.language}.`, {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceShortStatus('ready', { transcript: rawTranscript })
     return true
   }
 
   if (intent === 'greeting' || intent === 'help' || intent === 'chat') {
-    setVoiceStatus(intentPayload.reply || buildConversationalReply(normalizeVoiceText(rawTranscript)), {
-      speak: true,
-      transcript: rawTranscript
-    })
+    setVoiceStatus(buildConversationalReply(normalizeVoiceText(rawTranscript)), { speak: true, transcript: rawTranscript })
     return true
   }
 

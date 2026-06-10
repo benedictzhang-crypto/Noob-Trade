@@ -502,12 +502,27 @@ nlu:
       - 看一下这个股票会不会涨
       - 跑一下模型
       - 生成一下当前股票
+      - 我要generate
+      - 我想生成这个
+      - please generate this
+      - I want generate
+      - I need generate
+      - quiero generate
+      - necesito analizar esto
+      - je veux generate
+      - j'ai besoin d'analyser ça
       - please generate [AAPL](symbol)
       - can you generate [AAPL](symbol)
       - could you generate [AAPL](symbol)
       - I need you to generate [AAPL](symbol)
       - assistant generate [AAPL](symbol)
       - Noob Trade generate [AAPL](symbol)
+      - I want generate [AAPL](symbol)
+      - I need generate [AAPL](symbol)
+      - quiero generate [AAPL](symbol)
+      - necesito generate [AAPL](symbol)
+      - je veux generate [AAPL](symbol)
+      - j'ai besoin de generate [AAPL](symbol)
       - generate [AAPL](symbol) now
       - generate [AAPL](symbol) please
       - generate [AAPL](symbol) for me
@@ -518,6 +533,12 @@ nlu:
       - I need you to run generate for [AAPL](symbol)
       - assistant run generate for [AAPL](symbol)
       - Noob Trade run generate for [AAPL](symbol)
+      - I want run generate for [AAPL](symbol)
+      - I need run generate for [AAPL](symbol)
+      - quiero run generate for [AAPL](symbol)
+      - necesito run generate for [AAPL](symbol)
+      - je veux run generate for [AAPL](symbol)
+      - j'ai besoin de run generate for [AAPL](symbol)
       - run generate for [AAPL](symbol) now
       - run generate for [AAPL](symbol) please
       - run generate for [AAPL](symbol) for me
@@ -528,6 +549,12 @@ nlu:
       - I need you to analyze [AAPL](symbol)
       - assistant analyze [AAPL](symbol)
       - Noob Trade analyze [AAPL](symbol)
+      - I want analyze [AAPL](symbol)
+      - I need analyze [AAPL](symbol)
+      - quiero analyze [AAPL](symbol)
+      - necesito analyze [AAPL](symbol)
+      - je veux analyze [AAPL](symbol)
+      - j'ai besoin de analyze [AAPL](symbol)
       - analyze [AAPL](symbol) now
       - analyze [AAPL](symbol) please
       - analyze [AAPL](symbol) for me
@@ -538,6 +565,12 @@ nlu:
       - I need you to forecast [AAPL](symbol)
       - assistant forecast [AAPL](symbol)
       - Noob Trade forecast [AAPL](symbol)
+      - I want forecast [AAPL](symbol)
+      - I need forecast [AAPL](symbol)
+      - quiero forecast [AAPL](symbol)
+      - necesito forecast [AAPL](symbol)
+      - je veux forecast [AAPL](symbol)
+      - j'ai besoin de forecast [AAPL](symbol)
       - forecast [AAPL](symbol) now
       - forecast [AAPL](symbol) please
       - forecast [AAPL](symbol) for me
@@ -546,39 +579,6 @@ nlu:
       - can you generate probability for [AAPL](symbol)
       - could you generate probability for [AAPL](symbol)
       - I need you to generate probability for [AAPL](symbol)
-      - assistant generate probability for [AAPL](symbol)
-      - Noob Trade generate probability for [AAPL](symbol)
-      - generate probability for [AAPL](symbol) now
-      - generate probability for [AAPL](symbol) please
-      - generate probability for [AAPL](symbol) for me
-      - generate probability for [AAPL](symbol) a little faster
-      - please start analysis on [AAPL](symbol)
-      - can you start analysis on [AAPL](symbol)
-      - could you start analysis on [AAPL](symbol)
-      - I need you to start analysis on [AAPL](symbol)
-      - assistant start analysis on [AAPL](symbol)
-      - Noob Trade start analysis on [AAPL](symbol)
-      - start analysis on [AAPL](symbol) now
-      - start analysis on [AAPL](symbol) please
-      - start analysis on [AAPL](symbol) for me
-      - start analysis on [AAPL](symbol) a little faster
-      - please 帮我分析 [AAPL](symbol)
-      - can you 帮我分析 [AAPL](symbol)
-      - could you 帮我分析 [AAPL](symbol)
-      - I need you to 帮我分析 [AAPL](symbol)
-      - assistant 帮我分析 [AAPL](symbol)
-      - Noob Trade 帮我分析 [AAPL](symbol)
-      - 帮我分析 [AAPL](symbol) now
-      - 帮我分析 [AAPL](symbol) please
-      - 帮我分析 [AAPL](symbol) for me
-      - 帮我分析 [AAPL](symbol) a little faster
-      - 请 生成 [AAPL](symbol)
-      - 帮我 生成 [AAPL](symbol)
-      - please generate [NVDA](symbol)
-      - can you generate [NVDA](symbol)
-      - could you generate [NVDA](symbol)
-      - I need you to generate [NVDA](symbol)
-      - assistant generate [NVDA](symbol)
 
   - intent: search
     examples: |
@@ -662,12 +662,24 @@ nlu:
       - 查一下苹果
       - 看一下英伟达
       - 找一下特斯拉
+      - 我要search
+      - 我想查询这个
+      - please search this
+      - quiero buscar esto
+      - necesito el precio
+      - je veux chercher ça
       - please search [AAPL](symbol)
       - can you search [AAPL](symbol)
       - could you search [AAPL](symbol)
       - I need you to search [AAPL](symbol)
       - assistant search [AAPL](symbol)
       - Noob Trade search [AAPL](symbol)
+      - I want search [AAPL](symbol)
+      - I need search [AAPL](symbol)
+      - quiero search [AAPL](symbol)
+      - necesito search [AAPL](symbol)
+      - je veux search [AAPL](symbol)
+      - j'ai besoin de search [AAPL](symbol)
       - search [AAPL](symbol) now
       - search [AAPL](symbol) please
       - search [AAPL](symbol) for me
@@ -678,6 +690,12 @@ nlu:
       - I need you to look up [AAPL](symbol)
       - assistant look up [AAPL](symbol)
       - Noob Trade look up [AAPL](symbol)
+      - I want look up [AAPL](symbol)
+      - I need look up [AAPL](symbol)
+      - quiero look up [AAPL](symbol)
+      - necesito look up [AAPL](symbol)
+      - je veux look up [AAPL](symbol)
+      - j'ai besoin de look up [AAPL](symbol)
       - look up [AAPL](symbol) now
       - look up [AAPL](symbol) please
       - look up [AAPL](symbol) for me
@@ -688,30 +706,12 @@ nlu:
       - I need you to show price for [AAPL](symbol)
       - assistant show price for [AAPL](symbol)
       - Noob Trade show price for [AAPL](symbol)
-      - show price for [AAPL](symbol) now
-      - show price for [AAPL](symbol) please
-      - show price for [AAPL](symbol) for me
-      - show price for [AAPL](symbol) a little faster
-      - please quote [AAPL](symbol)
-      - can you quote [AAPL](symbol)
-      - could you quote [AAPL](symbol)
-      - I need you to quote [AAPL](symbol)
-      - assistant quote [AAPL](symbol)
-      - Noob Trade quote [AAPL](symbol)
-      - quote [AAPL](symbol) now
-      - quote [AAPL](symbol) please
-      - quote [AAPL](symbol) for me
-      - quote [AAPL](symbol) a little faster
-      - please find [AAPL](symbol)
-      - can you find [AAPL](symbol)
-      - could you find [AAPL](symbol)
-      - I need you to find [AAPL](symbol)
-      - assistant find [AAPL](symbol)
-      - Noob Trade find [AAPL](symbol)
-      - find [AAPL](symbol) now
-      - find [AAPL](symbol) please
-      - find [AAPL](symbol) for me
-      - find [AAPL](symbol) a little faster
+      - I want show price for [AAPL](symbol)
+      - I need show price for [AAPL](symbol)
+      - quiero show price for [AAPL](symbol)
+      - necesito show price for [AAPL](symbol)
+      - je veux show price for [AAPL](symbol)
+      - j'ai besoin de show price for [AAPL](symbol)
 
   - intent: set_indicator
     examples: |
@@ -960,6 +960,11 @@ nlu:
       - I need you to [MA](indicator)
       - assistant [MA](indicator)
       - Noob Trade [MA](indicator)
+      - I need [MA](indicator)
+      - quiero [MA](indicator)
+      - necesito [MA](indicator)
+      - je veux [MA](indicator)
+      - j'ai besoin de [MA](indicator)
       - [MA](indicator) now
       - [MA](indicator) please
       - [MA](indicator) for me
@@ -970,6 +975,12 @@ nlu:
       - I need you to select [MA](indicator)
       - assistant select [MA](indicator)
       - Noob Trade select [MA](indicator)
+      - I want select [MA](indicator)
+      - I need select [MA](indicator)
+      - quiero select [MA](indicator)
+      - necesito select [MA](indicator)
+      - je veux select [MA](indicator)
+      - j'ai besoin de select [MA](indicator)
       - select [MA](indicator) now
       - select [MA](indicator) please
       - select [MA](indicator) for me
@@ -980,6 +991,12 @@ nlu:
       - I need you to pick [MA](indicator)
       - assistant pick [MA](indicator)
       - Noob Trade pick [MA](indicator)
+      - I want pick [MA](indicator)
+      - I need pick [MA](indicator)
+      - quiero pick [MA](indicator)
+      - necesito pick [MA](indicator)
+      - je veux pick [MA](indicator)
+      - j'ai besoin de pick [MA](indicator)
       - pick [MA](indicator) now
       - pick [MA](indicator) please
       - pick [MA](indicator) for me
@@ -990,6 +1007,12 @@ nlu:
       - I need you to I want [MA](indicator)
       - assistant I want [MA](indicator)
       - Noob Trade I want [MA](indicator)
+      - I want I want [MA](indicator)
+      - I need I want [MA](indicator)
+      - quiero I want [MA](indicator)
+      - necesito I want [MA](indicator)
+      - je veux I want [MA](indicator)
+      - j'ai besoin de I want [MA](indicator)
       - I want [MA](indicator) now
       - I want [MA](indicator) please
       - I want [MA](indicator) for me
@@ -1000,6 +1023,12 @@ nlu:
       - I need you to use [MA](indicator)
       - assistant use [MA](indicator)
       - Noob Trade use [MA](indicator)
+      - I want use [MA](indicator)
+      - I need use [MA](indicator)
+      - quiero use [MA](indicator)
+      - necesito use [MA](indicator)
+      - je veux use [MA](indicator)
+      - j'ai besoin de use [MA](indicator)
       - use [MA](indicator) now
       - use [MA](indicator) please
       - use [MA](indicator) for me
@@ -1010,6 +1039,12 @@ nlu:
       - I need you to turn on [MA](indicator)
       - assistant turn on [MA](indicator)
       - Noob Trade turn on [MA](indicator)
+      - I want turn on [MA](indicator)
+      - I need turn on [MA](indicator)
+      - quiero turn on [MA](indicator)
+      - necesito turn on [MA](indicator)
+      - je veux turn on [MA](indicator)
+      - j'ai besoin de turn on [MA](indicator)
       - turn on [MA](indicator) now
       - turn on [MA](indicator) please
       - turn on [MA](indicator) for me
@@ -1020,6 +1055,12 @@ nlu:
       - I need you to enable [MA](indicator)
       - assistant enable [MA](indicator)
       - Noob Trade enable [MA](indicator)
+      - I want enable [MA](indicator)
+      - I need enable [MA](indicator)
+      - quiero enable [MA](indicator)
+      - necesito enable [MA](indicator)
+      - je veux enable [MA](indicator)
+      - j'ai besoin de enable [MA](indicator)
       - enable [MA](indicator) now
       - enable [MA](indicator) please
       - enable [MA](indicator) for me
@@ -1030,51 +1071,10 @@ nlu:
       - I need you to add [MA](indicator)
       - assistant add [MA](indicator)
       - Noob Trade add [MA](indicator)
-      - add [MA](indicator) now
-      - add [MA](indicator) please
-      - add [MA](indicator) for me
-      - add [MA](indicator) a little faster
-      - please remove [MA](indicator)
-      - can you remove [MA](indicator)
-      - could you remove [MA](indicator)
-      - I need you to remove [MA](indicator)
-      - assistant remove [MA](indicator)
-      - Noob Trade remove [MA](indicator)
-      - remove [MA](indicator) now
-      - remove [MA](indicator) please
-      - remove [MA](indicator) for me
-      - remove [MA](indicator) a little faster
-      - please turn off [MA](indicator)
-      - can you turn off [MA](indicator)
-      - could you turn off [MA](indicator)
-      - I need you to turn off [MA](indicator)
-      - assistant turn off [MA](indicator)
-      - Noob Trade turn off [MA](indicator)
-      - turn off [MA](indicator) now
-      - turn off [MA](indicator) please
-      - turn off [MA](indicator) for me
-      - turn off [MA](indicator) a little faster
-      - please disable [MA](indicator)
-      - can you disable [MA](indicator)
-      - could you disable [MA](indicator)
-      - I need you to disable [MA](indicator)
-      - assistant disable [MA](indicator)
-      - Noob Trade disable [MA](indicator)
-      - disable [MA](indicator) now
-      - disable [MA](indicator) please
-      - disable [MA](indicator) for me
-      - disable [MA](indicator) a little faster
-      - please unselect [MA](indicator)
-      - can you unselect [MA](indicator)
-      - could you unselect [MA](indicator)
-      - I need you to unselect [MA](indicator)
-      - assistant unselect [MA](indicator)
-      - Noob Trade unselect [MA](indicator)
-      - unselect [MA](indicator) now
-      - unselect [MA](indicator) please
-      - unselect [MA](indicator) for me
-      - unselect [MA](indicator) a little faster
-      - please deselect [MA](indicator)
+      - I want add [MA](indicator)
+      - I need add [MA](indicator)
+      - quiero add [MA](indicator)
+      - necesito add [MA](indicator)
 
   - intent: select_only_indicators
     examples: |
@@ -1275,6 +1275,12 @@ nlu:
       - I need you to clear all indicators
       - assistant clear all indicators
       - Noob Trade clear all indicators
+      - I want clear all indicators
+      - I need clear all indicators
+      - quiero clear all indicators
+      - necesito clear all indicators
+      - je veux clear all indicators
+      - j'ai besoin de clear all indicators
       - clear all indicators now
       - clear all indicators please
       - clear all indicators for me
@@ -1285,12 +1291,6 @@ nlu:
       - I need you to turn off all indicators
       - assistant turn off all indicators
       - Noob Trade turn off all indicators
-      - turn off all indicators now
-      - turn off all indicators please
-      - turn off all indicators for me
-      - turn off all indicators a little faster
-      - please remove every indicator
-      - can you remove every indicator
 
   - intent: reset_indicators
     examples: |
@@ -1306,6 +1306,12 @@ nlu:
       - I need you to reset indicators
       - assistant reset indicators
       - Noob Trade reset indicators
+      - I want reset indicators
+      - I need reset indicators
+      - quiero reset indicators
+      - necesito reset indicators
+      - je veux reset indicators
+      - j'ai besoin de reset indicators
       - reset indicators now
       - reset indicators please
       - reset indicators for me
@@ -1316,14 +1322,8 @@ nlu:
       - I need you to restore default indicators
       - assistant restore default indicators
       - Noob Trade restore default indicators
-      - restore default indicators now
-      - restore default indicators please
-      - restore default indicators for me
-      - restore default indicators a little faster
-      - please go back to default indicators
-      - can you go back to default indicators
-      - could you go back to default indicators
-      - I need you to go back to default indicators
+      - I want restore default indicators
+      - I need restore default indicators
 
   - intent: scan_watchlist
     examples: |
@@ -1392,12 +1392,25 @@ nlu:
       - scan everything I starred
       - 扫描我收藏的股票
       - 看看自选里面哪个概率高
+      - 我要scan
+      - 我想扫描自选
+      - please scan
+      - I want you to scan
+      - quiero escanear favoritos
+      - necesito scan
+      - je veux scanner mes favoris
       - please scan watchlist above [55](threshold) percent
       - can you scan watchlist above [55](threshold) percent
       - could you scan watchlist above [55](threshold) percent
       - I need you to scan watchlist above [55](threshold) percent
       - assistant scan watchlist above [55](threshold) percent
       - Noob Trade scan watchlist above [55](threshold) percent
+      - I want scan watchlist above [55](threshold) percent
+      - I need scan watchlist above [55](threshold) percent
+      - quiero scan watchlist above [55](threshold) percent
+      - necesito scan watchlist above [55](threshold) percent
+      - je veux scan watchlist above [55](threshold) percent
+      - j'ai besoin de scan watchlist above [55](threshold) percent
       - scan watchlist above [55](threshold) percent now
       - scan watchlist above [55](threshold) percent please
       - scan watchlist above [55](threshold) percent for me
@@ -1408,6 +1421,12 @@ nlu:
       - I need you to scan starred stocks at [55](threshold)%
       - assistant scan starred stocks at [55](threshold)%
       - Noob Trade scan starred stocks at [55](threshold)%
+      - I want scan starred stocks at [55](threshold)%
+      - I need scan starred stocks at [55](threshold)%
+      - quiero scan starred stocks at [55](threshold)%
+      - necesito scan starred stocks at [55](threshold)%
+      - je veux scan starred stocks at [55](threshold)%
+      - j'ai besoin de scan starred stocks at [55](threshold)%
       - scan starred stocks at [55](threshold)% now
       - scan starred stocks at [55](threshold)% please
       - scan starred stocks at [55](threshold)% for me
@@ -1418,6 +1437,12 @@ nlu:
       - I need you to scan my favorites over [55](threshold)
       - assistant scan my favorites over [55](threshold)
       - Noob Trade scan my favorites over [55](threshold)
+      - I want scan my favorites over [55](threshold)
+      - I need scan my favorites over [55](threshold)
+      - quiero scan my favorites over [55](threshold)
+      - necesito scan my favorites over [55](threshold)
+      - je veux scan my favorites over [55](threshold)
+      - j'ai besoin de scan my favorites over [55](threshold)
       - scan my favorites over [55](threshold) now
       - scan my favorites over [55](threshold) please
       - scan my favorites over [55](threshold) for me
@@ -1428,40 +1453,15 @@ nlu:
       - I need you to find favorites with probability above [55](threshold)
       - assistant find favorites with probability above [55](threshold)
       - Noob Trade find favorites with probability above [55](threshold)
+      - I want find favorites with probability above [55](threshold)
+      - I need find favorites with probability above [55](threshold)
+      - quiero find favorites with probability above [55](threshold)
+      - necesito find favorites with probability above [55](threshold)
+      - je veux find favorites with probability above [55](threshold)
+      - j'ai besoin de find favorites with probability above [55](threshold)
       - find favorites with probability above [55](threshold) now
       - find favorites with probability above [55](threshold) please
       - find favorites with probability above [55](threshold) for me
-      - find favorites with probability above [55](threshold) a little faster
-      - please scan watchlist
-      - can you scan watchlist
-      - could you scan watchlist
-      - I need you to scan watchlist
-      - assistant scan watchlist
-      - Noob Trade scan watchlist
-      - scan watchlist now
-      - scan watchlist please
-      - scan watchlist for me
-      - scan watchlist a little faster
-      - please scan my starred list
-      - can you scan my starred list
-      - could you scan my starred list
-      - I need you to scan my starred list
-      - assistant scan my starred list
-      - Noob Trade scan my starred list
-      - scan my starred list now
-      - scan my starred list please
-      - scan my starred list for me
-      - scan my starred list a little faster
-      - 请 扫描自选 [55](threshold)%
-      - 帮我 扫描自选 [55](threshold)%
-      - 请 扫描星标股票 [55](threshold)%
-      - 帮我 扫描星标股票 [55](threshold)%
-      - please scan watchlist above [60](threshold) percent
-      - can you scan watchlist above [60](threshold) percent
-      - could you scan watchlist above [60](threshold) percent
-      - I need you to scan watchlist above [60](threshold) percent
-      - assistant scan watchlist above [60](threshold) percent
-      - Noob Trade scan watchlist above [60](threshold) percent
 
   - intent: set_star
     examples: |
@@ -1556,12 +1556,24 @@ nlu:
       - 把这个加到自选
       - 收藏当前这个
       - 取消收藏这个
+      - 我要加星标
+      - 我想取消星标
+      - please star this
+      - quiero guardar esto
+      - necesito quitar favorito
+      - je veux ajouter aux favoris
       - please star [AAPL](symbol)
       - can you star [AAPL](symbol)
       - could you star [AAPL](symbol)
       - I need you to star [AAPL](symbol)
       - assistant star [AAPL](symbol)
       - Noob Trade star [AAPL](symbol)
+      - I want star [AAPL](symbol)
+      - I need star [AAPL](symbol)
+      - quiero star [AAPL](symbol)
+      - necesito star [AAPL](symbol)
+      - je veux star [AAPL](symbol)
+      - j'ai besoin de star [AAPL](symbol)
       - star [AAPL](symbol) now
       - star [AAPL](symbol) please
       - star [AAPL](symbol) for me
@@ -1572,6 +1584,12 @@ nlu:
       - I need you to favorite [AAPL](symbol)
       - assistant favorite [AAPL](symbol)
       - Noob Trade favorite [AAPL](symbol)
+      - I want favorite [AAPL](symbol)
+      - I need favorite [AAPL](symbol)
+      - quiero favorite [AAPL](symbol)
+      - necesito favorite [AAPL](symbol)
+      - je veux favorite [AAPL](symbol)
+      - j'ai besoin de favorite [AAPL](symbol)
       - favorite [AAPL](symbol) now
       - favorite [AAPL](symbol) please
       - favorite [AAPL](symbol) for me
@@ -1582,34 +1600,16 @@ nlu:
       - I need you to add [AAPL](symbol) to watchlist
       - assistant add [AAPL](symbol) to watchlist
       - Noob Trade add [AAPL](symbol) to watchlist
+      - I want add [AAPL](symbol) to watchlist
+      - I need add [AAPL](symbol) to watchlist
+      - quiero add [AAPL](symbol) to watchlist
+      - necesito add [AAPL](symbol) to watchlist
+      - je veux add [AAPL](symbol) to watchlist
+      - j'ai besoin de add [AAPL](symbol) to watchlist
       - add [AAPL](symbol) to watchlist now
       - add [AAPL](symbol) to watchlist please
       - add [AAPL](symbol) to watchlist for me
       - add [AAPL](symbol) to watchlist a little faster
-      - please save [AAPL](symbol) as favorite
-      - can you save [AAPL](symbol) as favorite
-      - could you save [AAPL](symbol) as favorite
-      - I need you to save [AAPL](symbol) as favorite
-      - assistant save [AAPL](symbol) as favorite
-      - Noob Trade save [AAPL](symbol) as favorite
-      - save [AAPL](symbol) as favorite now
-      - save [AAPL](symbol) as favorite please
-      - save [AAPL](symbol) as favorite for me
-      - save [AAPL](symbol) as favorite a little faster
-      - please unstar [AAPL](symbol)
-      - can you unstar [AAPL](symbol)
-      - could you unstar [AAPL](symbol)
-      - I need you to unstar [AAPL](symbol)
-      - assistant unstar [AAPL](symbol)
-      - Noob Trade unstar [AAPL](symbol)
-      - unstar [AAPL](symbol) now
-      - unstar [AAPL](symbol) please
-      - unstar [AAPL](symbol) for me
-      - unstar [AAPL](symbol) a little faster
-      - please remove [AAPL](symbol) from watchlist
-      - can you remove [AAPL](symbol) from watchlist
-      - could you remove [AAPL](symbol) from watchlist
-      - I need you to remove [AAPL](symbol) from watchlist
 
   - intent: adjust_probability
     examples: |
@@ -1701,6 +1701,12 @@ nlu:
       - I need you to set upside probability to [1](value) percent
       - assistant set upside probability to [1](value) percent
       - Noob Trade set upside probability to [1](value) percent
+      - I want set upside probability to [1](value) percent
+      - I need set upside probability to [1](value) percent
+      - quiero set upside probability to [1](value) percent
+      - necesito set upside probability to [1](value) percent
+      - je veux set upside probability to [1](value) percent
+      - j'ai besoin de set upside probability to [1](value) percent
       - set upside probability to [1](value) percent now
       - set upside probability to [1](value) percent please
       - set upside probability to [1](value) percent for me
@@ -1711,6 +1717,12 @@ nlu:
       - I need you to drag upside to [1](value)%
       - assistant drag upside to [1](value)%
       - Noob Trade drag upside to [1](value)%
+      - I want drag upside to [1](value)%
+      - I need drag upside to [1](value)%
+      - quiero drag upside to [1](value)%
+      - necesito drag upside to [1](value)%
+      - je veux drag upside to [1](value)%
+      - j'ai besoin de drag upside to [1](value)%
       - drag upside to [1](value)% now
       - drag upside to [1](value)% please
       - drag upside to [1](value)% for me
@@ -1721,6 +1733,12 @@ nlu:
       - I need you to move upside slider to [1](value)
       - assistant move upside slider to [1](value)
       - Noob Trade move upside slider to [1](value)
+      - I want move upside slider to [1](value)
+      - I need move upside slider to [1](value)
+      - quiero move upside slider to [1](value)
+      - necesito move upside slider to [1](value)
+      - je veux move upside slider to [1](value)
+      - j'ai besoin de move upside slider to [1](value)
       - move upside slider to [1](value) now
       - move upside slider to [1](value) please
       - move upside slider to [1](value) for me
@@ -1731,33 +1749,15 @@ nlu:
       - I need you to set downside probability to [1](value) percent
       - assistant set downside probability to [1](value) percent
       - Noob Trade set downside probability to [1](value) percent
+      - I want set downside probability to [1](value) percent
+      - I need set downside probability to [1](value) percent
+      - quiero set downside probability to [1](value) percent
+      - necesito set downside probability to [1](value) percent
+      - je veux set downside probability to [1](value) percent
+      - j'ai besoin de set downside probability to [1](value) percent
       - set downside probability to [1](value) percent now
       - set downside probability to [1](value) percent please
       - set downside probability to [1](value) percent for me
-      - set downside probability to [1](value) percent a little faster
-      - please drag downside to [1](value)%
-      - can you drag downside to [1](value)%
-      - could you drag downside to [1](value)%
-      - I need you to drag downside to [1](value)%
-      - assistant drag downside to [1](value)%
-      - Noob Trade drag downside to [1](value)%
-      - drag downside to [1](value)% now
-      - drag downside to [1](value)% please
-      - drag downside to [1](value)% for me
-      - drag downside to [1](value)% a little faster
-      - please move downside slider to [1](value)
-      - can you move downside slider to [1](value)
-      - could you move downside slider to [1](value)
-      - I need you to move downside slider to [1](value)
-      - assistant move downside slider to [1](value)
-      - Noob Trade move downside slider to [1](value)
-      - move downside slider to [1](value) now
-      - move downside slider to [1](value) please
-      - move downside slider to [1](value) for me
-      - move downside slider to [1](value) a little faster
-      - 请 把上涨概率调到 [1](value)%
-      - 帮我 把上涨概率调到 [1](value)%
-      - 请 把下跌概率调到 [1](value)%
 
   - intent: summarize_probability
     examples: |
@@ -1821,6 +1821,12 @@ nlu:
       - I need you to what is the upside probability
       - assistant what is the upside probability
       - Noob Trade what is the upside probability
+      - I want what is the upside probability
+      - I need what is the upside probability
+      - quiero what is the upside probability
+      - necesito what is the upside probability
+      - je veux what is the upside probability
+      - j'ai besoin de what is the upside probability
       - what is the upside probability now
       - what is the upside probability please
       - what is the upside probability for me
@@ -1831,6 +1837,12 @@ nlu:
       - I need you to what is the downside probability
       - assistant what is the downside probability
       - Noob Trade what is the downside probability
+      - I want what is the downside probability
+      - I need what is the downside probability
+      - quiero what is the downside probability
+      - necesito what is the downside probability
+      - je veux what is the downside probability
+      - j'ai besoin de what is the downside probability
       - what is the downside probability now
       - what is the downside probability please
       - what is the downside probability for me
@@ -1841,6 +1853,12 @@ nlu:
       - I need you to what is upside probability at [1](threshold)%
       - assistant what is upside probability at [1](threshold)%
       - Noob Trade what is upside probability at [1](threshold)%
+      - I want what is upside probability at [1](threshold)%
+      - I need what is upside probability at [1](threshold)%
+      - quiero what is upside probability at [1](threshold)%
+      - necesito what is upside probability at [1](threshold)%
+      - je veux what is upside probability at [1](threshold)%
+      - j'ai besoin de what is upside probability at [1](threshold)%
       - what is upside probability at [1](threshold)% now
       - what is upside probability at [1](threshold)% please
       - what is upside probability at [1](threshold)% for me
@@ -1851,36 +1869,18 @@ nlu:
       - I need you to what is downside probability at [1](threshold)%
       - assistant what is downside probability at [1](threshold)%
       - Noob Trade what is downside probability at [1](threshold)%
+      - I want what is downside probability at [1](threshold)%
+      - I need what is downside probability at [1](threshold)%
+      - quiero what is downside probability at [1](threshold)%
+      - necesito what is downside probability at [1](threshold)%
+      - je veux what is downside probability at [1](threshold)%
+      - j'ai besoin de what is downside probability at [1](threshold)%
       - what is downside probability at [1](threshold)% now
       - what is downside probability at [1](threshold)% please
       - what is downside probability at [1](threshold)% for me
       - what is downside probability at [1](threshold)% a little faster
       - please tell me the chance above [1](threshold)%
       - can you tell me the chance above [1](threshold)%
-      - could you tell me the chance above [1](threshold)%
-      - I need you to tell me the chance above [1](threshold)%
-      - assistant tell me the chance above [1](threshold)%
-      - Noob Trade tell me the chance above [1](threshold)%
-      - tell me the chance above [1](threshold)% now
-      - tell me the chance above [1](threshold)% please
-      - tell me the chance above [1](threshold)% for me
-      - tell me the chance above [1](threshold)% a little faster
-      - 请 上涨 [1](threshold)% 概率是多少
-      - 帮我 上涨 [1](threshold)% 概率是多少
-      - 请 下跌 [1](threshold)% 概率是多少
-      - 帮我 下跌 [1](threshold)% 概率是多少
-      - please what is upside probability at [1.5](threshold)%
-      - can you what is upside probability at [1.5](threshold)%
-      - could you what is upside probability at [1.5](threshold)%
-      - I need you to what is upside probability at [1.5](threshold)%
-      - assistant what is upside probability at [1.5](threshold)%
-      - Noob Trade what is upside probability at [1.5](threshold)%
-      - what is upside probability at [1.5](threshold)% now
-      - what is upside probability at [1.5](threshold)% please
-      - what is upside probability at [1.5](threshold)% for me
-      - what is upside probability at [1.5](threshold)% a little faster
-      - please what is downside probability at [1.5](threshold)%
-      - can you what is downside probability at [1.5](threshold)%
 
   - intent: open_historical_pattern
     examples: |
@@ -1913,6 +1913,12 @@ nlu:
       - I need you to open a historical moment
       - assistant open a historical moment
       - Noob Trade open a historical moment
+      - I want open a historical moment
+      - I need open a historical moment
+      - quiero open a historical moment
+      - necesito open a historical moment
+      - je veux open a historical moment
+      - j'ai besoin de open a historical moment
       - open a historical moment now
       - open a historical moment please
       - open a historical moment for me
@@ -1923,6 +1929,12 @@ nlu:
       - I need you to show me a similar historical window
       - assistant show me a similar historical window
       - Noob Trade show me a similar historical window
+      - I want show me a similar historical window
+      - I need show me a similar historical window
+      - quiero show me a similar historical window
+      - necesito show me a similar historical window
+      - je veux show me a similar historical window
+      - j'ai besoin de show me a similar historical window
       - show me a similar historical window now
       - show me a similar historical window please
       - show me a similar historical window for me
@@ -1933,6 +1945,12 @@ nlu:
       - I need you to open the [first](index) historical pattern
       - assistant open the [first](index) historical pattern
       - Noob Trade open the [first](index) historical pattern
+      - I want open the [first](index) historical pattern
+      - I need open the [first](index) historical pattern
+      - quiero open the [first](index) historical pattern
+      - necesito open the [first](index) historical pattern
+      - je veux open the [first](index) historical pattern
+      - j'ai besoin de open the [first](index) historical pattern
       - open the [first](index) historical pattern now
       - open the [first](index) historical pattern please
       - open the [first](index) historical pattern for me
@@ -1943,6 +1961,12 @@ nlu:
       - I need you to show the [first](index) match
       - assistant show the [first](index) match
       - Noob Trade show the [first](index) match
+      - I want show the [first](index) match
+      - I need show the [first](index) match
+      - quiero show the [first](index) match
+      - necesito show the [first](index) match
+      - je veux show the [first](index) match
+      - j'ai besoin de show the [first](index) match
       - show the [first](index) match now
       - show the [first](index) match please
       - show the [first](index) match for me
@@ -1950,30 +1974,69 @@ nlu:
       - please let me see a historical case
       - can you let me see a historical case
       - could you let me see a historical case
-      - I need you to let me see a historical case
-      - assistant let me see a historical case
-      - Noob Trade let me see a historical case
-      - let me see a historical case now
-      - let me see a historical case please
-      - let me see a historical case for me
-      - let me see a historical case a little faster
-      - 请 打开一个历史时刻
-      - 帮我 打开一个历史时刻
-      - please 看一个相似历史窗口
-      - can you 看一个相似历史窗口
-      - could you 看一个相似历史窗口
-      - I need you to 看一个相似历史窗口
-      - assistant 看一个相似历史窗口
-      - Noob Trade 看一个相似历史窗口
-      - 看一个相似历史窗口 now
-      - 看一个相似历史窗口 please
-      - 看一个相似历史窗口 for me
-      - 看一个相似历史窗口 a little faster
-      - please open the [second](index) historical pattern
-      - can you open the [second](index) historical pattern
-      - could you open the [second](index) historical pattern
-      - I need you to open the [second](index) historical pattern
-      - assistant open the [second](index) historical pattern
+
+  - intent: open_news
+    examples: |
+      - open news
+      - show news
+      - read latest news
+      - open market news
+      - show me market headlines
+      - I want news
+      - I need the news
+      - 打开新闻
+      - 查看新闻
+      - 我想看新闻
+      - 我要打开新闻
+      - 看一下市场新闻
+      - abrir noticias
+      - mostrar noticias
+      - quiero ver noticias
+      - necesito noticias
+      - ouvrir les nouvelles
+      - afficher les nouvelles
+      - je veux voir les nouvelles
+      - j'ai besoin des nouvelles
+      - please open news
+      - can you open news
+      - could you open news
+      - I need you to open news
+      - assistant open news
+      - Noob Trade open news
+      - I want open news
+      - I need open news
+      - quiero open news
+      - necesito open news
+      - je veux open news
+      - j'ai besoin de open news
+      - open news now
+      - open news please
+      - open news for me
+      - open news a little faster
+      - please show news
+      - can you show news
+      - could you show news
+      - I need you to show news
+      - assistant show news
+      - Noob Trade show news
+      - I want show news
+      - I need show news
+      - quiero show news
+      - necesito show news
+      - je veux show news
+      - j'ai besoin de show news
+      - show news now
+      - show news please
+      - show news for me
+      - show news a little faster
+      - please read latest news
+      - can you read latest news
+      - could you read latest news
+      - I need you to read latest news
+      - assistant read latest news
+      - Noob Trade read latest news
+      - I want read latest news
+      - I need read latest news
 
   - intent: load_more_patterns
     examples: |
@@ -1994,6 +2057,12 @@ nlu:
       - I need you to load more historical patterns
       - assistant load more historical patterns
       - Noob Trade load more historical patterns
+      - I want load more historical patterns
+      - I need load more historical patterns
+      - quiero load more historical patterns
+      - necesito load more historical patterns
+      - je veux load more historical patterns
+      - j'ai besoin de load more historical patterns
       - load more historical patterns now
       - load more historical patterns please
       - load more historical patterns for me
@@ -2001,12 +2070,6 @@ nlu:
       - please show more matches
       - can you show more matches
       - could you show more matches
-      - I need you to show more matches
-      - assistant show more matches
-      - Noob Trade show more matches
-      - show more matches now
-      - show more matches please
-      - show more matches for me
 
   - intent: set_interval
     examples: |
@@ -2040,16 +2103,16 @@ nlu:
       - I need you to set interval to [daily](interval)
       - assistant set interval to [daily](interval)
       - Noob Trade set interval to [daily](interval)
+      - I want set interval to [daily](interval)
+      - I need set interval to [daily](interval)
+      - quiero set interval to [daily](interval)
+      - necesito set interval to [daily](interval)
+      - je veux set interval to [daily](interval)
+      - j'ai besoin de set interval to [daily](interval)
       - set interval to [daily](interval) now
       - set interval to [daily](interval) please
       - set interval to [daily](interval) for me
       - set interval to [daily](interval) a little faster
-      - please use [daily](interval) candles
-      - can you use [daily](interval) candles
-      - could you use [daily](interval) candles
-      - I need you to use [daily](interval) candles
-      - assistant use [daily](interval) candles
-      - Noob Trade use [daily](interval) candles
 
   - intent: sign_out
     examples: |
@@ -2065,14 +2128,14 @@ nlu:
       - I need you to log out
       - assistant log out
       - Noob Trade log out
+      - I want log out
+      - I need log out
+      - quiero log out
+      - necesito log out
+      - je veux log out
+      - j'ai besoin de log out
       - log out now
       - log out please
-      - log out for me
-      - log out a little faster
-      - please sign out
-      - can you sign out
-      - could you sign out
-      - I need you to sign out
 
   - intent: language
     examples: |
@@ -2094,6 +2157,12 @@ nlu:
       - I need you to switch to [en](language)
       - assistant switch to [en](language)
       - Noob Trade switch to [en](language)
+      - I want switch to [en](language)
+      - I need switch to [en](language)
+      - quiero switch to [en](language)
+      - necesito switch to [en](language)
+      - je veux switch to [en](language)
+      - j'ai besoin de switch to [en](language)
       - switch to [en](language) now
       - switch to [en](language) please
       - switch to [en](language) for me
@@ -2104,13 +2173,7 @@ nlu:
       - I need you to use English
       - assistant use English
       - Noob Trade use English
-      - use English now
-      - use English please
-      - use English for me
-      - use English a little faster
-      - please change language to English
-      - can you change language to English
-      - could you change language to English
+      - I want use English
 
   - intent: greeting
     examples: |
@@ -2147,6 +2210,12 @@ nlu:
       - I need you to hey
       - assistant hey
       - Noob Trade hey
+      - I want hey
+      - I need hey
+      - quiero hey
+      - necesito hey
+      - je veux hey
+      - j'ai besoin de hey
       - hey now
       - hey please
       - hey for me
@@ -2157,6 +2226,12 @@ nlu:
       - I need you to hi
       - assistant hi
       - Noob Trade hi
+      - I want hi
+      - I need hi
+      - quiero hi
+      - necesito hi
+      - je veux hi
+      - j'ai besoin de hi
       - hi now
       - hi please
       - hi for me
@@ -2167,6 +2242,12 @@ nlu:
       - I need you to hello
       - assistant hello
       - Noob Trade hello
+      - I want hello
+      - I need hello
+      - quiero hello
+      - necesito hello
+      - je veux hello
+      - j'ai besoin de hello
       - hello now
       - hello please
       - hello for me
@@ -2176,24 +2257,6 @@ nlu:
       - could you hello assistant
       - I need you to hello assistant
       - assistant hello assistant
-      - Noob Trade hello assistant
-      - hello assistant now
-      - hello assistant please
-      - hello assistant for me
-      - hello assistant a little faster
-      - please hey NoobTrade
-      - can you hey NoobTrade
-      - could you hey NoobTrade
-      - I need you to hey NoobTrade
-      - assistant hey NoobTrade
-      - Noob Trade hey NoobTrade
-      - hey NoobTrade now
-      - hey NoobTrade please
-      - hey NoobTrade for me
-      - hey NoobTrade a little faster
-      - please NoobTrade
-      - can you NoobTrade
-      - could you NoobTrade
 
   - intent: help
     examples: |
@@ -2209,14 +2272,14 @@ nlu:
       - I need you to help
       - assistant help
       - Noob Trade help
+      - I want help
+      - I need help
+      - quiero help
+      - necesito help
+      - je veux help
+      - j'ai besoin de help
       - help now
       - help please
-      - help for me
-      - help a little faster
-      - please what can you do
-      - can you what can you do
-      - could you what can you do
-      - I need you to what can you do
 
   - intent: blocked_trading
     examples: |
@@ -2316,5 +2379,5 @@ nlu:
       - I need you to what are you
       - assistant what are you
       - Noob Trade what are you
-      - what are you now
-      - what are you please
+      - I want what are you
+      - I need what are you

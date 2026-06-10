@@ -76,6 +76,7 @@ def build_examples():
         "adjust_probability": [],
         "summarize_probability": [],
         "open_historical_pattern": [],
+        "open_news": [],
         "load_more_patterns": [],
         "set_interval": [],
         "sign_out": [],
@@ -278,6 +279,28 @@ def build_examples():
         "加载更多历史相似",
         "更多历史窗口",
     ])
+    examples["open_news"].extend([
+        "open news",
+        "show news",
+        "read latest news",
+        "open market news",
+        "show me market headlines",
+        "I want news",
+        "I need the news",
+        "打开新闻",
+        "查看新闻",
+        "我想看新闻",
+        "我要打开新闻",
+        "看一下市场新闻",
+        "abrir noticias",
+        "mostrar noticias",
+        "quiero ver noticias",
+        "necesito noticias",
+        "ouvrir les nouvelles",
+        "afficher les nouvelles",
+        "je veux voir les nouvelles",
+        "j'ai besoin des nouvelles",
+    ])
 
     for interval in ["daily", "weekly", "monthly", "1 day", "1 week", "1 month"]:
         examples["set_interval"].extend([
@@ -408,6 +431,15 @@ def build_examples():
         "看一下这个股票会不会涨",
         "跑一下模型",
         "生成一下当前股票",
+        "我要generate",
+        "我想生成这个",
+        "please generate this",
+        "I want generate",
+        "I need generate",
+        "quiero generate",
+        "necesito analizar esto",
+        "je veux generate",
+        "j'ai besoin d'analyser ça",
     ])
     examples["search"].extend([
         "pull up Apple",
@@ -420,6 +452,12 @@ def build_examples():
         "查一下苹果",
         "看一下英伟达",
         "找一下特斯拉",
+        "我要search",
+        "我想查询这个",
+        "please search this",
+        "quiero buscar esto",
+        "necesito el precio",
+        "je veux chercher ça",
     ])
     examples["set_indicator"].extend([
         "put RSI on",
@@ -459,6 +497,13 @@ def build_examples():
         "scan everything I starred",
         "扫描我收藏的股票",
         "看看自选里面哪个概率高",
+        "我要scan",
+        "我想扫描自选",
+        "please scan",
+        "I want you to scan",
+        "quiero escanear favoritos",
+        "necesito scan",
+        "je veux scanner mes favoris",
     ])
     examples["set_star"].extend([
         "save this one",
@@ -472,6 +517,12 @@ def build_examples():
         "把这个加到自选",
         "收藏当前这个",
         "取消收藏这个",
+        "我要加星标",
+        "我想取消星标",
+        "please star this",
+        "quiero guardar esto",
+        "necesito quitar favorito",
+        "je veux ajouter aux favoris",
     ])
     examples["adjust_probability"].extend([
         "move the upside slider higher",
@@ -519,6 +570,12 @@ def build_examples():
         "I need you to",
         "assistant",
         "Noob Trade",
+        "I want",
+        "I need",
+        "quiero",
+        "necesito",
+        "je veux",
+        "j'ai besoin de",
     ]
     polite_suffixes = [
         "now",
@@ -529,9 +586,11 @@ def build_examples():
     for intent, items in list(examples.items()):
         augmented = list(items)
         for item in items:
-            if item.startswith(("打开", "切换", "进入", "去", "选择", "勾选", "取消", "关闭", "生成", "查询", "搜索", "扫描", "把", "上涨", "下跌", "加载", "更多", "退出", "登出", "你好", "介绍")):
+            if item.startswith(("打开", "切换", "进入", "去", "选择", "勾选", "取消", "关闭", "生成", "查询", "搜索", "扫描", "把", "上涨", "下跌", "加载", "更多", "退出", "登出", "你好", "介绍", "查看", "看一下")):
                 augmented.append(f"请 {item}")
                 augmented.append(f"帮我 {item}")
+                augmented.append(f"我要 {item}")
+                augmented.append(f"我想 {item}")
                 continue
 
             for prefix in polite_prefixes:
@@ -554,6 +613,7 @@ def build_examples():
         "adjust_probability": 145,
         "summarize_probability": 120,
         "open_historical_pattern": 90,
+        "open_news": 60,
         "load_more_patterns": 30,
         "set_interval": 40,
         "sign_out": 20,

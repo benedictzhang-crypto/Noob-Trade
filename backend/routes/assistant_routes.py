@@ -77,16 +77,33 @@ ALLOWED_INTENTS = {
     "navigate", "scroll", "generate", "search", "set_indicator",
     "select_only_indicators", "clear_indicators", "reset_indicators",
     "scan_watchlist", "set_star", "adjust_probability",
-    "summarize_probability", "open_historical_pattern",
+    "summarize_probability", "open_historical_pattern", "open_news",
     "load_more_patterns", "set_interval", "sign_out", "language",
     "greeting", "help", "chat", "blocked_trading", "unknown",
 }
 
-GREETING_REPLIES = [
-    "I am here. What can I help you with?",
-    "I am listening. You can ask a question or tell me what to do on the page.",
-    "Here with you. Do you want analysis, navigation, indicators, or watchlist help?",
-]
+SHORT_REPLY_LIBRARY = {
+    "en": {
+        "ready": "Ready.",
+        "blocked_trading": "Manual trading only.",
+        "unknown": "I could not understand. Please say it again.",
+    },
+    "zh": {
+        "ready": "我在。",
+        "blocked_trading": "请手动操作。",
+        "unknown": "无法理解您说的，请再说一遍。",
+    },
+    "es": {
+        "ready": "Listo.",
+        "blocked_trading": "Operación manual solamente.",
+        "unknown": "No entendí. Repítalo, por favor.",
+    },
+    "fr": {
+        "ready": "Prêt.",
+        "blocked_trading": "Trading manuel uniquement.",
+        "unknown": "Je n'ai pas compris. Répétez, s'il vous plaît.",
+    },
+}
 
 SYMBOL_ALIASES = {
     "aapl": "AAPL",
@@ -186,6 +203,37 @@ SYMBOL_ALIASES = {
 
 def _normalize_text(value):
     return re.sub(r"\s+", " ", str(value or "").lower()).strip()
+
+
+def _detect_reply_language(text="", context=None, payload=None):
+    context = context if isinstance(context, dict) else {}
+    payload = payload if isinstance(payload, dict) else {}
+
+    raw_text = str(text or "")
+    normalized_text = _normalize_text(raw_text)
+    if re.search(r"[\u4e00-\u9fff]", raw_text):
+        return "zh"
+    if any(phrase in normalized_text for phrase in ("hola", "español", "espanol", "gracias", "ayuda", "abrir", "buscar", "escanear", "quiero", "necesito", "noticias")):
+        return "es"
+    if any(phrase in normalized_text for phrase in ("bonjour", "français", "francais", "merci", "aide", "ouvrir", "chercher", "scanner", "je veux", "j ai besoin", "nouvelles")):
+        return "fr"
+
+    for value in (
+        payload.get("language"),
+        context.get("language"),
+    ):
+        normalized = _normalize_text(value)
+        if normalized in SHORT_REPLY_LIBRARY:
+            return normalized
+
+    return "en"
+
+
+def _short_reply(key, language="en"):
+    return SHORT_REPLY_LIBRARY.get(language, SHORT_REPLY_LIBRARY["en"]).get(
+        key,
+        SHORT_REPLY_LIBRARY["en"].get(key, ""),
+    )
 
 
 def _normalize_symbol_entity(value):
@@ -315,17 +363,19 @@ def _extract_ordinal_index(text):
 def _rule_based_intent(transcript, context=None):
     text = _normalize_text(transcript)
     context = context or {}
+    reply_language = _detect_reply_language(transcript, context)
     if not text:
-        return _base_intent("unknown", 0.2, reply="I did not catch that.")
+        return _base_intent("unknown", 0.2, language=reply_language, reply=_short_reply("unknown", reply_language))
 
     if any(phrase in text for phrase in ("hey", "hi", "hello", "are you there", "noob trade", "assistant", "你好", "在吗", "你在吗", "嗨", "hola", "bonjour")):
-        return _base_intent("greeting", 0.96, reply=GREETING_REPLIES[0])
+        return _base_intent("greeting", 0.96, language=reply_language, reply=_short_reply("ready", reply_language))
 
     if any(word in text for word in TRADING_WORDS):
         return _base_intent(
             "blocked_trading",
             0.98,
-            reply="Voice trading orders are disabled. I can control analysis and navigation only.",
+            language=reply_language,
+            reply=_short_reply("blocked_trading", reply_language),
         )
 
     if any(phrase in text for phrase in ("sign out", "log out", "logout", "退出登录", "登出")):
@@ -337,6 +387,10 @@ def _rule_based_intent(transcript, context=None):
 
     if any(phrase in text for phrase in ("open", "show", "look", "see", "打开", "看看", "看一下")) and any(word in text for word in historical_words):
         return _base_intent("open_historical_pattern", 0.95, index=_extract_ordinal_index(text))
+
+    news_words = ("news", "headline", "headlines", "market news", "latest news", "新闻", "资讯", "消息", "noticias", "actualidad", "nouvelles", "actualites", "actualités")
+    if any(word in text for word in news_words) and any(phrase in text for phrase in ("open", "show", "read", "look", "see", "go", "打开", "查看", "看看", "去", "abrir", "mostrar", "ver", "ouvrir", "afficher", "voir")):
+        return _base_intent("open_news", 0.94, language=reply_language)
 
     probability_words = ("probability", "chance", "odds", "概率", "几率")
     if any(word in text for word in probability_words):
@@ -384,7 +438,7 @@ def _rule_based_intent(transcript, context=None):
             page_hits.append((len(phrase), page))
     if page_hits and any(verb in text for verb in ("go", "open", "show", "switch", "navigate", "进入", "打开", "切换")):
         page = sorted(page_hits, reverse=True)[0][1]
-        return _base_intent("navigate", 0.96, page=page, reply=f"Opened {page}.")
+        return _base_intent("navigate", 0.96, page=page, language=reply_language)
 
     if any(phrase in text for phrase in ("top", "顶部", "haut", "arriba del todo")) and any(phrase in text for phrase in ("scroll", "go", "back", "到")):
         return _base_intent("scroll", 0.94, direction="top", amount="full")
@@ -401,7 +455,7 @@ def _rule_based_intent(transcript, context=None):
         amount = "small" if any(phrase in text for phrase in ("little", "bit", "一点", "un poco", "un peu")) else "normal"
         return _base_intent("scroll", 0.94, direction="up", amount=amount)
 
-    if any(phrase in text for phrase in ("scan", "扫描", "scanner", "escanear")) and any(phrase in text for phrase in ("watchlist", "star", "favorite", "自选", "星标")):
+    if any(phrase in text for phrase in ("scan", "扫描", "scanner", "escanear")):
         match = re.search(r"(\d{1,3}(?:\.\d+)?)\s*(?:%|percent)?", text)
         threshold = float(match.group(1)) if match else None
         return _base_intent("scan_watchlist", 0.92, threshold=threshold)
@@ -474,9 +528,14 @@ def _openai_intent(transcript, context):
         "context": context,
         "allowedPages": ["Dashboard", "Stock Trade", "Crypto Trade", "Portfolio", "Explore", "Markets", "Settings", "More", "Admin"],
         "allowedIndicators": ["MA", "EMA", "MACD", "BOLL", "RSI", "Vol", "KDJ", "OI", "OBV"],
+        "shortReplyBank": SHORT_REPLY_LIBRARY,
         "rules": [
             "Return one UI command intent only.",
             "Do not place trading orders. Buy/sell/order requests must be blocked_trading.",
+            "Never write a long assistant response. The reply field must be empty or one short phrase from shortReplyBank in the user's language.",
+            "For executable commands such as scan_watchlist, generate, search, set_star, navigate, open_news, or set_indicator, leave reply empty; the frontend will say the action status.",
+            "If the user says open news, show news, 打开新闻, 看新闻, abrir noticias, or ouvrir les nouvelles, return open_news.",
+            "If the user uses an imperative command or a first-person request like I want, I need, 我要, 我想, quiero, necesito, je veux, or j'ai besoin, still return the matching action intent.",
             "If the user asks to go to stock trade page, return navigate page Stock Trade.",
             "Do not treat words like stock, trade, page, dashboard, portfolio, settings as stock tickers.",
             "Indicator names are strong entities. RSI alone should toggle/select RSI. I want RSI should select RSI. Remove RSI should unselect RSI.",
@@ -495,7 +554,7 @@ def _openai_intent(transcript, context):
                 "content": [
                     {
                         "type": "input_text",
-                        "text": "You are Noob Trade's cloud intent router. Output strict JSON matching the schema. No prose outside JSON.",
+                        "text": "You are Noob Trade's cloud intent router. Output strict JSON matching the schema. Never write prose outside JSON, and never put long prose in reply.",
                     }
                 ],
             },
@@ -667,6 +726,8 @@ def _finalize_intent_payload(intent_payload, transcript, context):
         return intent_payload
 
     cleaned_payload = dict(intent_payload)
+    language = _detect_reply_language(transcript, context, cleaned_payload)
+    cleaned_payload["language"] = language
     if cleaned_payload.get("symbol"):
         cleaned_payload["symbol"] = _normalize_symbol_entity(cleaned_payload.get("symbol")) or cleaned_payload.get("symbol")
 
@@ -675,6 +736,18 @@ def _finalize_intent_payload(intent_payload, transcript, context):
 
     if cleaned_payload.get("symbol"):
         cleaned_payload["symbol"] = _normalize_symbol_entity(cleaned_payload.get("symbol")) or cleaned_payload.get("symbol")
+
+    intent = cleaned_payload.get("intent")
+    if intent in {"generate", "search", "scan_watchlist", "set_star", "navigate", "open_news", "set_indicator"}:
+        cleaned_payload["reply"] = ""
+    elif intent in {"greeting", "help", "chat"}:
+        cleaned_payload["reply"] = _short_reply("ready", language)
+    elif intent == "blocked_trading":
+        cleaned_payload["reply"] = _short_reply("blocked_trading", language)
+    elif intent == "unknown":
+        cleaned_payload["reply"] = _short_reply("unknown", language)
+    elif len(str(cleaned_payload.get("reply") or "")) > 48:
+        cleaned_payload["reply"] = ""
 
     return cleaned_payload
 
