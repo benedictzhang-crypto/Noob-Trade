@@ -1,5 +1,6 @@
 import logging
 import time
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -93,8 +94,10 @@ class MarketDataService:
     MARKET_API_CACHE = {}
     MARKET_API_CACHE_MAX_ENTRIES = 512
     ANALYSIS_RESPONSE_CACHE = {}
+    ANALYSIS_RESPONSE_CACHE_LOCK = threading.RLock()
+    ANALYSIS_RESPONSE_INFLIGHT = {}
     ANALYSIS_RESPONSE_CACHE_MAX_ENTRIES = 256
-    ANALYSIS_RESPONSE_CACHE_TTL_SECONDS = 90
+    ANALYSIS_RESPONSE_CACHE_TTL_SECONDS = Config.ANALYSIS_RESPONSE_CACHE_TTL_SECONDS
     TOP_50_SYMBOLS = list(Config.MATCH_SCORING_SYMBOLS)
     HOT_NEWS_SYMBOLS = ["SPY", "QQQ", "NVDA", "AAPL", "MSFT", "AMZN", "TSLA", "META", "AMD", "JPM"]
     LIVE_MATCH_TARGET = 20
@@ -221,67 +224,81 @@ class MarketDataService:
             cached_response = self._get_cached_analysis_response(cache_key)
             if cached_response is not None:
                 return cached_response
+            is_cache_owner, cache_event = self._begin_analysis_cache_fill(cache_key)
+            if not is_cache_owner:
+                cached_response = self._wait_for_analysis_cache_fill(cache_key, cache_event)
+                if cached_response is not None:
+                    return cached_response
+                is_cache_owner, cache_event = self._begin_analysis_cache_fill(cache_key)
 
             def cache_response(response):
                 self._store_analysis_response(cache_key, response)
                 return response
 
-            if self.market_api.is_configured() and self.market_api.is_available():
-                try:
-                    response = self._build_live_current_vs_cached_response(
-                        symbol=symbol_code,
-                        interval=interval,
-                        lookback_window=lookback_window,
-                        indicators=indicators,
-                        compact_response=compact_response,
-                    )
-
-                    if summary_only:
-                        return cache_response(response)
-
+            cache_error = None
+            try:
+                if self.market_api.is_configured() and self.market_api.is_available():
                     try:
-                        return cache_response(self.persistence_service.apply_cached_match_preview(response))
-                    except Exception:
+                        response = self._build_live_current_vs_cached_response(
+                            symbol=symbol_code,
+                            interval=interval,
+                            lookback_window=lookback_window,
+                            indicators=indicators,
+                            compact_response=compact_response,
+                        )
+
+                        if summary_only:
+                            return cache_response(response)
+
+                        try:
+                            return cache_response(self.persistence_service.apply_cached_match_preview(response))
+                        except Exception:
+                            logger.warning(
+                                "Production cached match preview failed for %s; returning live response.",
+                                symbol_code,
+                                exc_info=True,
+                            )
+                            return cache_response(response)
+                    except DukeMarketApiUnavailable:
                         logger.warning(
-                            "Production cached match preview failed for %s; returning live response.",
+                            "Production live market data provider is unavailable for %s; falling back to cached history when possible.",
                             symbol_code,
                             exc_info=True,
                         )
-                        return cache_response(response)
-                except DukeMarketApiUnavailable:
-                    logger.warning(
-                        "Production live market data provider is unavailable for %s; falling back to cached history when possible.",
-                        symbol_code,
-                        exc_info=True,
-                    )
-                except Exception:
-                    logger.warning(
-                        "Production live generate failed for %s; falling back to cached history when possible.",
-                        symbol_code,
-                        exc_info=True,
-                    )
+                    except Exception:
+                        logger.warning(
+                            "Production live generate failed for %s; falling back to cached history when possible.",
+                            symbol_code,
+                            exc_info=True,
+                        )
 
-            if self._has_cached_history(symbol_code):
-                try:
-                    return cache_response(self._build_cached_db_response(
-                        symbol=symbol_code,
-                        interval=interval,
-                        lookback_window=lookback_window,
-                        indicators=indicators,
-                        compact_response=compact_response,
-                        apply_match_preview=not summary_only,
-                    ))
-                except Exception:
-                    logger.warning(
-                        "Production cached database response failed for %s.",
-                        symbol_code,
-                        exc_info=True,
-                    )
+                if self._has_cached_history(symbol_code):
+                    try:
+                        return cache_response(self._build_cached_db_response(
+                            symbol=symbol_code,
+                            interval=interval,
+                            lookback_window=lookback_window,
+                            indicators=indicators,
+                            compact_response=compact_response,
+                            apply_match_preview=not summary_only,
+                        ))
+                    except Exception:
+                        logger.warning(
+                            "Production cached database response failed for %s.",
+                            symbol_code,
+                            exc_info=True,
+                        )
 
-            if self._allow_demo_fallback(symbol_code):
-                return cache_response(self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators))
+                if self._allow_demo_fallback(symbol_code):
+                    return cache_response(self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators))
 
-            raise ValueError(f"{symbol_code} is temporarily unavailable.")
+                raise ValueError(f"{symbol_code} is temporarily unavailable.")
+            except Exception as error:
+                cache_error = error
+                raise
+            finally:
+                if is_cache_owner:
+                    self._finish_analysis_cache_fill(cache_key, cache_event, error=cache_error)
 
         if self.market_api.is_configured() and self.market_api.is_available() and self._has_cached_history(symbol_code):
             try:
@@ -1054,30 +1071,59 @@ class MarketDataService:
         )
 
     def _get_cached_analysis_response(self, cache_key):
-        cached = self.ANALYSIS_RESPONSE_CACHE.get(cache_key)
-        if cached and cached.get("expires_at", 0) > time.time():
-            return deepcopy(cached["value"])
-        if cached:
-            self.ANALYSIS_RESPONSE_CACHE.pop(cache_key, None)
+        with self.ANALYSIS_RESPONSE_CACHE_LOCK:
+            cached = self.ANALYSIS_RESPONSE_CACHE.get(cache_key)
+            if cached and cached.get("expires_at", 0) > time.time():
+                return deepcopy(cached["value"])
+            if cached:
+                self.ANALYSIS_RESPONSE_CACHE.pop(cache_key, None)
         return None
 
     def _store_analysis_response(self, cache_key, response):
         if not cache_key or not isinstance(response, dict):
             return
 
-        if len(self.ANALYSIS_RESPONSE_CACHE) >= self.ANALYSIS_RESPONSE_CACHE_MAX_ENTRIES:
-            oldest_key = min(
-                self.ANALYSIS_RESPONSE_CACHE,
-                key=lambda key: self.ANALYSIS_RESPONSE_CACHE[key].get("stored_at", 0),
-            )
-            self.ANALYSIS_RESPONSE_CACHE.pop(oldest_key, None)
+        with self.ANALYSIS_RESPONSE_CACHE_LOCK:
+            if len(self.ANALYSIS_RESPONSE_CACHE) >= self.ANALYSIS_RESPONSE_CACHE_MAX_ENTRIES:
+                oldest_key = min(
+                    self.ANALYSIS_RESPONSE_CACHE,
+                    key=lambda key: self.ANALYSIS_RESPONSE_CACHE[key].get("stored_at", 0),
+                )
+                self.ANALYSIS_RESPONSE_CACHE.pop(oldest_key, None)
 
-        now = time.time()
-        self.ANALYSIS_RESPONSE_CACHE[cache_key] = {
-            "stored_at": now,
-            "expires_at": now + self.ANALYSIS_RESPONSE_CACHE_TTL_SECONDS,
-            "value": deepcopy(response),
-        }
+            now = time.time()
+            self.ANALYSIS_RESPONSE_CACHE[cache_key] = {
+                "stored_at": now,
+                "expires_at": now + self.ANALYSIS_RESPONSE_CACHE_TTL_SECONDS,
+                "value": deepcopy(response),
+            }
+
+    def _begin_analysis_cache_fill(self, cache_key):
+        with self.ANALYSIS_RESPONSE_CACHE_LOCK:
+            cached_response = self._get_cached_analysis_response(cache_key)
+            if cached_response is not None:
+                event = threading.Event()
+                event.set()
+                return False, event
+
+            inflight = self.ANALYSIS_RESPONSE_INFLIGHT.get(cache_key)
+            if inflight is not None:
+                return False, inflight["event"]
+
+            event = threading.Event()
+            self.ANALYSIS_RESPONSE_INFLIGHT[cache_key] = {"event": event}
+            return True, event
+
+    def _wait_for_analysis_cache_fill(self, cache_key, event):
+        event.wait(timeout=45)
+        return self._get_cached_analysis_response(cache_key)
+
+    def _finish_analysis_cache_fill(self, cache_key, event, error=None):
+        with self.ANALYSIS_RESPONSE_CACHE_LOCK:
+            inflight = self.ANALYSIS_RESPONSE_INFLIGHT.get(cache_key)
+            if inflight is not None and inflight.get("event") is event:
+                self.ANALYSIS_RESPONSE_INFLIGHT.pop(cache_key, None)
+        event.set()
 
     def _build_google_news_link(self, symbol, title):
         query = f"{symbol} stock news {title}"

@@ -193,6 +193,7 @@ class Config:
     MARKET_DATA_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_CACHE_TTL_SECONDS", "90"))
     MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", "20"))
     MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS", "900"))
+    ANALYSIS_RESPONSE_CACHE_TTL_SECONDS = int(os.getenv("ANALYSIS_RESPONSE_CACHE_TTL_SECONDS", "300"))
     ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
     YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
     OKX_DATA_BASE_URL = os.getenv("OKX_DATA_BASE_URL", "https://www.okx.com")
