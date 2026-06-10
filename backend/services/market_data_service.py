@@ -237,6 +237,21 @@ class MarketDataService:
 
             cache_error = None
             try:
+                if compact_response:
+                    try:
+                        return cache_response(self._build_production_compact_response(
+                            symbol=symbol_code,
+                            interval=interval,
+                            lookback_window=lookback_window,
+                            indicators=indicators,
+                        ))
+                    except Exception:
+                        logger.warning(
+                            "Production compact response failed for %s; falling back to standard path.",
+                            symbol_code,
+                            exc_info=True,
+                        )
+
                 if self.market_api.is_configured() and self.market_api.is_available():
                     try:
                         response = self._build_live_current_vs_cached_response(
