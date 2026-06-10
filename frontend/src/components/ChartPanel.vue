@@ -170,10 +170,30 @@ const hoverTimeLabel = computed(() => {
 
   return buildHoverTimeLabel(candle.date, props.selectedInterval)
 })
-const hoverTimeModeLabel = computed(() => (
-  hoveredCandle.value ? `${formatIntervalLabel(props.selectedInterval)} bar` : formatIntervalLabel(props.selectedInterval)
-))
+const hoverTooltipStyle = computed(() => {
+  if (hoveredBarIndex.value === null || !hoveredCandle.value) {
+    return null
+  }
 
+  const geometry = candleGeometry.value[hoveredBarIndex.value]
+  if (!geometry) {
+    return null
+  }
+
+  const y = clamp(geometry.bodyTop + (geometry.bodyHeight / 2), 12, 86)
+  return {
+    '--hover-left': `${geometry.x}%`,
+    '--hover-top': `${y}%`
+  }
+})
+const hoverTooltipOnLeft = computed(() => {
+  if (hoveredBarIndex.value === null) {
+    return false
+  }
+
+  const geometry = candleGeometry.value[hoveredBarIndex.value]
+  return geometry ? geometry.x > 68 : false
+})
 const xTicks = computed(() => {
   const candles = activeCandles.value
 
@@ -181,16 +201,25 @@ const xTicks = computed(() => {
     return []
   }
 
-  const desiredCount = Math.min(6, candles.length)
-  const step = candles.length <= 1 ? 1 : Math.max(1, Math.floor((candles.length - 1) / Math.max(desiredCount - 1, 1)))
+  const desiredCount = Math.min(getDesiredTimeTickCount(candles.length), candles.length)
+  const step = candles.length <= 1 ? 1 : Math.max(1, Math.ceil((candles.length - 1) / Math.max(desiredCount - 1, 1)))
+  const usedIndexes = new Set()
 
   return Array.from({ length: desiredCount }, (_, index) => {
-    const candleIndex = index === desiredCount - 1 ? candles.length - 1 : Math.min(index * step, candles.length - 1)
+    const rawIndex = index === desiredCount - 1 ? candles.length - 1 : Math.min(index * step, candles.length - 1)
+    let candleIndex = rawIndex
+
+    while (usedIndexes.has(candleIndex) && candleIndex < candles.length - 1) {
+      candleIndex += 1
+    }
+    usedIndexes.add(candleIndex)
 
     return {
       index: candleIndex,
       x: toChartX(candleIndex, candles.length),
-      label: formatDateLabel(candles[candleIndex]?.date ?? '')
+      label: formatAxisDateLabel(candles[candleIndex]?.date ?? '', props.selectedInterval),
+      positionStyle: { left: `${toChartX(candleIndex, candles.length)}%` },
+      align: candleIndex === 0 ? 'start' : candleIndex === candles.length - 1 ? 'end' : 'center'
     }
   })
 })
@@ -1019,6 +1048,68 @@ function formatDateLabel(rawDate) {
   return rawDate
 }
 
+function getDesiredTimeTickCount(length) {
+  if (length <= 10) {
+    return 3
+  }
+
+  if (length <= 30) {
+    return 4
+  }
+
+  if (length <= 70) {
+    return 5
+  }
+
+  return 6
+}
+
+function formatAxisDateLabel(rawDate, interval) {
+  if (!rawDate) {
+    return { primary: '', secondary: '' }
+  }
+
+  const date = parseCandleDate(/^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? `${rawDate}T12:00:00` : rawDate)
+  if (!date) {
+    return { primary: String(rawDate), secondary: '' }
+  }
+
+  if (intradayIntervalMinutes[interval]) {
+    return {
+      primary: date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'America/New_York'
+      }),
+      secondary: date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        timeZone: 'America/New_York'
+      })
+    }
+  }
+
+  if (interval === 'monthly') {
+    return {
+      primary: date.toLocaleDateString('en-US', {
+        month: 'short',
+        timeZone: 'America/New_York'
+      }),
+      secondary: `'${String(date.getFullYear()).slice(-2)}`
+    }
+  }
+
+  return {
+    primary: date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'America/New_York'
+    }),
+    secondary: `'${String(date.getFullYear()).slice(-2)}`
+  }
+}
+
 function formatHoverDate(date) {
   return date.toLocaleDateString('en-US', {
     month: 'short',
@@ -1054,6 +1145,11 @@ function formatHoverTime(date) {
 function parseCandleDate(rawDate) {
   if (!rawDate) {
     return null
+  }
+
+  if (/^\d{4}-\d{2}$/.test(rawDate)) {
+    const monthDate = new Date(`${rawDate}-01T12:00:00`)
+    return Number.isNaN(monthDate.getTime()) ? null : monthDate
   }
 
   const parsed = new Date(rawDate)
@@ -1306,16 +1402,37 @@ function getBarOpacity() {
             {{ label }}
           </span>
         </div>
+
+        <div
+          v-if="hoveredCandle && hoverTooltipStyle"
+          class="chart-hover-card"
+          :class="{ 'is-left': hoverTooltipOnLeft }"
+          :style="hoverTooltipStyle"
+        >
+          <strong>{{ hoverTimeLabel }}</strong>
+          <div class="chart-hover-card-grid">
+            <span>O {{ formatPrice(hoveredCandle.open) }}</span>
+            <span>H {{ formatPrice(hoveredCandle.high) }}</span>
+            <span>L {{ formatPrice(hoveredCandle.low) }}</span>
+            <span>C {{ formatPrice(hoveredCandle.close) }}</span>
+          </div>
+          <small>Vol {{ Number(hoveredCandle.volume || 0).toLocaleString() }}</small>
+        </div>
         </div>
 
         <div class="shared-time-axis">
-          <span v-for="tick in xTicks" :key="`label-${tick.index}`">{{ tick.label }}</span>
+          <span
+            v-for="tick in xTicks"
+            :key="`label-${tick.index}`"
+            class="shared-time-tick"
+            :class="`align-${tick.align}`"
+            :style="tick.positionStyle"
+          >
+            <strong>{{ tick.label.primary }}</strong>
+            <small>{{ tick.label.secondary }}</small>
+          </span>
         </div>
-        <div class="hover-time-readout" :class="{ active: hoveredCandle }">
-          <span class="hover-time-mode">{{ hoverTimeModeLabel }}</span>
-          <span class="hover-time-copy">{{ hoverTimeLabel }}</span>
-          <span class="hover-time-hint">{{ isDragging ? 'Dragging timeline' : 'Drag to pan' }}</span>
-        </div>
+
       </div>
 
       <div
