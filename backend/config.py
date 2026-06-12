@@ -198,6 +198,17 @@ class Config:
     YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
     OKX_DATA_BASE_URL = os.getenv("OKX_DATA_BASE_URL", "https://www.okx.com")
     COINGECKO_DATA_BASE_URL = os.getenv("COINGECKO_DATA_BASE_URL", "https://api.coingecko.com/api/v3")
+    CRYPTO_PATTERN_STORE_PATH = os.getenv(
+        "CRYPTO_PATTERN_STORE_PATH",
+        str(Path(__file__).resolve().parent / "data" / "noobtrade_crypto_pattern_store.sqlite"),
+    )
+    CRYPTO_PATTERN_STORE_BACKEND = os.getenv("CRYPTO_PATTERN_STORE_BACKEND", "auto").strip().lower()
+    CRYPTO_PATTERN_STORE_DATABASE_URL = os.getenv("CRYPTO_PATTERN_STORE_DATABASE_URL", os.getenv("DATABASE_URL", "")).strip()
+    CRYPTO_PATTERN_STORE_WARM_ON_START = os.getenv("CRYPTO_PATTERN_STORE_WARM_ON_START", "true").lower() == "true"
+    CRYPTO_PATTERN_STORE_WARM_SYMBOLS = _parse_symbol_list(
+        os.getenv("CRYPTO_PATTERN_STORE_WARM_SYMBOLS"),
+        ["BTC", "ETH", "SOL", "OKB", "DOGE", "ADA", "LINK", "AVAX"],
+    )
     CRYPTO_EXCLUDE_STABLECOINS = os.getenv("CRYPTO_EXCLUDE_STABLECOINS", "true").lower() == "true"
     ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", os.getenv("APCA_API_KEY_ID", ""))
     ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", os.getenv("APCA_API_SECRET_KEY", ""))

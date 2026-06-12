@@ -6,6 +6,8 @@ backend/.env.*
 backend/noobtrade_user.db
 backend/noobtrade_user.db-*
 backend/noobtrade_local.db
+backend/data/*.sqlite
+backend/data/*.sqlite-*
 backend/*.backup-*.db
 backend/noobtrade_local.pre-*.db
 backend/reports/

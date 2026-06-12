@@ -438,6 +438,7 @@ def _start_background_database_init(app):
     def _runner():
         try:
             initialize_database_with_retries(app)
+            _warm_crypto_pattern_store(app)
             app.config["_DB_INIT_READY"] = True
             app.config["_DB_INIT_ERROR"] = None
         except Exception as error:
@@ -446,6 +447,21 @@ def _start_background_database_init(app):
             app.config["_DB_INIT_ERROR"] = str(error)
 
     threading.Thread(target=_runner, daemon=True).start()
+
+
+def _warm_crypto_pattern_store(app):
+    if not app.config.get("CRYPTO_PATTERN_STORE_WARM_ON_START", True):
+        return
+
+    try:
+        from services.crypto_pattern_store_service import CryptoPatternStoreService
+
+        result = CryptoPatternStoreService(app.config).warm_cache(
+            symbols=app.config.get("CRYPTO_PATTERN_STORE_WARM_SYMBOLS") or [],
+        )
+        app.logger.info("Crypto pattern store warmup complete: %s", result)
+    except Exception:
+        app.logger.exception("Crypto pattern store warmup failed; continuing with lazy loading.")
 
 
 def create_app():
