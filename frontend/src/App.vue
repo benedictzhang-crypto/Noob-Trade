@@ -12,6 +12,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
+const DEFAULT_STOCK_SYMBOL = 'AAPL'
+const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -623,8 +625,8 @@ const activePage = ref('Home')
 const appMode = ref('stock')
 const uiLanguage = ref('en')
 const isAuthenticated = ref(false)
-const symbolInput = ref('AAPL')
-const activeSymbol = ref('AAPL')
+const symbolInput = ref(DEFAULT_STOCK_SYMBOL)
+const activeSymbol = ref(DEFAULT_STOCK_SYMBOL)
 const selectedChartInterval = ref('daily')
 const currentExploreTab = ref('Watchlist')
 const exploreViewMode = ref('ranked')
@@ -680,6 +682,10 @@ let analysisRequestVersion = 0
 let voiceSpeechToken = 0
 let voiceLastSpeechSignature = ''
 let voiceLastSpeechAt = 0
+const defaultLiveLoadPromises = {
+  stock: null,
+  crypto: null
+}
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -3534,11 +3540,6 @@ function switchTradingMode() {
 
 function selectPopularSymbol(symbol) {
   symbolInput.value = symbol
-  if (activePage.value === 'Crypto Trade') {
-    cryptoResponse.value = createCryptoWorkspaceResponse(symbol)
-    errorMessage.value = ''
-    return
-  }
   runSearch()
 }
 
@@ -3799,7 +3800,7 @@ function openAnalysis(symbol = activeSymbol.value) {
   symbolInput.value = symbol
   activePage.value = 'Stock Trade'
 
-  if (symbol !== activeSymbol.value) {
+  if (symbol !== activeSymbol.value || stockResponse.value?.dataSource !== 'live') {
     runSearch()
   }
 }
@@ -3813,7 +3814,6 @@ function openCryptoAnalysis(symbol = cryptoResponse.value.stock.symbol) {
 
   const cleanedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
   appMode.value = 'crypto'
-  cryptoResponse.value = createCryptoWorkspaceResponse(cleanedSymbol)
   symbolInput.value = cleanedSymbol
   activePage.value = 'Crypto Trade'
   void runSearch()
@@ -3967,6 +3967,59 @@ function applyAnalysisResponse(data, isCryptoPage) {
   activeSymbol.value = data.stock.symbol
   symbolInput.value = data.stock.symbol
   activePage.value = 'Stock Trade'
+}
+
+async function preloadDefaultLiveWorkspaces() {
+  if (!isAuthenticated.value) {
+    return
+  }
+
+  // Warm default workspaces after auth so Trade opens with live data, not demo placeholders.
+  if (!defaultLiveLoadPromises.stock) {
+    defaultLiveLoadPromises.stock = fetchStockAnalysis(DEFAULT_STOCK_SYMBOL, {
+      analysisMode: 'full'
+    })
+      .then((data) => {
+        if (!isAuthenticated.value || String(stockResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_STOCK_SYMBOL) {
+          return
+        }
+
+        stockResponse.value = data
+        activeSymbol.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
+        if (activePage.value === 'Stock Trade') {
+          symbolInput.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
+        }
+      })
+      .catch((error) => {
+        console.warn('Default stock workspace preload failed.', error)
+        defaultLiveLoadPromises.stock = null
+      })
+  }
+
+  if (!defaultLiveLoadPromises.crypto) {
+    defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
+      analysisMode: 'full'
+    })
+      .then((data) => {
+        if (!isAuthenticated.value || String(cryptoResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_CRYPTO_SYMBOL) {
+          return
+        }
+
+        cryptoResponse.value = data
+        if (activePage.value === 'Crypto Trade') {
+          symbolInput.value = data.stock.symbol || DEFAULT_CRYPTO_SYMBOL
+        }
+      })
+      .catch((error) => {
+        console.warn('Default crypto workspace preload failed.', error)
+        defaultLiveLoadPromises.crypto = null
+      })
+  }
+
+  await Promise.allSettled([
+    defaultLiveLoadPromises.stock,
+    defaultLiveLoadPromises.crypto
+  ])
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
@@ -4842,6 +4895,7 @@ function applyAuthenticatedState(user, message = '') {
   isAuthenticated.value = true
   activePage.value = 'Dashboard'
   authMessage.value = message
+  void preloadDefaultLiveWorkspaces()
 }
 
 function applyAdminUsers(users) {
@@ -5060,10 +5114,10 @@ async function submitRegistration() {
       return
     }
 
-    currentUser.value = payload.user
-    isAuthenticated.value = true
-    activePage.value = 'Dashboard'
-    authMessage.value = payload.message || `Welcome to NoobTrade, ${payload.user.fullName}.`
+    applyAuthenticatedState(
+      payload.user,
+      payload.message || `Welcome to NoobTrade, ${payload.user.fullName}.`
+    )
   } catch (error) {
     authMessage.value = error.message || 'Could not create your account right now.'
   }
@@ -5349,6 +5403,8 @@ function signOut() {
   pendingAdminPasswordResets.value = {}
   adminPasswordResetDrafts.value = {}
   csrfToken.value = ''
+  defaultLiveLoadPromises.stock = null
+  defaultLiveLoadPromises.crypto = null
   clearAdminUsersCache()
   signInForm.value = {
     email: '',
