@@ -438,9 +438,9 @@ def _start_background_database_init(app):
     def _runner():
         try:
             initialize_database_with_retries(app)
-            _warm_crypto_pattern_store(app)
             app.config["_DB_INIT_READY"] = True
             app.config["_DB_INIT_ERROR"] = None
+            _warm_crypto_pattern_store(app)
         except Exception as error:
             app.logger.exception("Background database initialization failed.")
             app.config["_DB_INIT_READY"] = False
