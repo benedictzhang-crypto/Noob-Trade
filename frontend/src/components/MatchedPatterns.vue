@@ -125,7 +125,7 @@ const detailTicks = computed(() => {
 })
 
 function patternKey(pattern) {
-  return `${pattern.symbol}-${pattern.timeframe}-${pattern.windowSize}-${pattern.date}-${pattern.patternName}`
+  return `${pattern.symbol}-${pattern.timeframe}-${pattern.date}-${pattern.patternName}`
 }
 
 function selectPattern(pattern) {
@@ -289,9 +289,7 @@ function getCandleWidth(count) {
         <div class="match-main">
           <div>
             <p class="match-name">{{ pattern.patternName }}</p>
-            <p class="match-meta">
-              {{ pattern.symbol }} · {{ pattern.timeframe }} · {{ pattern.windowSize }} bars
-            </p>
+            <p class="match-meta">{{ pattern.symbol }} · {{ pattern.timeframe }}</p>
           </div>
           <strong class="match-score">{{ pattern.matchScore }}%</strong>
         </div>
@@ -317,7 +315,7 @@ function getCandleWidth(count) {
       </div>
     </div>
     <div v-else class="empty-state">
-      Historical pattern matches will appear here once more comparable windows are stored.
+      Similar historical moves will appear here after Generate.
     </div>
 
     <div v-if="selectedPattern" class="match-detail-card">
@@ -325,9 +323,7 @@ function getCandleWidth(count) {
         <div>
           <p class="match-detail-eyebrow">Selected Historical Window</p>
           <h3>{{ selectedPattern.patternName }}</h3>
-          <p class="match-detail-meta">
-            {{ selectedPattern.symbol }} · {{ selectedPattern.timeframe }} · {{ selectedPattern.windowSize }} bars
-          </p>
+          <p class="match-detail-meta">{{ selectedPattern.symbol }} · {{ selectedPattern.timeframe }}</p>
         </div>
         <strong class="match-detail-score">{{ selectedPattern.matchScore }}%</strong>
       </div>

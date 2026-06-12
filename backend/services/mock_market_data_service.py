@@ -180,7 +180,7 @@ def build_mock_stock_pattern_analysis(symbol, interval, lookback_window, indicat
     matched_series = interval_series.get(interval, interval_series["daily"])
     matched_patterns = [
         {
-            "patternName": "DAILY 30-bar setup",
+            "patternName": "Historical setup #1",
             "matchScore": 91,
             "date": "2026-03-10",
             "symbol": cleaned_symbol,
@@ -200,7 +200,7 @@ def build_mock_stock_pattern_analysis(symbol, interval, lookback_window, indicat
             "historicalCandles": matched_series[-30:],
         },
         {
-            "patternName": "DAILY 30-bar setup",
+            "patternName": "Historical setup #2",
             "matchScore": 87,
             "date": "2026-02-24",
             "symbol": cleaned_symbol,
@@ -220,7 +220,7 @@ def build_mock_stock_pattern_analysis(symbol, interval, lookback_window, indicat
             "historicalCandles": matched_series[-60:-30],
         },
         {
-            "patternName": "DAILY 30-bar setup",
+            "patternName": "Historical setup #3",
             "matchScore": 82,
             "date": "2026-01-15",
             "symbol": cleaned_symbol,

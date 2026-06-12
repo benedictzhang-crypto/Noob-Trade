@@ -15,9 +15,14 @@ PRIVATE_RESPONSE_KEYS = {
     "quantMaxScore",
     "quantFullMaxScore",
     "quantSelectedPercent",
+    "quantConfidence",
     "baseHistoricalProbability",
     "weightPenalty",
     "fitRatio",
+    "lookbackWindow",
+    "windowSize",
+    "regime",
+    "diversityKey",
 }
 
 
@@ -37,16 +42,36 @@ def _normalize_crypto_symbol(symbol):
 
 def _sanitize_response_payload(value):
     if isinstance(value, dict):
-        return {
-            key: _sanitize_response_payload(item)
-            for key, item in value.items()
-            if key not in PRIVATE_RESPONSE_KEYS
-        }
+        sanitized = {}
+        for key, item in value.items():
+            if key in PRIVATE_RESPONSE_KEYS:
+                continue
+            if key == "dataSource":
+                sanitized[key] = _public_data_source(item)
+                continue
+            if key == "marketDataProvider":
+                sanitized[key] = "Market data"
+                continue
+            if key == "exchange" and str(item).lower() in {"okx"}:
+                sanitized[key] = "Digital Asset"
+                continue
+            if key == "industry" and str(item).lower() in {"pattern store", "no-key market data"}:
+                sanitized[key] = "Digital Asset"
+                continue
+            sanitized[key] = _sanitize_response_payload(item)
+        return sanitized
 
     if isinstance(value, list):
         return [_sanitize_response_payload(item) for item in value]
 
     return value
+
+
+def _public_data_source(value):
+    normalized = str(value or "").strip().lower()
+    if normalized in {"mock", "demo", "crypto-mock", "crypto-demo"}:
+        return "demo"
+    return "live"
 
 
 def _trim_trade_response_payload(payload):

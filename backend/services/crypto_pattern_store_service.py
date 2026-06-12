@@ -136,8 +136,8 @@ class CryptoPatternStoreService:
         analysis = self._build_analysis(matches, current_price, candles[-1].get("trade_date"), compact_response)
 
         response = {
-            "dataSource": "crypto-pattern-store",
-            "marketDataProvider": "NoobTrade Crypto Pattern Store",
+            "dataSource": "live",
+            "marketDataProvider": "Market data",
             "request": {
                 "symbol": symbol_code,
                 "interval": normalized_interval,
@@ -148,7 +148,7 @@ class CryptoPatternStoreService:
                 "symbol": symbol_code,
                 "companyName": asset["name"] or f"{symbol_code} Crypto",
                 "sector": "Crypto",
-                "industry": asset["category"] or "Pattern Store",
+                "industry": asset["category"] or "Digital Asset",
                 "exchange": "OKX",
                 "currentPrice": current_price,
                 "previousClose": self._to_float(candles[-2].get("close")) if len(candles) > 1 else current_price,
@@ -502,7 +502,7 @@ class CryptoPatternStoreService:
             future_stats = row["_future_stats"]
             candles = [] if compact_response else self._load_window_candles(snapshot, row["id"])
             matches.append({
-                "patternName": f"CRYPTO DAILY 30-bar match #{index}",
+                "patternName": f"Historical setup #{index}",
                 "matchScore": round(score.get("selected_score_percent") or 0.0, 2),
                 "date": row["end_time"],
                 "symbol": row["symbol"],
@@ -613,7 +613,7 @@ class CryptoPatternStoreService:
             future_stats = row["_future_stats"]
             candles = [] if compact_response else self._load_window_candles(snapshot, row["id"])
             matches.append({
-                "patternName": f"CRYPTO DAILY 30-bar match #{index}",
+                "patternName": f"Historical setup #{index}",
                 "matchScore": round(score_percent, 2),
                 "date": row["end_time"],
                 "symbol": row["symbol"],

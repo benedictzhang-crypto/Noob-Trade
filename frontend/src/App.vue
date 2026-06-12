@@ -1375,12 +1375,10 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
-  const providerLabel = activeTradeResponse.value.marketDataProvider || ''
-
   if (activeTradeResponse.value.dataSource === 'crypto-mock') {
     return {
       label: 'Crypto Preview',
-      description: 'Crypto framework placeholder',
+      description: 'Sample crypto workspace',
       tone: 'mock'
     }
   }
@@ -1388,23 +1386,23 @@ const dataSourceMeta = computed(() => {
   if (activeTradeResponse.value.dataSource === 'crypto-demo') {
     return {
       label: 'Crypto Replay',
-      description: providerLabel || 'Cached crypto replay',
+      description: 'Sample crypto replay',
       tone: 'mock'
     }
   }
 
   if (activeTradeResponse.value.dataSource === 'live') {
     return {
-      label: 'Live API',
-      description: providerLabel || 'Connected market feed',
+      label: 'Market Data',
+      description: 'Connected market feed',
       tone: 'live'
     }
   }
 
   if (activeTradeResponse.value.dataSource === 'cached') {
     return {
-      label: 'Live API',
-      description: providerLabel || 'Connected market feed',
+      label: 'Market Data',
+      description: 'Connected market feed',
       tone: 'live'
     }
   }
@@ -1412,7 +1410,7 @@ const dataSourceMeta = computed(() => {
   if (activeTradeResponse.value.dataSource === 'demo') {
     return {
       label: 'Demo Replay',
-      description: providerLabel || 'Cached replay feed',
+      description: 'Sample replay feed',
       tone: 'mock'
     }
   }
@@ -1768,7 +1766,6 @@ function createDefaultResponse() {
       avgReturn: 6.8,
       maxDrawdown: -4.9,
       matchedPatternsCount: 20,
-      quantConfidence: 0.91,
       signalClassification: 'Bullish Bias',
       futureFiveDayProbabilities: {
         up: [
@@ -1787,32 +1784,29 @@ function createDefaultResponse() {
       stopLossPrice: 178.8,
       matchedHistoricalPatterns: [
         {
-          patternName: 'DAILY 30-bar setup',
+          patternName: 'Historical setup #1',
           matchScore: 91,
           date: '2026-03-10',
           symbol: 'AAPL',
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 8.42,
           maxDrawdown: -3.8
         },
         {
-          patternName: 'DAILY 30-bar setup',
+          patternName: 'Historical setup #2',
           matchScore: 87,
           date: '2026-02-24',
           symbol: 'NVDA',
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 6.21,
           maxDrawdown: -4.2
         },
         {
-          patternName: 'DAILY 30-bar setup',
+          patternName: 'Historical setup #3',
           matchScore: 82,
           date: '2026-01-15',
           symbol: 'TSLA',
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 5.14,
           maxDrawdown: -5.6
         }
@@ -1938,7 +1932,6 @@ function createCryptoWorkspaceResponse(symbol = 'BTC') {
       avgReturn: 8.4,
       maxDrawdown: -6.2,
       matchedPatternsCount: 18,
-      quantConfidence: 0.84,
       signalClassification: 'Crypto Momentum Bias',
       futureFiveDayProbabilities: {
         up: [
@@ -1957,32 +1950,29 @@ function createCryptoWorkspaceResponse(symbol = 'BTC') {
       stopLossPrice: Number((selected.currentPrice * 0.958).toFixed(2)),
       matchedHistoricalPatterns: [
         {
-          patternName: 'CRYPTO 30-bar setup',
+          patternName: 'Historical setup #1',
           matchScore: 90,
           date: '2026-04-18',
           symbol: normalizedSymbol,
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 9.12,
           maxDrawdown: -5.4
         },
         {
-          patternName: 'CRYPTO 30-bar setup',
+          patternName: 'Historical setup #2',
           matchScore: 84,
           date: '2026-03-27',
           symbol: 'ETH',
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 7.31,
           maxDrawdown: -6.1
         },
         {
-          patternName: 'CRYPTO 30-bar setup',
+          patternName: 'Historical setup #3',
           matchScore: 79,
           date: '2026-02-14',
           symbol: 'OKB',
           timeframe: 'daily',
-          windowSize: 30,
           returnPct: 5.88,
           maxDrawdown: -4.7
         }
@@ -6019,7 +6009,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             This avoids mixing equity history with digital asset history.
           </p>
           <p>
-            Live API data is used where available, while historical context is used to frame probability-style research. If a provider is slow or unavailable,
+            Market data is used where available, while historical context is used to frame probability-style research. If a feed is slow or unavailable,
             the app may use cached context or show a clear data-source label.
           </p>
         </article>
@@ -6352,7 +6342,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                   <small>Loading live...</small>
                 </div>
                 <div v-else class="portfolio-sparkline-card portfolio-sparkline-card--muted">
-                  <small>Live API required</small>
+                  <small>Market data required</small>
                 </div>
               </div>
               <div class="portfolio-adjust-cell">
@@ -6872,18 +6862,18 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <div class="panel-topbar replay-topbar">
           <div class="panel-heading-group">
             <h2>{{ replayPattern.symbol }} Historical Replay</h2>
-            <span class="source-pill source-pill--live">Matched Setup</span>
+            <span class="source-pill source-pill--live">Historical Match</span>
           </div>
           <button class="topbar-button secondary" @click="closeHistoricalReplay">Close</button>
         </div>
 
         <div class="replay-meta-grid">
           <div class="spotlight-item">
-            <span>Setup</span>
+            <span>Similar Move</span>
             <strong>{{ replayPattern.patternName }}</strong>
           </div>
           <div class="spotlight-item">
-            <span>Match Score</span>
+            <span>Similarity</span>
             <strong>{{ replayPattern.matchScore }}%</strong>
           </div>
           <div class="spotlight-item">
@@ -6891,7 +6881,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <strong>{{ replayPattern.date }}</strong>
           </div>
           <div class="spotlight-item">
-            <span>5D Future High</span>
+            <span>5D High Touch</span>
             <strong>{{ formatPercent(replayPattern.futureReturn5d) }}</strong>
           </div>
         </div>
@@ -6902,10 +6892,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :chart-data="replayChartData"
           :chart-intervals="[replayPattern.timeframe]"
           :company-name="`${replayPattern.symbol} historical replay`"
-          :industry="'Matched setup'"
+          :industry="'Historical match'"
           :is-crypto-mode="isCryptoMode"
           :selected-interval="replayInterval"
-          :sector="'Historical window'"
+          :sector="'Historical replay'"
           @update:selected-interval="replayInterval = $event"
         />
       </div>

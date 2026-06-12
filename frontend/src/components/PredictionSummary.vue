@@ -27,16 +27,6 @@ function getSignalLabel(signal) {
   return signal || 'Bullish Bias'
 }
 
-function getConfidence(value) {
-  const numericValue = Number(value)
-
-  if (Number.isNaN(numericValue)) {
-    return '0.00'
-  }
-
-  return numericValue.toFixed(2)
-}
-
 function formatPrice(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return 'TBD'
@@ -306,9 +296,6 @@ defineExpose({
       <div class="suggestion-row">
         <span>Historical Target Window</span>
         <strong>{{ formatValue(analysisData.recommendedSellDate) }}</strong>
-      </div>
-      <div class="confidence-row">
-        Historical Confidence: <strong>{{ getConfidence(analysisData.quantConfidence) }}</strong>
       </div>
     </div>
   </div>

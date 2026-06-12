@@ -981,8 +981,8 @@ class PersistenceService:
         }
     
     def _build_pattern_label(self, matched_window):
-        timeframe_label = matched_window.timeframe.upper()
-        return f"{timeframe_label} {matched_window.window_size}-bar setup"
+        del matched_window
+        return "Historical setup"
 
     def _build_window_summary(self, candles):
         closes = [item["close"] for item in candles]

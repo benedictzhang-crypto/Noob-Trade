@@ -1592,12 +1592,8 @@ class MarketDataService:
         return probabilities
 
     def _build_live_pattern_label(self, interval, lookback_window, rank):
-        interval_label = interval.upper()
-
-        if rank == 1:
-            return f"{interval_label} {lookback_window}-bar best-fit setup"
-
-        return f"{interval_label} {lookback_window}-bar setup"
+        del interval, lookback_window
+        return f"Historical setup #{rank}"
 
     def _format_signed_percent(self, value):
         if value is None:

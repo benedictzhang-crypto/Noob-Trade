@@ -1,5 +1,4 @@
 from flask import Blueprint, current_app, jsonify, request
-from sqlalchemy.engine.url import make_url
 
 from models.market_data import DailyPrice, PatternWindow, Symbol
 
@@ -14,9 +13,14 @@ PRIVATE_RESPONSE_KEYS = {
     "quantMaxScore",
     "quantFullMaxScore",
     "quantSelectedPercent",
+    "quantConfidence",
     "baseHistoricalProbability",
     "weightPenalty",
     "fitRatio",
+    "lookbackWindow",
+    "windowSize",
+    "regime",
+    "diversityKey",
 }
 
 SYMBOL_ALIASES = {
@@ -68,16 +72,36 @@ def _trim_trade_response_payload(payload):
 
 def _sanitize_response_payload(value):
     if isinstance(value, dict):
-        return {
-            key: _sanitize_response_payload(item)
-            for key, item in value.items()
-            if key not in PRIVATE_RESPONSE_KEYS
-        }
+        sanitized = {}
+        for key, item in value.items():
+            if key in PRIVATE_RESPONSE_KEYS:
+                continue
+            if key == "dataSource":
+                sanitized[key] = _public_data_source(item)
+                continue
+            if key == "marketDataProvider":
+                sanitized[key] = "Market data"
+                continue
+            if key == "sector" and str(item).lower() in {"alpaca iex", "yahoo finance", "duke api"}:
+                sanitized[key] = "Market Data"
+                continue
+            if key == "industry" and str(item).lower() in {"no-key market data", "pattern store"}:
+                sanitized[key] = "Market Data"
+                continue
+            sanitized[key] = _sanitize_response_payload(item)
+        return sanitized
 
     if isinstance(value, list):
         return [_sanitize_response_payload(item) for item in value]
 
     return value
+
+
+def _public_data_source(value):
+    normalized = str(value or "").strip().lower()
+    if normalized in {"mock", "demo", "crypto-mock", "crypto-demo"}:
+        return "demo"
+    return "live"
 
 
 def _to_float(value, default=0.0):
@@ -139,8 +163,8 @@ def _build_live_search_payload(market_data_service, symbol: str, interval: str, 
         "stock": {
             "symbol": symbol_code,
             "companyName": symbol_code,
-            "sector": "Live API",
-            "industry": "Live API",
+            "sector": "Market Data",
+            "industry": "Signal Workspace",
             "currentPrice": current_price,
             "previousClose": round(_to_float(previous.get("close")), 2),
             "open": round(_to_float(latest.get("open")), 2),
@@ -174,31 +198,11 @@ def _build_live_search_payload(market_data_service, symbol: str, interval: str, 
 @stock_blueprint.route("/health", methods=["GET"])
 def health_check():
     """Small health endpoint for local frontend checks."""
-    database_url = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    app_bind = (current_app.config.get("SQLALCHEMY_BINDS") or {}).get("app", "")
-
-    def _backend_label(raw_url):
-        if not raw_url:
-            return "unknown"
-        try:
-            drivername = make_url(raw_url).drivername
-        except Exception:
-            return "unknown"
-        if drivername.startswith("postgresql"):
-            return "postgres"
-        if drivername.startswith("sqlite"):
-            return "sqlite"
-        return drivername
-
     return jsonify(
         {
             "status": "ok",
             "message": "Backend is running",
             "environment": str(current_app.config.get("ENVIRONMENT", "development")),
-            "storageBackend": _backend_label(database_url),
-            "authStorageBackend": _backend_label(app_bind or database_url),
-            "productionPostgresOk": bool(current_app.config.get("PRODUCTION_POSTGRES_OK", True)),
-            "productionPostgresError": current_app.config.get("PRODUCTION_POSTGRES_ERROR"),
         }
     )
 
