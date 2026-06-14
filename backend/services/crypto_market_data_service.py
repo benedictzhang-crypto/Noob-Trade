@@ -1,7 +1,12 @@
+import logging
+
 from services.crypto_market_api_service import CryptoMarketApiService
 from services.crypto_pattern_store_service import CryptoPatternStoreService
 from services.market_data_service import MarketDataService
 from services.mock_market_data_service import build_mock_stock_pattern_analysis
+
+
+logger = logging.getLogger(__name__)
 
 
 class CryptoMarketDataService(MarketDataService):
@@ -65,15 +70,20 @@ class CryptoMarketDataService(MarketDataService):
             raw_indicators = ",".join(self.DAILY_GENERATE_STRATEGY["indicators"])
             pattern_store = CryptoPatternStoreService(self.config)
             if pattern_store.is_available():
-                response = pattern_store.get_crypto_pattern_analysis(
-                    symbol=symbol,
-                    interval=normalized_interval,
-                    lookback_window=lookback_window,
-                    compact_response=compact_response,
-                    analysis_mode=analysis_mode,
-                )
-                self._apply_daily_generate_strategy(response)
-                return response
+                try:
+                    response = pattern_store.get_crypto_pattern_analysis(
+                        symbol=symbol,
+                        interval=normalized_interval,
+                        lookback_window=lookback_window,
+                        compact_response=compact_response,
+                        analysis_mode=analysis_mode,
+                    )
+                    self._apply_daily_generate_strategy(response)
+                    return response
+                except ValueError as error:
+                    if not self._should_fallback_from_pattern_store(error):
+                        raise
+                    logger.info("Crypto pattern store skipped for %s: %s", symbol, error)
 
         response = self.get_stock_pattern_analysis(
             symbol=symbol,
@@ -87,6 +97,13 @@ class CryptoMarketDataService(MarketDataService):
         if self._uses_daily_generate_strategy(normalized_interval):
             self._apply_daily_generate_strategy(response)
         return response
+
+    def _should_fallback_from_pattern_store(self, error):
+        message = str(error).lower()
+        return (
+            "not in the crypto pattern store" in message
+            or "not enough stored candles" in message
+        )
 
     def _normalize_strategy_interval(self, interval):
         normalized = str(interval or "daily").strip().lower()
