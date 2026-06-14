@@ -14,6 +14,7 @@ const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
 const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
+const STOCK_GENERATE_INTERVAL = 'daily'
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -3876,7 +3877,8 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
     indicators: analysisIndicators.join(','),
     analysis: analysisMode,
   })
-  query.set('interval', selectedChartInterval.value)
+  query.set('interval', STOCK_GENERATE_INTERVAL)
+  query.set('chartInterval', selectedChartInterval.value)
   if (compact) {
     query.set('compact', '1')
   }

@@ -222,6 +222,11 @@ def get_stock(symbol):
         default=current_app.config["DEFAULT_INTERVAL"],
         type=str
     )
+    chart_interval = request.args.get(
+        "chartInterval",
+        default=interval,
+        type=str
+    )
     raw_indicators = request.args.get("indicators", default="")
     prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
@@ -245,6 +250,7 @@ def get_stock(symbol):
                 response_data = market_data_service.get_stock_pattern_analysis(
                     symbol=symbol,
                     interval=interval,
+                    chart_interval=chart_interval,
                     lookback_window=lookback,
                     raw_indicators=raw_indicators,
                     default_indicators=current_app.config["DEFAULT_INDICATORS"],
@@ -260,6 +266,7 @@ def get_stock(symbol):
                         "message": _public_market_error_message(error, symbol),
                         "symbol": symbol.upper(),
                         "interval": interval,
+                        "chartInterval": chart_interval,
                         "lookback": lookback,
                     }
                 ), 500
@@ -271,6 +278,7 @@ def get_stock(symbol):
         response_data = market_data_service.get_stock_pattern_analysis(
             symbol=symbol,
             interval=interval,
+            chart_interval=chart_interval,
             lookback_window=lookback,
             raw_indicators=raw_indicators,
             default_indicators=current_app.config["DEFAULT_INDICATORS"],
@@ -305,6 +313,7 @@ def get_stock(symbol):
                 "message": _public_market_error_message(error, symbol),
                 "symbol": symbol.upper(),
                 "interval": interval,
+                "chartInterval": chart_interval,
                 "lookback": lookback,
             }
         ), 500

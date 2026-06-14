@@ -252,9 +252,11 @@ class MarketDataService:
         default_indicators,
         compact_response=False,
         analysis_mode="full",
+        chart_interval=None,
     ):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = self._normalize_symbol_code(symbol)
+        chart_interval = str(chart_interval or interval or "daily")
         is_production = str(self.config.get("ENVIRONMENT", "")).lower() == "production"
         summary_only = str(analysis_mode or "full").lower() != "full"
 
@@ -266,6 +268,7 @@ class MarketDataService:
                 indicators=indicators,
                 compact_response=compact_response,
                 analysis_mode=analysis_mode,
+                chart_interval=chart_interval,
             )
             cached_response = self._get_cached_analysis_response(cache_key)
             if cached_response is not None:
@@ -303,6 +306,7 @@ class MarketDataService:
                         response = self._build_live_current_vs_cached_response(
                             symbol=symbol_code,
                             interval=interval,
+                            chart_interval=chart_interval,
                             lookback_window=lookback_window,
                             indicators=indicators,
                             compact_response=compact_response,
@@ -338,6 +342,7 @@ class MarketDataService:
                         return cache_response(self._build_cached_db_response(
                             symbol=symbol_code,
                             interval=interval,
+                            chart_interval=chart_interval,
                             lookback_window=lookback_window,
                             indicators=indicators,
                             compact_response=compact_response,
@@ -366,6 +371,7 @@ class MarketDataService:
                 return self._build_live_current_vs_cached_response(
                     symbol=symbol_code,
                     interval=interval,
+                    chart_interval=chart_interval,
                     lookback_window=lookback_window,
                     indicators=indicators,
                     compact_response=compact_response,
@@ -385,7 +391,14 @@ class MarketDataService:
 
         if self.market_api.is_configured() and self.market_api.is_available():
             try:
-                return self._build_live_response(symbol_code, interval, lookback_window, indicators, compact_response=compact_response)
+                return self._build_live_response(
+                    symbol_code,
+                    interval,
+                    lookback_window,
+                    indicators,
+                    chart_interval=chart_interval,
+                    compact_response=compact_response,
+                )
             except DukeMarketApiUnavailable:
                 logger.warning(
                     "Live market data provider is unavailable for %s and the service is falling back to mock data.",
@@ -609,6 +622,7 @@ class MarketDataService:
         interval,
         lookback_window,
         indicators,
+        chart_interval=None,
         compact_response=False,
         apply_match_preview=True,
     ):
@@ -654,6 +668,7 @@ class MarketDataService:
             "request": {
                 "symbol": symbol,
                 "interval": interval,
+                "chartInterval": chart_interval or interval,
                 "lookback": lookback_window,
                 "indicators": indicators,
             },
@@ -689,7 +704,7 @@ class MarketDataService:
         }
         if not compact_response:
             response["chartData"] = {
-                "series": self._build_interval_series(daily_candles, daily_candles),
+                "series": self._build_interval_series(daily_candles, daily_candles, chart_interval or interval),
             }
 
         if apply_match_preview:
@@ -762,7 +777,7 @@ class MarketDataService:
             },
         }
 
-    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None):
+    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None, chart_interval=None):
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
@@ -778,7 +793,8 @@ class MarketDataService:
             interval,
             lookback_window,
         )
-        live_interval_series = None if compact_response else self._build_interval_series(full_recent_candles, prices, interval, symbol)
+        chart_interval = chart_interval or interval
+        live_interval_series = None if compact_response else self._build_interval_series(full_recent_candles, prices, chart_interval, symbol)
 
         if current_window is None:
             raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
@@ -815,6 +831,7 @@ class MarketDataService:
             "request": {
                 "symbol": symbol,
                 "interval": interval,
+                "chartInterval": chart_interval,
                 "lookback": lookback_window,
                 "indicators": indicators
             },
@@ -860,7 +877,7 @@ class MarketDataService:
             }
         return response
 
-    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False):
+    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False, chart_interval=None):
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=price_limit or max(lookback_window, 3200),
@@ -877,7 +894,8 @@ class MarketDataService:
         volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
         returns = self._calculate_returns(prices)
         full_daily_candles = self._build_daily_candles(prices)
-        interval_series = None if compact_response else self._build_interval_series(full_daily_candles, prices, interval, symbol)
+        chart_interval = chart_interval or interval
+        interval_series = None if compact_response else self._build_interval_series(full_daily_candles, prices, chart_interval, symbol)
         live_match_summary = self._build_live_match_summary(
             symbol=symbol.upper(),
             interval=interval,
@@ -901,6 +919,7 @@ class MarketDataService:
             "request": {
                 "symbol": symbol.upper(),
                 "interval": interval,
+                "chartInterval": chart_interval,
                 "lookback": lookback_window,
                 "indicators": indicators
             },
@@ -1116,6 +1135,7 @@ class MarketDataService:
         indicators,
         compact_response,
         analysis_mode,
+        chart_interval=None,
     ):
         normalized_indicators = ",".join(parse_indicators(",".join(indicators or []), ""))
         return "|".join(
@@ -1124,6 +1144,7 @@ class MarketDataService:
                 self._market_provider_label(),
                 str(symbol or "").upper(),
                 str(interval or "daily"),
+                str(chart_interval or interval or "daily"),
                 str(int(lookback_window or 0)),
                 normalized_indicators,
                 str(analysis_mode or "full").lower(),
