@@ -3681,6 +3681,17 @@ select {
   justify-content: flex-end;
 }
 
+.full-market-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--muted-text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .explore-head,
 .explore-row {
   grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 0.55fr;

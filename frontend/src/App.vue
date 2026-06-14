@@ -16,6 +16,7 @@ const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
+const STOCK_MARKET_PAGE_SIZE = 30
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -633,6 +634,7 @@ const selectedChartInterval = ref('daily')
 const currentExploreTab = ref('Watchlist')
 const exploreViewMode = ref('ranked')
 const exploreSearchQuery = ref('')
+const stockMarketVisibleCount = ref(STOCK_MARKET_PAGE_SIZE)
 const isSearching = ref(false)
 const isGenerating = ref(false)
 const errorMessage = ref('')
@@ -652,6 +654,7 @@ const replayPattern = ref(null)
 const replayInterval = ref('daily')
 const csrfToken = ref('')
 const analysisCache = ref({})
+const liveStockQuoteLookup = ref({})
 const portfolioSparklineSeries = ref({})
 const watchlistScanThreshold = ref(60)
 const isWatchlistScanning = ref(false)
@@ -1096,6 +1099,191 @@ const fullBoardSeedMeta = {
   SPY: { name: 'SPDR S&P 500 ETF', category: 'ETF', price: '$520.44', notional: '$478.2M', change: '+0.38%', tone: 'positive' },
 }
 
+const stockMarketUniverseRows = [
+  ['AAPL', 'Apple Inc.', 'Technology'],
+  ['MSFT', 'Microsoft Corporation', 'Technology'],
+  ['NVDA', 'NVIDIA Corporation', 'Technology'],
+  ['AVGO', 'Broadcom Inc.', 'Technology'],
+  ['ORCL', 'Oracle Corporation', 'Technology'],
+  ['AMD', 'Advanced Micro Devices', 'Technology'],
+  ['CSCO', 'Cisco Systems', 'Technology'],
+  ['CRM', 'Salesforce, Inc.', 'Technology'],
+  ['ADBE', 'Adobe Inc.', 'Technology'],
+  ['NOW', 'ServiceNow, Inc.', 'Technology'],
+  ['QCOM', 'Qualcomm Incorporated', 'Technology'],
+  ['TXN', 'Texas Instruments', 'Technology'],
+  ['AMAT', 'Applied Materials', 'Technology'],
+  ['IBM', 'International Business Machines', 'Technology'],
+  ['INTU', 'Intuit Inc.', 'Technology'],
+  ['ACN', 'Accenture plc', 'Technology'],
+  ['PANW', 'Palo Alto Networks', 'Technology'],
+  ['CRWD', 'CrowdStrike Holdings', 'Technology'],
+  ['SNOW', 'Snowflake Inc.', 'Technology'],
+  ['MDB', 'MongoDB, Inc.', 'Technology'],
+  ['PLTR', 'Palantir Technologies', 'Technology'],
+  ['SHOP', 'Shopify Inc.', 'Technology'],
+  ['DDOG', 'Datadog, Inc.', 'Technology'],
+  ['NET', 'Cloudflare, Inc.', 'Technology'],
+  ['TEAM', 'Atlassian Corporation', 'Technology'],
+  ['ADSK', 'Autodesk, Inc.', 'Technology'],
+  ['ANET', 'Arista Networks', 'Technology'],
+  ['MU', 'Micron Technology', 'Technology'],
+  ['LRCX', 'Lam Research', 'Technology'],
+  ['KLAC', 'KLA Corporation', 'Technology'],
+  ['ADI', 'Analog Devices', 'Technology'],
+  ['MRVL', 'Marvell Technology', 'Technology'],
+  ['CDNS', 'Cadence Design Systems', 'Technology'],
+  ['SNPS', 'Synopsys, Inc.', 'Technology'],
+  ['FTNT', 'Fortinet, Inc.', 'Technology'],
+  ['AMZN', 'Amazon.com, Inc.', 'Consumer Discretionary'],
+  ['TSLA', 'Tesla, Inc.', 'Consumer Discretionary'],
+  ['HD', 'Home Depot, Inc.', 'Consumer Discretionary'],
+  ['MCD', 'McDonald\'s Corporation', 'Consumer Discretionary'],
+  ['NKE', 'NIKE, Inc.', 'Consumer Discretionary'],
+  ['SBUX', 'Starbucks Corporation', 'Consumer Discretionary'],
+  ['LOW', 'Lowe\'s Companies', 'Consumer Discretionary'],
+  ['BKNG', 'Booking Holdings', 'Consumer Discretionary'],
+  ['TJX', 'TJX Companies', 'Consumer Discretionary'],
+  ['TGT', 'Target Corporation', 'Consumer Discretionary'],
+  ['ROST', 'Ross Stores', 'Consumer Discretionary'],
+  ['MAR', 'Marriott International', 'Consumer Discretionary'],
+  ['CMG', 'Chipotle Mexican Grill', 'Consumer Discretionary'],
+  ['ORLY', 'O\'Reilly Automotive', 'Consumer Discretionary'],
+  ['AZO', 'AutoZone, Inc.', 'Consumer Discretionary'],
+  ['GM', 'General Motors', 'Consumer Discretionary'],
+  ['F', 'Ford Motor Company', 'Consumer Discretionary'],
+  ['GOOGL', 'Alphabet Inc. Class A', 'Communication Services'],
+  ['GOOG', 'Alphabet Inc. Class C', 'Communication Services'],
+  ['META', 'Meta Platforms, Inc.', 'Communication Services'],
+  ['NFLX', 'Netflix, Inc.', 'Communication Services'],
+  ['DIS', 'Walt Disney Company', 'Communication Services'],
+  ['CMCSA', 'Comcast Corporation', 'Communication Services'],
+  ['T', 'AT&T Inc.', 'Communication Services'],
+  ['VZ', 'Verizon Communications', 'Communication Services'],
+  ['TMUS', 'T-Mobile US, Inc.', 'Communication Services'],
+  ['EA', 'Electronic Arts', 'Communication Services'],
+  ['TTWO', 'Take-Two Interactive', 'Communication Services'],
+  ['WMT', 'Walmart Inc.', 'Consumer Staples'],
+  ['COST', 'Costco Wholesale', 'Consumer Staples'],
+  ['PG', 'Procter & Gamble', 'Consumer Staples'],
+  ['KO', 'Coca-Cola Company', 'Consumer Staples'],
+  ['PEP', 'PepsiCo, Inc.', 'Consumer Staples'],
+  ['PM', 'Philip Morris International', 'Consumer Staples'],
+  ['MO', 'Altria Group', 'Consumer Staples'],
+  ['MDLZ', 'Mondelez International', 'Consumer Staples'],
+  ['CL', 'Colgate-Palmolive', 'Consumer Staples'],
+  ['KMB', 'Kimberly-Clark', 'Consumer Staples'],
+  ['GIS', 'General Mills', 'Consumer Staples'],
+  ['KR', 'Kroger Co.', 'Consumer Staples'],
+  ['SYY', 'Sysco Corporation', 'Consumer Staples'],
+  ['LLY', 'Eli Lilly and Company', 'Health Care'],
+  ['UNH', 'UnitedHealth Group', 'Health Care'],
+  ['JNJ', 'Johnson & Johnson', 'Health Care'],
+  ['MRK', 'Merck & Co.', 'Health Care'],
+  ['ABBV', 'AbbVie Inc.', 'Health Care'],
+  ['TMO', 'Thermo Fisher Scientific', 'Health Care'],
+  ['ABT', 'Abbott Laboratories', 'Health Care'],
+  ['ISRG', 'Intuitive Surgical', 'Health Care'],
+  ['AMGN', 'Amgen Inc.', 'Health Care'],
+  ['PFE', 'Pfizer Inc.', 'Health Care'],
+  ['DHR', 'Danaher Corporation', 'Health Care'],
+  ['GILD', 'Gilead Sciences', 'Health Care'],
+  ['VRTX', 'Vertex Pharmaceuticals', 'Health Care'],
+  ['REGN', 'Regeneron Pharmaceuticals', 'Health Care'],
+  ['BMY', 'Bristol Myers Squibb', 'Health Care'],
+  ['MDT', 'Medtronic plc', 'Health Care'],
+  ['SYK', 'Stryker Corporation', 'Health Care'],
+  ['BSX', 'Boston Scientific', 'Health Care'],
+  ['ZTS', 'Zoetis Inc.', 'Health Care'],
+  ['CVS', 'CVS Health', 'Health Care'],
+  ['HUM', 'Humana Inc.', 'Health Care'],
+  ['BRK.B', 'Berkshire Hathaway Class B', 'Financials'],
+  ['JPM', 'JPMorgan Chase & Co.', 'Financials'],
+  ['V', 'Visa Inc.', 'Financials'],
+  ['MA', 'Mastercard Incorporated', 'Financials'],
+  ['BAC', 'Bank of America', 'Financials'],
+  ['WFC', 'Wells Fargo', 'Financials'],
+  ['GS', 'Goldman Sachs', 'Financials'],
+  ['MS', 'Morgan Stanley', 'Financials'],
+  ['AXP', 'American Express', 'Financials'],
+  ['C', 'Citigroup Inc.', 'Financials'],
+  ['SCHW', 'Charles Schwab', 'Financials'],
+  ['BLK', 'BlackRock, Inc.', 'Financials'],
+  ['SPGI', 'S&P Global', 'Financials'],
+  ['MMC', 'Marsh & McLennan', 'Financials'],
+  ['CB', 'Chubb Limited', 'Financials'],
+  ['ICE', 'Intercontinental Exchange', 'Financials'],
+  ['CME', 'CME Group', 'Financials'],
+  ['PNC', 'PNC Financial Services', 'Financials'],
+  ['COF', 'Capital One Financial', 'Financials'],
+  ['USB', 'U.S. Bancorp', 'Financials'],
+  ['GE', 'GE Aerospace', 'Industrials'],
+  ['CAT', 'Caterpillar Inc.', 'Industrials'],
+  ['HON', 'Honeywell International', 'Industrials'],
+  ['RTX', 'RTX Corporation', 'Industrials'],
+  ['BA', 'Boeing Company', 'Industrials'],
+  ['UPS', 'United Parcel Service', 'Industrials'],
+  ['UNP', 'Union Pacific', 'Industrials'],
+  ['DE', 'Deere & Company', 'Industrials'],
+  ['LMT', 'Lockheed Martin', 'Industrials'],
+  ['ETN', 'Eaton Corporation', 'Industrials'],
+  ['NOC', 'Northrop Grumman', 'Industrials'],
+  ['ADP', 'Automatic Data Processing', 'Industrials'],
+  ['MMM', '3M Company', 'Industrials'],
+  ['EMR', 'Emerson Electric', 'Industrials'],
+  ['ITW', 'Illinois Tool Works', 'Industrials'],
+  ['CSX', 'CSX Corporation', 'Industrials'],
+  ['NSC', 'Norfolk Southern', 'Industrials'],
+  ['WM', 'Waste Management', 'Industrials'],
+  ['FDX', 'FedEx Corporation', 'Industrials'],
+  ['XOM', 'Exxon Mobil', 'Energy'],
+  ['CVX', 'Chevron Corporation', 'Energy'],
+  ['COP', 'ConocoPhillips', 'Energy'],
+  ['SLB', 'Schlumberger Limited', 'Energy'],
+  ['EOG', 'EOG Resources', 'Energy'],
+  ['MPC', 'Marathon Petroleum', 'Energy'],
+  ['PSX', 'Phillips 66', 'Energy'],
+  ['OXY', 'Occidental Petroleum', 'Energy'],
+  ['VLO', 'Valero Energy', 'Energy'],
+  ['WMB', 'Williams Companies', 'Energy'],
+  ['KMI', 'Kinder Morgan', 'Energy'],
+  ['LIN', 'Linde plc', 'Materials'],
+  ['APD', 'Air Products and Chemicals', 'Materials'],
+  ['SHW', 'Sherwin-Williams', 'Materials'],
+  ['ECL', 'Ecolab Inc.', 'Materials'],
+  ['NEM', 'Newmont Corporation', 'Materials'],
+  ['FCX', 'Freeport-McMoRan', 'Materials'],
+  ['DOW', 'Dow Inc.', 'Materials'],
+  ['DD', 'DuPont de Nemours', 'Materials'],
+  ['NUE', 'Nucor Corporation', 'Materials'],
+  ['MLM', 'Martin Marietta Materials', 'Materials'],
+  ['VMC', 'Vulcan Materials', 'Materials'],
+  ['NEE', 'NextEra Energy', 'Utilities'],
+  ['SO', 'Southern Company', 'Utilities'],
+  ['DUK', 'Duke Energy', 'Utilities'],
+  ['AEP', 'American Electric Power', 'Utilities'],
+  ['EXC', 'Exelon Corporation', 'Utilities'],
+  ['SRE', 'Sempra', 'Utilities'],
+  ['XEL', 'Xcel Energy', 'Utilities'],
+  ['ED', 'Consolidated Edison', 'Utilities'],
+  ['AMT', 'American Tower', 'Real Estate'],
+  ['PLD', 'Prologis, Inc.', 'Real Estate'],
+  ['EQIX', 'Equinix, Inc.', 'Real Estate'],
+  ['SPG', 'Simon Property Group', 'Real Estate'],
+  ['O', 'Realty Income', 'Real Estate'],
+  ['PSA', 'Public Storage', 'Real Estate'],
+  ['WELL', 'Welltower Inc.', 'Real Estate'],
+  ['DLR', 'Digital Realty Trust', 'Real Estate']
+].map(([symbol, name, category]) => ({
+  symbol,
+  name,
+  category,
+  price: '--',
+  notional: '--',
+  change: '--',
+  tone: 'neutral'
+}))
+
 const newsHeadlineTemplates = [
   'Institutional flows keep attention on {symbol} as rotation continues across large-cap leadership.',
   '{symbol} stays on the active watchlist as traders monitor continuation quality into the next session.',
@@ -1233,33 +1421,13 @@ const allExploreRows = computed(() => {
   return [...merged.values()]
 })
 const fullMarketBoardRows = computed(() => {
-  const mergedLookup = new Map(allExploreRows.value.map((row) => [row.symbol, row]))
-
-  return top50Symbols.map((symbol) => {
-    const mergedRow = mergedLookup.get(symbol)
-    const seededRow = fullBoardSeedMeta[symbol]
-
-    if (mergedRow) {
-      return mergedRow
-    }
-
-    if (seededRow) {
-      return {
-        symbol,
-        ...seededRow
-      }
-    }
-
-    return {
-      symbol,
-      name: symbol,
-      category: 'S&P 500',
-      price: '--',
-      notional: '--',
-      change: '--',
-      tone: 'neutral'
-    }
-  })
+  return stockMarketUniverseRows
+})
+const visibleFullMarketBoardRows = computed(() => fullMarketBoardRows.value.slice(0, stockMarketVisibleCount.value))
+const hasMoreStockMarketRows = computed(() => stockMarketVisibleCount.value < fullMarketBoardRows.value.length)
+const stockMarketBoardStatus = computed(() => {
+  const visibleCount = Math.min(stockMarketVisibleCount.value, fullMarketBoardRows.value.length)
+  return `${visibleCount}/${fullMarketBoardRows.value.length} stocks`
 })
 const visibleExploreRows = computed(() => {
   if (isCryptoMode.value) {
@@ -1267,14 +1435,14 @@ const visibleExploreRows = computed(() => {
   }
 
   if (exploreViewMode.value === 'full') {
-    return fullMarketBoardRows.value
+    return visibleFullMarketBoardRows.value
   }
 
   return currentExploreRows.value
 })
 const filteredExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
-  const sourceRows = isCryptoMode.value ? cryptoExploreRows : (query ? allExploreRows.value : visibleExploreRows.value)
+  const sourceRows = isCryptoMode.value ? cryptoExploreRows : (query ? fullMarketBoardRows.value : visibleExploreRows.value)
 
   if (!query) {
     return sourceRows
@@ -1309,8 +1477,9 @@ const starredLookup = computed(() => new Set(activeStarredSymbols.value))
 const dashboardWatchlistRows = computed(() => {
   return activeStarredSymbols.value
     .map((symbol) => {
+      const cleanedSymbol = String(symbol || '').trim().toUpperCase()
       if (isCryptoMode.value) {
-        const cryptoRow = cryptoExploreRows.find((row) => row.symbol === symbol)
+        const cryptoRow = cryptoExploreRows.find((row) => row.symbol === cleanedSymbol)
         if (cryptoRow) {
           return {
             symbol: cryptoRow.symbol,
@@ -1322,7 +1491,7 @@ const dashboardWatchlistRows = computed(() => {
         }
 
         return {
-          symbol,
+          symbol: cleanedSymbol,
           price: '--',
           change: '--',
           tone: 'neutral',
@@ -1330,36 +1499,28 @@ const dashboardWatchlistRows = computed(() => {
         }
       }
 
-      const marketRow = allExploreRows.value.find((row) => row.symbol === symbol)
-      if (marketRow) {
-        return {
-          symbol: marketRow.symbol,
-          price: marketRow.price,
-          change: marketRow.change,
-          tone: marketRow.tone,
-          note: marketRow.category
+      const liveQuote = liveStockQuoteLookup.value[cleanedSymbol]
+      if (liveQuote) {
+        return liveQuote
+      }
+
+      if (String(stockResponse.value?.stock?.symbol || '').toUpperCase() === cleanedSymbol && stockResponse.value?.dataSource === 'live') {
+        const responseQuote = buildLiveStockQuoteRow(cleanedSymbol, stockResponse.value.stock)
+        if (responseQuote) {
+          return {
+            ...responseQuote,
+            note: 'Recently viewed'
+          }
         }
       }
 
-      if (stockResponse.value?.stock?.symbol === symbol) {
-        const currentPrice = Number(stockResponse.value.stock.currentPrice || 0)
-        const previousClose = Number(stockResponse.value.stock.previousClose || currentPrice)
-        const changePct = previousClose ? (((currentPrice - previousClose) / previousClose) * 100) : 0
-        return {
-          symbol,
-          price: formatCurrency(currentPrice),
-          change: formatPercent(changePct),
-          tone: changePct >= 0 ? 'positive' : 'negative',
-          note: 'Recently viewed'
-        }
-      }
-
+      const marketRow = fullMarketBoardRows.value.find((row) => row.symbol === cleanedSymbol)
       return {
-        symbol,
+        symbol: cleanedSymbol,
         price: '--',
         change: '--',
         tone: 'neutral',
-        note: 'Saved star'
+        note: marketRow?.category || 'Saved stock'
       }
     })
 })
@@ -2068,6 +2229,20 @@ function formatCurrency(value) {
     currency: 'USD',
     maximumFractionDigits: 0
   }).format(value)
+}
+
+function formatMarketPrice(value) {
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return '--'
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numericValue)
 }
 
 function formatSignedCurrency(value) {
@@ -3524,6 +3699,17 @@ function navigateTo(page) {
   }
 }
 
+function toggleFullMarketBoard() {
+  exploreViewMode.value = exploreViewMode.value === 'full' ? 'ranked' : 'full'
+}
+
+function revealMoreStockMarketRows() {
+  stockMarketVisibleCount.value = Math.min(
+    stockMarketVisibleCount.value + STOCK_MARKET_PAGE_SIZE,
+    fullMarketBoardRows.value.length
+  )
+}
+
 function switchTradingMode() {
   const nextMode = isCryptoMode.value ? 'stock' : 'crypto'
   appMode.value = nextMode
@@ -3943,6 +4129,51 @@ async function fetchStockChartData(symbol, interval) {
   } finally {
     stockChartRequestPromises.delete(cacheKey)
   }
+}
+
+function buildLiveStockQuoteRow(symbol, stockData) {
+  const cleanedSymbol = String(symbol || stockData?.symbol || '').trim().toUpperCase()
+  const currentPrice = Number(stockData?.currentPrice)
+  const previousClose = Number(stockData?.previousClose || currentPrice)
+
+  if (!cleanedSymbol || !Number.isFinite(currentPrice) || currentPrice <= 0) {
+    return null
+  }
+
+  const changePct = previousClose ? (((currentPrice - previousClose) / previousClose) * 100) : 0
+
+  return {
+    symbol: cleanedSymbol,
+    price: formatMarketPrice(currentPrice),
+    change: Number.isFinite(changePct) ? formatPercent(Number(changePct.toFixed(2))) : '--',
+    tone: changePct >= 0 ? 'positive' : 'negative',
+    note: 'Live quote'
+  }
+}
+
+async function refreshStockWatchlistQuotes(symbols) {
+  const cleanedSymbols = [...new Set(
+    (symbols || [])
+      .map((symbol) => String(symbol || '').trim().toUpperCase())
+      .filter(Boolean)
+  )]
+
+  if (!cleanedSymbols.length) {
+    return
+  }
+
+  await runLimitedTasks(cleanedSymbols, async (symbol) => {
+    const chartData = await fetchStockChartData(symbol, 'daily')
+    const quoteRow = buildLiveStockQuoteRow(symbol, chartData?.stock)
+    if (!quoteRow) {
+      return
+    }
+
+    liveStockQuoteLookup.value = {
+      ...liveStockQuoteLookup.value,
+      [symbol]: quoteRow
+    }
+  }, 3)
 }
 
 function mergeStockChartData(currentResponse, chartResponse) {
@@ -4490,6 +4721,20 @@ watch(
     }
 
     syncPortfolioSparklines(portfolioSymbols.value)
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [isAuthenticated.value, activePage.value, appMode.value, activeStarredSymbols.value.join('|')],
+  ([authenticated, page]) => {
+    if (!authenticated || page !== 'Dashboard' || isCryptoMode.value) {
+      return
+    }
+
+    refreshStockWatchlistQuotes(activeStarredSymbols.value).catch((error) => {
+      console.warn('Could not refresh dashboard stock quotes.', error)
+    })
   },
   { immediate: true }
 )
@@ -6361,7 +6606,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <div v-if="!isCryptoMode" class="explore-toolbar-actions">
           <button
             class="topbar-button secondary"
-            @click="exploreViewMode = exploreViewMode === 'full' ? 'ranked' : 'full'"
+            @click="toggleFullMarketBoard"
           >
             {{ exploreViewMode === 'full' ? 'Back To Ranked View' : 'Open Full Market Board' }}
           </button>
@@ -6411,6 +6656,21 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 {{ isStarredSymbol(row.symbol) ? '★' : '☆' }}
               </button>
             </div>
+          </div>
+
+          <div
+            v-if="!isCryptoMode && exploreViewMode === 'full' && !exploreSearchQuery"
+            class="full-market-actions"
+          >
+            <span>{{ stockMarketBoardStatus }}</span>
+            <button
+              class="topbar-button secondary"
+              type="button"
+              :disabled="!hasMoreStockMarketRows"
+              @click="revealMoreStockMarketRows"
+            >
+              {{ hasMoreStockMarketRows ? 'View More' : 'All Stocks Loaded' }}
+            </button>
           </div>
         </article>
       </section>
