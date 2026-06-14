@@ -3557,7 +3557,12 @@ select {
 
 .dashboard-watchlist-head,
 .dashboard-watchlist-row {
-  grid-template-columns: 1.1fr 1fr 1fr 1.2fr;
+  grid-template-columns: 1.1fr 1fr 1fr 64px;
+}
+
+.dashboard-watchlist-head span:last-child,
+.explore-head span:last-child {
+  justify-self: center;
 }
 
 .table-header.compact {
@@ -3694,7 +3699,7 @@ select {
 
 .explore-head,
 .explore-row {
-  grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 0.55fr;
+  grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 64px;
 }
 
 .crypto-explore-head,
@@ -4336,6 +4341,41 @@ select {
   .watchlist-scan-head,
   .watchlist-scan-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-watchlist-table,
+  .watchlist-scan-table,
+  .explore-table {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dashboard-watchlist-table .dashboard-watchlist-head,
+  .dashboard-watchlist-table .dashboard-watchlist-row {
+    grid-template-columns: 1.1fr 1fr 1fr 64px;
+    min-width: 430px;
+    align-items: center;
+  }
+
+  .watchlist-scan-table .watchlist-scan-head,
+  .watchlist-scan-table .watchlist-scan-row {
+    grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1.2fr;
+    min-width: 620px;
+    align-items: center;
+  }
+
+  .explore-table .explore-head,
+  .explore-table .explore-row {
+    grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 64px;
+    min-width: 760px;
+    align-items: center;
+  }
+
+  .dashboard-watchlist-table .star-toggle,
+  .explore-table .star-toggle {
+    align-self: center;
+    justify-self: center;
   }
 
   .watchlist-scan-bar,

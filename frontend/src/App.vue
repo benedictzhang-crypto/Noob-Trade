@@ -6407,7 +6407,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             {{ watchlistScanMessage }}
             <span v-if="watchlistScanScannedAt">Last scan {{ watchlistScanScannedAt }}</span>
           </p>
-          <div v-if="dashboardWatchlistRows.length" class="data-table">
+          <div v-if="dashboardWatchlistRows.length" class="data-table dashboard-watchlist-table">
             <div class="data-row data-head dashboard-watchlist-head">
               <span>Symbol</span>
               <span>Price</span>
@@ -6437,7 +6437,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <h3>Generated Matches</h3>
               <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
             </div>
-            <div class="data-table">
+            <div class="data-table watchlist-scan-table">
               <div class="data-row data-head watchlist-scan-head">
                 <span>Rank</span>
                 <span>Symbol</span>
@@ -6775,7 +6775,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <span class="section-chip">{{ exploreSearchQuery ? 'Search Results' : isCryptoMode ? 'Ranked Crypto' : exploreViewMode === 'full' ? 'Full Market Board' : currentExploreTab }}</span>
           </div>
 
-          <div class="data-table">
+          <div class="data-table explore-table">
             <div class="data-row data-head explore-head">
               <span>Symbol</span>
               <span>Name</span>
