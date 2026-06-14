@@ -15,6 +15,7 @@ const APP_MODE_KEY = 'noobtrade_app_mode'
 const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
+const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -680,9 +681,11 @@ let beforeInstallHandler = null
 let voiceVoicesChangedHandler = null
 let voiceRestartTimer = null
 let analysisRequestVersion = 0
+let chartIntervalRequestVersion = 0
 let voiceSpeechToken = 0
 let voiceLastSpeechSignature = ''
 let voiceLastSpeechAt = 0
+const stockChartRequestPromises = new Map()
 const defaultLiveLoadPromises = {
   stock: null,
   crypto: null
@@ -3467,7 +3470,7 @@ async function handleVoiceCommand(rawTranscript) {
 
   const requestedInterval = findVoiceInterval(command)
   if (requestedInterval && includesVoicePhrase(command, ['interval', 'chart', 'time frame', 'timeframe', 'switch', '周期', '图表', '切换', 'intervalo', 'grafico', 'gráfico', 'cambiar', 'intervalle', 'graphique', 'changer'])) {
-    selectedChartInterval.value = requestedInterval
+    await handleChartIntervalChange(requestedInterval)
     setVoiceShortStatus('interval', { transcript: rawTranscript })
     return
   }
@@ -3909,23 +3912,37 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
 
 async function fetchStockChartData(symbol, interval) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
+  const cacheKey = `${cleanedSymbol}|${interval}`
+  if (stockChartRequestPromises.has(cacheKey)) {
+    return stockChartRequestPromises.get(cacheKey)
+  }
+
   const query = new URLSearchParams({
     interval
   })
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}/chart?${query.toString()}`
-  const response = await secureFetch(requestUrl, {
-    timeoutMs: 15000
-  })
+  const requestPromise = (async () => {
+    const response = await secureFetch(requestUrl, {
+      timeoutMs: 15000
+    })
 
-  if (!response.ok) {
-    const payload = await parseErrorResponse(
-      response,
-      `${cleanedSymbol} chart data is not accessible right now.`
-    )
-    throw new Error(payload.message || `${cleanedSymbol} chart data is not accessible right now.`)
+    if (!response.ok) {
+      const payload = await parseErrorResponse(
+        response,
+        `${cleanedSymbol} chart data is not accessible right now.`
+      )
+      throw new Error(payload.message || `${cleanedSymbol} chart data is not accessible right now.`)
+    }
+
+    return response.json()
+  })()
+
+  stockChartRequestPromises.set(cacheKey, requestPromise)
+  try {
+    return await requestPromise
+  } finally {
+    stockChartRequestPromises.delete(cacheKey)
   }
-
-  return response.json()
 }
 
 function mergeStockChartData(currentResponse, chartResponse) {
@@ -3934,7 +3951,12 @@ function mergeStockChartData(currentResponse, chartResponse) {
 
   return {
     ...currentResponse,
+    ...chartResponse,
     dataSource: chartResponse?.dataSource || currentResponse?.dataSource,
+    request: {
+      ...(currentResponse?.request || {}),
+      ...(chartResponse?.request || {})
+    },
     stock: {
       ...(currentResponse?.stock || {}),
       ...(chartResponse?.stock || {}),
@@ -3955,6 +3977,46 @@ function mergeStockChartData(currentResponse, chartResponse) {
       }
     }
   }
+}
+
+function mergeActiveStockResponse(incomingResponse) {
+  const incomingSymbol = String(incomingResponse?.stock?.symbol || '').toUpperCase()
+  const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+
+  if (incomingSymbol && currentSymbol === incomingSymbol) {
+    stockResponse.value = mergeStockChartData(stockResponse.value, incomingResponse)
+    return
+  }
+
+  stockResponse.value = incomingResponse
+}
+
+function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterval.value) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol)
+  if (!cleanedSymbol) {
+    return
+  }
+
+  const orderedIntervals = [
+    preferredInterval,
+    ...STOCK_CHART_PREFETCH_INTERVALS
+  ].filter((interval, index, intervals) => interval && intervals.indexOf(interval) === index)
+  const existingSeries = stockResponse.value?.chartData?.series || {}
+  const missingIntervals = orderedIntervals.filter((interval) => !existingSeries[interval]?.length)
+
+  missingIntervals.forEach((interval) => {
+    fetchStockChartData(cleanedSymbol, interval)
+      .then((chartData) => {
+        const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+        if (currentSymbol !== cleanedSymbol) {
+          return
+        }
+        stockResponse.value = mergeStockChartData(stockResponse.value, chartData)
+      })
+      .catch((error) => {
+        console.warn(`Could not warm ${cleanedSymbol} ${interval} chart data.`, error)
+      })
+  })
 }
 
 async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
@@ -4022,10 +4084,11 @@ function applyAnalysisResponse(data, isCryptoPage) {
     return
   }
 
-  stockResponse.value = data
+  mergeActiveStockResponse(data)
   activeSymbol.value = data.stock.symbol
   symbolInput.value = data.stock.symbol
   activePage.value = 'Stock Trade'
+  warmStockChartIntervals(data.stock.symbol)
 }
 
 async function preloadDefaultLiveWorkspaces() {
@@ -4043,11 +4106,12 @@ async function preloadDefaultLiveWorkspaces() {
           return
         }
 
-        stockResponse.value = data
+        mergeActiveStockResponse(data)
         activeSymbol.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
         if (activePage.value === 'Stock Trade') {
           symbolInput.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
         }
+        warmStockChartIntervals(data.stock.symbol || DEFAULT_STOCK_SYMBOL)
       })
       .catch((error) => {
         console.warn('Default stock workspace preload failed.', error)
@@ -4189,7 +4253,7 @@ async function runSearch(source = 'search') {
 }
 
 async function handleChartIntervalChange(interval) {
-  selectedChartInterval.value = interval
+  const previousInterval = selectedChartInterval.value
 
   const isCryptoPage = activePage.value === 'Crypto Trade'
   const responseRef = isCryptoPage ? cryptoResponse : stockResponse
@@ -4197,23 +4261,38 @@ async function handleChartIntervalChange(interval) {
   const availableSeries = responseRef.value?.chartData?.series || {}
 
   if (!symbol || availableSeries[interval]?.length) {
+    selectedChartInterval.value = interval
     return
   }
 
+  const requestVersion = ++chartIntervalRequestVersion
   try {
     if (isCryptoPage) {
+      selectedChartInterval.value = interval
       const data = await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      if (requestVersion !== chartIntervalRequestVersion) {
+        return
+      }
       responseRef.value = data
       symbolInput.value = data.stock.symbol
       return
     }
 
     const chartData = await fetchStockChartData(symbol, interval)
-    const mergedData = mergeStockChartData(responseRef.value, chartData)
-    responseRef.value = mergedData
+    if (requestVersion !== chartIntervalRequestVersion) {
+      return
+    }
+    const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+    if (currentSymbol !== String(symbol || '').toUpperCase()) {
+      return
+    }
+    const mergedData = mergeStockChartData(stockResponse.value, chartData)
+    stockResponse.value = mergedData
     activeSymbol.value = mergedData.stock.symbol
     symbolInput.value = mergedData.stock.symbol
+    selectedChartInterval.value = hasChartSeries(mergedData, interval) ? interval : previousInterval
   } catch (error) {
+    selectedChartInterval.value = previousInterval
     errorMessage.value = getReadableMarketDataError(error?.message, symbol)
   }
 }
@@ -4926,7 +5005,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
   }
 
   if (intent === 'set_interval' && intentPayload.interval) {
-    selectedChartInterval.value = intentPayload.interval
+    await handleChartIntervalChange(intentPayload.interval)
     setVoiceShortStatus('interval', { transcript: rawTranscript })
     return true
   }
