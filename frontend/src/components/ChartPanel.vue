@@ -233,11 +233,8 @@ const priceRange = computed(() => {
 
   const lows = candles.map((item) => toNumber(item.low))
   const highs = candles.map((item) => toNumber(item.high))
-  const min = Math.min(...lows)
-  const max = Math.max(...highs)
-  const padding = Math.max((max - min) * 0.06, 0.5)
 
-  return createRange(min - padding, max + padding)
+  return createPriceRange(lows, highs)
 })
 
 const priceAxisLabels = computed(() => buildScaleLabels(priceRange.value, 4, formatPrice))
@@ -604,6 +601,39 @@ function createRange(min, max) {
   const safeMax = Number.isFinite(max) ? max : 1
   const span = Math.max(safeMax - safeMin, 1)
   return { min: safeMin, max: safeMax, span }
+}
+
+function createPriceRange(lows, highs) {
+  const values = [...lows, ...highs]
+    .filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))
+    .map(Number)
+
+  if (!values.length) {
+    return { min: 0, max: 1, span: 1 }
+  }
+
+  let min = Math.min(...values)
+  let max = Math.max(...values)
+  const midpoint = (min + max) / 2
+  const referencePrice = Math.max(Math.abs(midpoint), Math.abs(min), Math.abs(max), 0.000001)
+  const minimumSpan = Math.max(referencePrice * 0.012, 0.000001)
+  const rawSpan = max - min
+
+  if (rawSpan < minimumSpan) {
+    min = midpoint - (minimumSpan / 2)
+    max = midpoint + (minimumSpan / 2)
+  }
+
+  const span = Math.max(max - min, minimumSpan)
+  const padding = Math.max(span * 0.08, referencePrice * 0.001, 0.000001)
+  const nextMin = min > 0 ? Math.max(0, min - padding) : min - padding
+  const nextMax = max + padding
+
+  return {
+    min: nextMin,
+    max: nextMax,
+    span: Math.max(nextMax - nextMin, 0.000001)
+  }
 }
 
 function createValueRange(values, options = {}) {
@@ -981,7 +1011,22 @@ function formatPrice(value) {
     return 'TBD'
   }
 
-  return Number(value).toFixed(2)
+  const numericValue = Number(value)
+  const absoluteValue = Math.abs(numericValue)
+
+  if (absoluteValue >= 1) {
+    return numericValue.toFixed(2)
+  }
+
+  if (absoluteValue >= 0.1) {
+    return numericValue.toFixed(4)
+  }
+
+  if (absoluteValue >= 0.01) {
+    return numericValue.toFixed(5)
+  }
+
+  return numericValue.toFixed(6)
 }
 
 function formatNumber(value) {
