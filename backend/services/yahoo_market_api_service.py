@@ -61,8 +61,7 @@ class YahooMarketApiService:
         return disabled_until is None or datetime.utcnow() >= disabled_until
 
     def get_daily_prices(self, symbol, limit):
-        range_value = "10y" if int(limit or 0) <= 2600 else "max"
-        return self._get_chart(symbol, interval="1d", range_value=range_value, limit=limit, include_time=False)
+        return self._get_chart(symbol, interval="1d", range_value="10y", limit=limit, include_time=False)
 
     def get_intraday_prices(self, symbol, interval, limit=390):
         mapped_interval, range_value = self.INTRADAY_INTERVALS.get(str(interval or "").lower(), ("5m", "1mo"))
@@ -134,7 +133,7 @@ class YahooMarketApiService:
             quotes = ((result.get("indicators") or {}).get("quote") or [{}])[0]
             bars = self._normalize_bars(timestamps, quotes, include_time=include_time)
             if limit:
-                bars = bars[-max(1, int(limit)):]
+                bars = bars[:max(1, int(limit))]
 
             self.mark_available()
             return {"data": bars, "meta": meta}

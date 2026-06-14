@@ -61,7 +61,17 @@ class FallbackMarketApiService:
             self.secondary.mark_available()
 
     def get_daily_prices(self, symbol, limit):
-        return self._call("get_daily_prices", symbol, limit)
+        try:
+            payload = self.primary.get_daily_prices(symbol, limit)
+            self._validate_daily_price_payload(payload, symbol)
+            return payload
+        except Exception:
+            if self.secondary and self.secondary.is_configured() and self.secondary.is_available():
+                logger.warning("Primary daily market data failed quality checks; trying secondary.", exc_info=True)
+                payload = self.secondary.get_daily_prices(symbol, limit)
+                self._validate_daily_price_payload(payload, symbol)
+                return payload
+            raise
 
     def get_intraday_prices(self, symbol, interval, limit=390):
         return self._call("get_intraday_prices", symbol, interval, limit)
@@ -80,6 +90,42 @@ class FallbackMarketApiService:
                 logger.warning("Primary market data provider failed; trying secondary %s.", method_name, exc_info=True)
                 return getattr(self.secondary, method_name)(*args)
             raise
+
+    def _validate_daily_price_payload(self, payload, symbol):
+        rows = payload.get("data", []) if isinstance(payload, dict) else []
+        parsed_dates = sorted(
+            [
+                self._parse_date((row or {}).get("date"))
+                for row in rows
+            ],
+            reverse=True,
+        )
+        parsed_dates = [item for item in parsed_dates if item is not None]
+
+        if len(parsed_dates) < 20:
+            raise DukeMarketApiUnavailable(f"{symbol} daily market data returned too few bars.")
+
+        latest_date = parsed_dates[0]
+        if latest_date < (datetime.utcnow().date() - timedelta(days=10)):
+            raise DukeMarketApiUnavailable(f"{symbol} daily market data is stale.")
+
+        sample_size = min(60, len(parsed_dates))
+        span_days = (parsed_dates[0] - parsed_dates[sample_size - 1]).days
+        if span_days > max(120, sample_size * 3):
+            raise DukeMarketApiUnavailable(f"{symbol} daily market data is too sparse.")
+
+    def _parse_date(self, value):
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(raw_value.replace("Z", "+00:00")).date()
+        except ValueError:
+            try:
+                return datetime.strptime(raw_value[:10], "%Y-%m-%d").date()
+            except ValueError:
+                return None
 
 
 class MarketDataService:
@@ -152,7 +198,7 @@ class MarketDataService:
             )
             alpaca = self._build_alpaca_market_api(config)
             if alpaca.is_configured():
-                return FallbackMarketApiService(alpaca, yahoo)
+                return FallbackMarketApiService(yahoo, alpaca)
             return yahoo
 
         if provider != "yahoo":
@@ -184,7 +230,7 @@ class MarketDataService:
 
         if provider == "auto":
             alpaca = self._build_alpaca_market_api(self.config)
-            return "Auto: Alpaca IEX -> Yahoo" if alpaca.is_configured() else "Auto: Yahoo no-key"
+            return "Auto: Yahoo -> Alpaca IEX" if alpaca.is_configured() else "Auto: Yahoo no-key"
 
         if provider == "alpaca":
             return "Alpaca IEX"
