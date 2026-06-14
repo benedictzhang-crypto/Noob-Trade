@@ -134,7 +134,14 @@ def _persistence_service():
     return PersistenceService()
 
 
-def _build_live_search_payload(market_data_service, symbol: str, interval: str, lookback: int, indicators: list[str]):
+def _build_live_search_payload(
+    market_data_service,
+    symbol: str,
+    interval: str,
+    lookback: int,
+    indicators: list[str],
+    chart_interval=None,
+):
     symbol_code = _normalize_symbol_code(symbol)
     prices_payload = market_data_service.market_api.get_daily_prices(
         symbol_code,
@@ -154,9 +161,11 @@ def _build_live_search_payload(market_data_service, symbol: str, interval: str, 
 
     return {
         "dataSource": "live",
+        "marketDataProvider": market_data_service._market_provider_label(),
         "request": {
             "symbol": symbol_code,
             "interval": interval,
+            "chartInterval": chart_interval or interval,
             "lookback": lookback,
             "indicators": indicators,
         },
@@ -190,7 +199,12 @@ def _build_live_search_payload(market_data_service, symbol: str, interval: str, 
             "highFitHistoricalPaths": [],
         },
         "chartData": {
-            "series": market_data_service._build_interval_series(daily_candles, prices),
+            "series": market_data_service._build_interval_series(
+                daily_candles,
+                prices,
+                chart_interval or interval,
+                symbol_code,
+            ),
         },
     }
 
@@ -272,6 +286,21 @@ def get_stock(symbol):
                 ), 500
 
     market_data_service = _market_data_service()
+
+    if analysis_mode == "search":
+        try:
+            response_data = _build_live_search_payload(
+                market_data_service,
+                symbol=symbol,
+                interval=interval,
+                lookback=lookback,
+                indicators=indicators,
+                chart_interval=chart_interval,
+            )
+            return jsonify(_sanitize_response_payload(_trim_trade_response_payload(response_data)))
+        except Exception:
+            current_app.logger.warning("Fast stock search failed for %s; falling back to full stock response.", symbol, exc_info=True)
+
     persistence_service = None
 
     try:

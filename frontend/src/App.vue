@@ -6454,6 +6454,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             This avoids mixing equity history with digital asset history.
           </p>
           <p>
+            Stock Explore currently exposes 174 curated U.S. stock symbols for starring and Dashboard Scan. Stock Trade can also request supported symbols
+            from the configured live stock data feed when users want a single-symbol review.
+          </p>
+          <p>
+            Crypto Explore shows up to 100 live crypto assets from the crypto market feed, while Crypto Trade reads supported OKX public spot markets for
+            single-symbol review. Crypto data remains separate from stock history throughout the workflow.
+          </p>
+          <p>
             Market data is used where available, while historical context is used to frame probability-style research. If a feed is slow or unavailable,
             the app may use cached context or show a clear data-source label.
           </p>
