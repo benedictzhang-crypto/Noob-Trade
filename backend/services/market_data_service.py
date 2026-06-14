@@ -154,6 +154,7 @@ class MarketDataService:
     PRODUCTION_MATCH_CANDLE_LIMIT = 120
     PRODUCTION_MATCH_STEP = 3
     PRODUCTION_MATCH_TARGET = 6
+    CHART_ONLY_PRICE_LIMIT = 1600
     PRO_SIGNAL_DEEP_CANDIDATE_LIMIT = 2000
     SYMBOL_ALIASES = {
         "APL": "AAPL",
@@ -419,6 +420,98 @@ class MarketDataService:
             raise ValueError(f"{symbol_code} is temporarily unavailable.")
 
         return self._build_demo_fallback_response(symbol_code, interval, lookback_window, indicators)
+
+    def get_stock_chart_data(self, symbol, chart_interval="daily"):
+        symbol_code = self._normalize_symbol_code(symbol)
+        chart_interval = str(chart_interval or "daily").strip().lower()
+
+        if chart_interval in INTRADAY_INTERVALS and hasattr(self.market_api, "get_intraday_prices"):
+            intraday_limit = VISIBLE_INTERVAL_BARS.get(chart_interval, 390)
+            try:
+                intraday_payload = self._get_cached_market_payload(
+                    f"intraday:{symbol_code}:{chart_interval}:{intraday_limit}",
+                    self.config.get("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", 20),
+                    lambda: self.market_api.get_intraday_prices(
+                        symbol_code,
+                        chart_interval,
+                        limit=intraday_limit,
+                    ),
+                )
+                intraday_prices = intraday_payload.get("data", []) if isinstance(intraday_payload, dict) else []
+                intraday_prices = self._normalize_price_rows_latest_first(intraday_prices)
+                intraday_candles = self._build_intraday_candles(intraday_prices)
+
+                if intraday_candles:
+                    latest = intraday_candles[-1]
+                    previous = intraday_candles[-2] if len(intraday_candles) > 1 else latest
+                    return {
+                        "dataSource": "live",
+                        "marketDataProvider": self._market_provider_label(),
+                        "request": {
+                            "symbol": symbol_code,
+                            "chartInterval": chart_interval,
+                        },
+                        "stock": {
+                            "symbol": symbol_code,
+                            "currentPrice": self._to_float(latest.get("close")),
+                            "previousClose": self._to_float(previous.get("close")),
+                            "open": self._to_float(latest.get("open", latest.get("close"))),
+                            "volume": self._to_int(latest.get("volume", 0)),
+                        },
+                        "chartData": {
+                            "series": {
+                                chart_interval: intraday_candles[-intraday_limit:],
+                            },
+                        },
+                    }
+            except Exception:
+                logger.warning("Could not build chart-only %s candles for %s.", chart_interval, symbol_code, exc_info=True)
+
+        price_limit = max(
+            self.CHART_ONLY_PRICE_LIMIT,
+            VISIBLE_INTERVAL_BARS.get(chart_interval, VISIBLE_INTERVAL_BARS["daily"]),
+        )
+        prices_payload = self._get_cached_market_payload(
+            f"daily:{symbol_code}:{price_limit}",
+            self.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
+            lambda: self.market_api.get_daily_prices(symbol_code, limit=price_limit),
+        )
+        prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
+        prices = self._normalize_price_rows_latest_first(prices)
+
+        if len(prices) < 2:
+            raise ValueError("No price data returned from market API.")
+
+        daily_candles = self._build_daily_candles(prices)
+        latest = daily_candles[-1]
+        previous = daily_candles[-2] if len(daily_candles) > 1 else latest
+        high_values = [self._to_float(item.get("high", item.get("close"))) for item in daily_candles]
+        low_values = [self._to_float(item.get("low", item.get("close"))) for item in daily_candles]
+        volume_values = [self._to_int(item.get("volume", 0)) for item in daily_candles]
+
+        return {
+            "dataSource": "live",
+            "marketDataProvider": self._market_provider_label(),
+            "request": {
+                "symbol": symbol_code,
+                "chartInterval": chart_interval,
+            },
+            "stock": {
+                "symbol": symbol_code,
+                "companyName": symbol_code,
+                "sector": "Market Data",
+                "industry": "Live chart",
+                "currentPrice": self._to_float(latest.get("close")),
+                "previousClose": self._to_float(previous.get("close")),
+                "open": self._to_float(latest.get("open", latest.get("close"))),
+                "volume": volume_values[-1] if volume_values else 0,
+                "week52High": round(max(high_values[-252:] or high_values), 2),
+                "week52Low": round(min(low_values[-252:] or low_values), 2),
+            },
+            "chartData": {
+                "series": self._build_interval_series(daily_candles, prices, chart_interval, symbol_code),
+            },
+        }
 
     def _allow_demo_fallback(self, symbol):
         if not (self.config.get("ENABLE_DEMO_FALLBACK") or self.config.get("USE_MOCK_FALLBACK")):

@@ -319,6 +319,35 @@ def get_stock(symbol):
         ), 500
 
 
+@stock_blueprint.route("/stock/<symbol>/chart", methods=["GET"])
+def get_stock_chart(symbol):
+    """Return live chart candles without running Generate or historical matching."""
+    symbol = _normalize_symbol_code(symbol)
+    chart_interval = request.args.get(
+        "interval",
+        default=request.args.get("chartInterval", default=current_app.config["DEFAULT_INTERVAL"], type=str),
+        type=str,
+    )
+    market_data_service = _market_data_service()
+
+    try:
+        response_data = market_data_service.get_stock_chart_data(
+            symbol=symbol,
+            chart_interval=chart_interval,
+        )
+        return jsonify(_sanitize_response_payload(response_data))
+    except Exception as error:
+        current_app.logger.exception("Stock chart data failed for %s", symbol)
+        return jsonify(
+            {
+                "status": "error",
+                "message": _public_market_error_message(error, symbol),
+                "symbol": symbol.upper(),
+                "chartInterval": chart_interval,
+            }
+        ), 500
+
+
 @stock_blueprint.route("/market-news", methods=["GET"])
 def get_market_news():
     symbol = _normalize_symbol_code(request.args.get("symbol", default="", type=str).strip())

@@ -3907,6 +3907,56 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   return data
 }
 
+async function fetchStockChartData(symbol, interval) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol)
+  const query = new URLSearchParams({
+    interval
+  })
+  const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}/chart?${query.toString()}`
+  const response = await secureFetch(requestUrl, {
+    timeoutMs: 15000
+  })
+
+  if (!response.ok) {
+    const payload = await parseErrorResponse(
+      response,
+      `${cleanedSymbol} chart data is not accessible right now.`
+    )
+    throw new Error(payload.message || `${cleanedSymbol} chart data is not accessible right now.`)
+  }
+
+  return response.json()
+}
+
+function mergeStockChartData(currentResponse, chartResponse) {
+  const existingChartData = currentResponse?.chartData || {}
+  const incomingChartData = chartResponse?.chartData || {}
+
+  return {
+    ...currentResponse,
+    dataSource: chartResponse?.dataSource || currentResponse?.dataSource,
+    stock: {
+      ...(currentResponse?.stock || {}),
+      ...(chartResponse?.stock || {}),
+      companyName: currentResponse?.stock?.companyName || chartResponse?.stock?.companyName,
+      sector: currentResponse?.stock?.sector || chartResponse?.stock?.sector,
+      industry: currentResponse?.stock?.industry || chartResponse?.stock?.industry
+    },
+    chartData: {
+      ...existingChartData,
+      ...incomingChartData,
+      series: {
+        ...(existingChartData.series || {}),
+        ...(incomingChartData.series || {})
+      },
+      history: {
+        ...(existingChartData.history || {}),
+        ...(incomingChartData.history || {})
+      }
+    }
+  }
+}
+
 async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
@@ -4151,14 +4201,18 @@ async function handleChartIntervalChange(interval) {
   }
 
   try {
-    const data = isCryptoPage
-      ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
-      : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
-    responseRef.value = data
-    if (!isCryptoPage) {
-      activeSymbol.value = data.stock.symbol
+    if (isCryptoPage) {
+      const data = await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      responseRef.value = data
+      symbolInput.value = data.stock.symbol
+      return
     }
-    symbolInput.value = data.stock.symbol
+
+    const chartData = await fetchStockChartData(symbol, interval)
+    const mergedData = mergeStockChartData(responseRef.value, chartData)
+    responseRef.value = mergedData
+    activeSymbol.value = mergedData.stock.symbol
+    symbolInput.value = mergedData.stock.symbol
   } catch (error) {
     errorMessage.value = getReadableMarketDataError(error?.message, symbol)
   }
