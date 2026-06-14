@@ -31,6 +31,14 @@ ALLOWED_PAGES = {
     "profile": "Settings",
     "account": "Settings",
     "more": "More",
+    "user guide": "User Guide",
+    "guide": "User Guide",
+    "manual": "User Guide",
+    "help page": "User Guide",
+    "how noobtrade works": "User Guide",
+    "how noob trade works": "User Guide",
+    "how it works": "User Guide",
+    "learn more": "User Guide",
     "admin": "Admin",
     "股票": "Stock Trade",
     "股票分析": "Stock Trade",
@@ -41,6 +49,12 @@ ALLOWED_PAGES = {
     "投资组合": "Portfolio",
     "市场": "Markets",
     "探索": "Explore",
+    "用户手册": "User Guide",
+    "操作手册": "User Guide",
+    "使用说明": "User Guide",
+    "怎么用": "User Guide",
+    "如何使用": "User Guide",
+    "工作原理": "User Guide",
 }
 
 TRADING_WORDS = {
@@ -73,12 +87,76 @@ INDICATOR_ALIASES = {
     "指数均线": "EMA",
 }
 
+INTERVAL_ALIASES = {
+    "1 minute": "1min",
+    "one minute": "1min",
+    "one min": "1min",
+    "1 min": "1min",
+    "1分钟": "1min",
+    "一分钟": "1min",
+    "5 minute": "5min",
+    "five minute": "5min",
+    "5 min": "5min",
+    "five min": "5min",
+    "5分钟": "5min",
+    "五分钟": "5min",
+    "15 minute": "15min",
+    "fifteen minute": "15min",
+    "15 min": "15min",
+    "fifteen min": "15min",
+    "15分钟": "15min",
+    "十五分钟": "15min",
+    "30 minute": "30min",
+    "thirty minute": "30min",
+    "30 min": "30min",
+    "thirty min": "30min",
+    "30分钟": "30min",
+    "三十分钟": "30min",
+    "半小时": "30min",
+    "hourly": "1hour",
+    "one hour": "1hour",
+    "1 hour": "1hour",
+    "60 minute": "1hour",
+    "1小时": "1hour",
+    "一小时": "1hour",
+    "小时线": "1hour",
+    "daily": "daily",
+    "day chart": "daily",
+    "one day": "daily",
+    "日线": "daily",
+    "每日": "daily",
+    "5 day": "5day",
+    "five day": "5day",
+    "5 days": "5day",
+    "five days": "5day",
+    "5日": "5day",
+    "五日": "5day",
+    "五天": "5day",
+    "weekly": "weekly",
+    "week chart": "weekly",
+    "one week": "weekly",
+    "周线": "weekly",
+    "一周": "weekly",
+    "2 week": "2week",
+    "two week": "2week",
+    "2 weeks": "2week",
+    "two weeks": "2week",
+    "两周": "2week",
+    "2周": "2week",
+    "monthly": "monthly",
+    "month chart": "monthly",
+    "one month": "monthly",
+    "月线": "monthly",
+    "一月": "monthly",
+}
+
 ALLOWED_INTENTS = {
     "navigate", "scroll", "generate", "search", "set_indicator",
     "select_only_indicators", "clear_indicators", "reset_indicators",
     "scan_watchlist", "set_star", "adjust_probability",
     "summarize_probability", "open_historical_pattern", "open_news",
     "load_more_patterns", "set_interval", "sign_out", "language",
+    "open_full_market", "view_more_market",
     "greeting", "help", "chat", "blocked_trading", "unknown",
 }
 
@@ -194,6 +272,53 @@ SYMBOL_ALIASES = {
     "eth": "ETH",
     "solana": "SOL",
     "sol": "SOL",
+    "bnb": "BNB",
+    "binance": "BNB",
+    "xrp": "XRP",
+    "ripple": "XRP",
+    "doge": "DOGE",
+    "dogecoin": "DOGE",
+    "ada": "ADA",
+    "cardano": "ADA",
+    "trx": "TRX",
+    "tron": "TRX",
+    "avax": "AVAX",
+    "avalanche": "AVAX",
+    "link": "LINK",
+    "chainlink": "LINK",
+    "ton": "TON",
+    "toncoin": "TON",
+    "shib": "SHIB",
+    "shiba inu": "SHIB",
+    "dot": "DOT",
+    "polkadot": "DOT",
+    "bch": "BCH",
+    "bitcoin cash": "BCH",
+    "near": "NEAR",
+    "ltc": "LTC",
+    "litecoin": "LTC",
+    "uni": "UNI",
+    "uniswap": "UNI",
+    "icp": "ICP",
+    "apt": "APT",
+    "aptos": "APT",
+    "etc": "ETC",
+    "ethereum classic": "ETC",
+    "hbar": "HBAR",
+    "hedera": "HBAR",
+    "atom": "ATOM",
+    "cosmos": "ATOM",
+    "fil": "FIL",
+    "filecoin": "FIL",
+    "arb": "ARB",
+    "arbitrum": "ARB",
+    "op": "OP",
+    "optimism": "OP",
+    "sui": "SUI",
+    "inj": "INJ",
+    "injective": "INJ",
+    "sushi": "SUSHI",
+    "sushiswap": "SUSHI",
     "okb": "OKB",
     "o k b": "OKB",
     "spy": "SPY",
@@ -203,6 +328,17 @@ SYMBOL_ALIASES = {
 
 def _normalize_text(value):
     return re.sub(r"\s+", " ", str(value or "").lower()).strip()
+
+
+def _contains_phrase(text, phrase):
+    normalized_phrase = _normalize_text(phrase)
+    if not normalized_phrase:
+        return False
+
+    if re.search(r"[\u4e00-\u9fff]", normalized_phrase):
+        return normalized_phrase in text
+
+    return bool(re.search(rf"(?<![a-z0-9]){re.escape(normalized_phrase)}(?![a-z0-9])", text))
 
 
 def _detect_reply_language(text="", context=None, payload=None):
@@ -307,6 +443,7 @@ def _extract_symbol(text):
         "stock", "stocks", "trade", "page", "go", "to", "open", "show", "search",
         "generate", "analyze", "analysis", "scroll", "down", "up", "more", "little",
         "dashboard", "portfolio", "market", "markets", "settings", "crypto", "explore",
+        "full", "board", "pool", "universe", "guide", "manual", "user", "learn",
     }
     tokens = re.findall(r"\b[a-zA-Z]{1,5}\b", text)
     for token in reversed(tokens):
@@ -322,6 +459,13 @@ def _extract_indicators(text):
             if indicator not in found:
                 found.append(indicator)
     return found
+
+
+def _extract_interval(text):
+    for phrase, interval in sorted(INTERVAL_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+        if phrase in text:
+            return interval
+    return None
 
 
 def _extract_first_number(text):
@@ -367,7 +511,7 @@ def _rule_based_intent(transcript, context=None):
     if not text:
         return _base_intent("unknown", 0.2, language=reply_language, reply=_short_reply("unknown", reply_language))
 
-    if any(phrase in text for phrase in ("hey", "hi", "hello", "are you there", "noob trade", "assistant", "你好", "在吗", "你在吗", "嗨", "hola", "bonjour")):
+    if any(_contains_phrase(text, phrase) for phrase in ("hey", "hi", "hello", "are you there", "noob trade", "assistant", "你好", "在吗", "你在吗", "嗨", "hola", "bonjour")):
         return _base_intent("greeting", 0.96, language=reply_language, reply=_short_reply("ready", reply_language))
 
     if any(word in text for word in TRADING_WORDS):
@@ -391,6 +535,35 @@ def _rule_based_intent(transcript, context=None):
     news_words = ("news", "headline", "headlines", "market news", "latest news", "新闻", "资讯", "消息", "noticias", "actualidad", "nouvelles", "actualites", "actualités")
     if any(word in text for word in news_words) and any(phrase in text for phrase in ("open", "show", "read", "look", "see", "go", "打开", "查看", "看看", "去", "abrir", "mostrar", "ver", "ouvrir", "afficher", "voir")):
         return _base_intent("open_news", 0.94, language=reply_language)
+
+    guide_questions = (
+        "how noobtrade works", "how noob trade works", "how does noobtrade work",
+        "how does noob trade work", "what is noobtrade", "what does noobtrade do",
+        "how it works", "user guide", "learn more", "help page",
+        "怎么用", "如何使用", "工作原理", "用户手册", "操作手册", "使用说明",
+    )
+    if any(phrase in text for phrase in guide_questions):
+        return _base_intent("navigate", 0.95, page="User Guide", language=reply_language)
+
+    full_market_phrases = (
+        "full market", "full market board", "open full market", "stock pool",
+        "stock universe", "all stocks", "show all stocks", "market board",
+        "full stock board", "全市场", "打开全市场", "股票池", "打开股票池",
+        "全部股票", "所有股票", "完整股票列表", "mercado completo",
+        "todas las acciones", "liste complete actions", "liste complète actions",
+    )
+    if any(phrase in text for phrase in full_market_phrases):
+        return _base_intent("open_full_market", 0.96, language=reply_language)
+
+    view_more_market_phrases = (
+        "view more stocks", "show more stocks", "load more stocks", "more stocks",
+        "view more market", "show more market", "load more market",
+        "查看更多股票", "加载更多股票", "显示更多股票", "更多股票", "查看更多市场",
+        "ver mas acciones", "ver más acciones", "mostrar mas acciones", "mostrar más acciones",
+        "voir plus actions", "afficher plus actions",
+    )
+    if any(phrase in text for phrase in view_more_market_phrases):
+        return _base_intent("view_more_market", 0.96, language=reply_language)
 
     probability_words = ("probability", "chance", "odds", "概率", "几率")
     if any(word in text for word in probability_words):
@@ -432,6 +605,14 @@ def _rule_based_intent(transcript, context=None):
         should_enable = first_indicator.upper() not in selected_indicators
         return _base_intent("set_indicator", 0.93, indicators=[first_indicator], active=should_enable)
 
+    requested_interval = _extract_interval(text)
+    if requested_interval and any(phrase in text for phrase in (
+        "interval", "chart", "time frame", "timeframe", "switch", "change",
+        "周期", "图表", "切换", "换到", "intervalo", "grafico", "gráfico",
+        "cambiar", "intervalle", "graphique", "changer",
+    )):
+        return _base_intent("set_interval", 0.94, interval=requested_interval, language=reply_language)
+
     page_hits = []
     for phrase, page in ALLOWED_PAGES.items():
         if phrase in text:
@@ -455,7 +636,13 @@ def _rule_based_intent(transcript, context=None):
         amount = "small" if any(phrase in text for phrase in ("little", "bit", "一点", "un poco", "un peu")) else "normal"
         return _base_intent("scroll", 0.94, direction="up", amount=amount)
 
-    if any(phrase in text for phrase in ("scan", "扫描", "scanner", "escanear")):
+    scan_phrases = (
+        "scan", "scan watchlist", "scan saved", "batch generate",
+        "full indicator scan", "full indicators scan",
+        "扫描", "扫描自选", "星标扫描", "集体generate", "批量generate", "全指标扫描",
+        "scanner", "escanear",
+    )
+    if any(phrase in text for phrase in scan_phrases):
         match = re.search(r"(\d{1,3}(?:\.\d+)?)\s*(?:%|percent)?", text)
         threshold = float(match.group(1)) if match else None
         return _base_intent("scan_watchlist", 0.92, threshold=threshold)
@@ -526,15 +713,20 @@ def _openai_intent(transcript, context):
     prompt = {
         "transcript": transcript,
         "context": context,
-        "allowedPages": ["Dashboard", "Stock Trade", "Crypto Trade", "Portfolio", "Explore", "Markets", "Settings", "More", "Admin"],
+        "allowedPages": ["Dashboard", "Stock Trade", "Crypto Trade", "Portfolio", "Explore", "Markets", "Settings", "More", "User Guide", "Admin"],
         "allowedIndicators": ["MA", "EMA", "MACD", "BOLL", "RSI", "Vol", "KDJ", "OI", "OBV"],
         "shortReplyBank": SHORT_REPLY_LIBRARY,
         "rules": [
             "Return one UI command intent only.",
             "Do not place trading orders. Buy/sell/order requests must be blocked_trading.",
             "Never write a long assistant response. The reply field must be empty or one short phrase from shortReplyBank in the user's language.",
-            "For executable commands such as scan_watchlist, generate, search, set_star, navigate, open_news, or set_indicator, leave reply empty; the frontend will say the action status.",
+            "For executable commands such as scan_watchlist, generate, search, set_star, navigate, open_news, open_full_market, view_more_market, or set_indicator, leave reply empty; the frontend will say the action status.",
             "If the user says open news, show news, 打开新闻, 看新闻, abrir noticias, or ouvrir les nouvelles, return open_news.",
+            "If the user asks how NoobTrade works, user guide, learn more, 怎么用, 如何使用, 工作原理, or 用户手册, return navigate page User Guide.",
+            "If the user says open full market, stock pool, all stocks, 股票池, 全市场, 全部股票, or 所有股票, return open_full_market.",
+            "If the user says view more stocks, load more stocks, 查看更多股票, or 加载更多股票, return view_more_market.",
+            "If the user says batch generate, scan saved names, full indicator scan, 星标扫描, 集体generate, or 全指标扫描, return scan_watchlist.",
+            "If the user asks to switch chart intervals like 5 minute, daily, 月线, or 周线, return set_interval with interval 1min, 5min, 15min, 30min, 1hour, daily, 5day, weekly, 2week, or monthly.",
             "If the user uses an imperative command or a first-person request like I want, I need, 我要, 我想, quiero, necesito, je veux, or j'ai besoin, still return the matching action intent.",
             "If the user asks to go to stock trade page, return navigate page Stock Trade.",
             "Do not treat words like stock, trade, page, dashboard, portfolio, settings as stock tickers.",
@@ -738,7 +930,13 @@ def _finalize_intent_payload(intent_payload, transcript, context):
         cleaned_payload["symbol"] = _normalize_symbol_entity(cleaned_payload.get("symbol")) or cleaned_payload.get("symbol")
 
     intent = cleaned_payload.get("intent")
-    if intent in {"generate", "search", "scan_watchlist", "set_star", "navigate", "open_news", "set_indicator"}:
+    if intent in {
+        "generate", "search", "scan_watchlist", "set_star", "navigate",
+        "open_news", "open_full_market", "view_more_market", "set_indicator",
+        "set_interval", "open_historical_pattern", "load_more_patterns",
+        "clear_indicators", "reset_indicators", "select_only_indicators",
+        "adjust_probability",
+    }:
         cleaned_payload["reply"] = ""
     elif intent in {"greeting", "help", "chat"}:
         cleaned_payload["reply"] = _short_reply("ready", language)

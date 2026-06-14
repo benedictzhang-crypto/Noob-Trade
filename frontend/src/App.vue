@@ -301,8 +301,9 @@ const uiCopy = {
 const voiceCommandExamples = [
   'Scan watchlist',
   'Generate AAPL',
-  'Star AAPL',
-  'Open News'
+  'Generate BTC',
+  'Open Full Market',
+  'Open User Guide'
 ]
 const voiceShortReplies = {
   en: {
@@ -414,7 +415,11 @@ const voiceShortReplies = {
     manualFallback: "Utilisez les contrôles manuels. L'IA s'améliore.",
   }
 }
-const voiceCryptoSymbols = new Set(['BTC', 'ETH', 'OKB', 'SOL', 'BNB'])
+const voiceCryptoSymbols = new Set([
+  'BTC', 'ETH', 'OKB', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'TRX', 'AVAX',
+  'LINK', 'TON', 'SHIB', 'DOT', 'BCH', 'NEAR', 'LTC', 'UNI', 'ICP', 'APT',
+  'ETC', 'HBAR', 'ATOM', 'FIL', 'ARB', 'OP', 'SUI', 'INJ', 'SUSHI'
+])
 const voiceSymbolAliases = {
   aapl: 'AAPL',
   apl: 'AAPL',
@@ -508,6 +513,53 @@ const voiceSymbolAliases = {
   eth: 'ETH',
   solana: 'SOL',
   sol: 'SOL',
+  bnb: 'BNB',
+  binance: 'BNB',
+  xrp: 'XRP',
+  ripple: 'XRP',
+  doge: 'DOGE',
+  dogecoin: 'DOGE',
+  ada: 'ADA',
+  cardano: 'ADA',
+  trx: 'TRX',
+  tron: 'TRX',
+  avax: 'AVAX',
+  avalanche: 'AVAX',
+  link: 'LINK',
+  chainlink: 'LINK',
+  ton: 'TON',
+  toncoin: 'TON',
+  shib: 'SHIB',
+  'shiba inu': 'SHIB',
+  dot: 'DOT',
+  polkadot: 'DOT',
+  bch: 'BCH',
+  'bitcoin cash': 'BCH',
+  near: 'NEAR',
+  litecoin: 'LTC',
+  ltc: 'LTC',
+  uni: 'UNI',
+  uniswap: 'UNI',
+  icp: 'ICP',
+  apt: 'APT',
+  aptos: 'APT',
+  etc: 'ETC',
+  'ethereum classic': 'ETC',
+  hbar: 'HBAR',
+  hedera: 'HBAR',
+  atom: 'ATOM',
+  cosmos: 'ATOM',
+  fil: 'FIL',
+  filecoin: 'FIL',
+  arb: 'ARB',
+  arbitrum: 'ARB',
+  op: 'OP',
+  optimism: 'OP',
+  sui: 'SUI',
+  inj: 'INJ',
+  injective: 'INJ',
+  sushi: 'SUSHI',
+  sushiswap: 'SUSHI',
   'o k b': 'OKB',
   okb: 'OKB',
   's p y': 'SPY',
@@ -529,22 +581,23 @@ const voicePageAliases = [
   { page: 'Stock Trade', phrases: ['stock trade', 'stock analysis', 'analysis', 'trade page', 'trade', '股票分析', '股票', 'acciones', 'accion', 'análisis de acciones', 'analyse actions', 'actions'] },
   { page: 'Dashboard', phrases: ['dashboard', 'home dashboard', '仪表盘', '面板', 'panel', 'tableau'] },
   { page: 'Explore', phrases: ['explore', 'watchlist', 'explorar', 'explorer', '探索', '自选'] },
+  { page: 'User Guide', phrases: ['user guide', 'how noobtrade works', 'how noob trade works', 'how it works', 'learn more', 'manual', 'guide', 'help page', '使用说明', '用户手册', '操作手册', '怎么用', '如何使用', '工作原理', 'guia', 'guía', 'manual de usuario', 'mode d emploi', 'guide utilisateur'] },
   { page: 'Markets', phrases: ['markets', 'market', '市场', 'mercados', 'mercado', 'marches', 'marchés'] },
   { page: 'Settings', phrases: ['settings', 'setting', 'myself', 'profile', 'account', 'configuration', 'configuracion', 'ajustes', 'parametres', 'paramètres', 'reglages', 'réglages', '设置', '账户', '账号', '个人信息'] },
   { page: 'More', phrases: ['more', 'more page', '更多', 'mas', 'más', 'plus'] },
   { page: 'Admin', phrases: ['admin', 'admin page', '后台', '管理员'] }
 ]
 const voiceIntervalAliases = [
-  { interval: '1min', phrases: ['1 minute', 'one minute', 'one min', '1 min'] },
-  { interval: '5min', phrases: ['5 minute', 'five minute', '5 min', 'five min'] },
-  { interval: '15min', phrases: ['15 minute', 'fifteen minute', '15 min', 'fifteen min'] },
-  { interval: '30min', phrases: ['30 minute', 'thirty minute', '30 min', 'thirty min'] },
-  { interval: '1hour', phrases: ['hourly', 'one hour', '1 hour', '60 minute'] },
-  { interval: 'daily', phrases: ['daily', 'day chart', 'one day'] },
-  { interval: '5day', phrases: ['five day', '5 day', 'five days', '5 days'] },
-  { interval: 'weekly', phrases: ['weekly', 'week chart', 'one week'] },
-  { interval: '2week', phrases: ['two week', '2 week', 'two weeks', '2 weeks'] },
-  { interval: 'monthly', phrases: ['monthly', 'month chart', 'one month'] }
+  { interval: '1min', phrases: ['1 minute', 'one minute', 'one min', '1 min', '1分钟', '一分钟'] },
+  { interval: '5min', phrases: ['5 minute', 'five minute', '5 min', 'five min', '5分钟', '五分钟'] },
+  { interval: '15min', phrases: ['15 minute', 'fifteen minute', '15 min', 'fifteen min', '15分钟', '十五分钟'] },
+  { interval: '30min', phrases: ['30 minute', 'thirty minute', '30 min', 'thirty min', '30分钟', '三十分钟', '半小时'] },
+  { interval: '1hour', phrases: ['hourly', 'one hour', '1 hour', '60 minute', '1小时', '一小时', '小时线'] },
+  { interval: 'daily', phrases: ['daily', 'day chart', 'one day', '日线', '每日', '天线'] },
+  { interval: '5day', phrases: ['five day', '5 day', 'five days', '5 days', '5日', '五日', '五天'] },
+  { interval: 'weekly', phrases: ['weekly', 'week chart', 'one week', '周线', '一周'] },
+  { interval: '2week', phrases: ['two week', '2 week', 'two weeks', '2 weeks', '两周', '2周'] },
+  { interval: 'monthly', phrases: ['monthly', 'month chart', 'one month', '月线', '一月'] }
 ]
 const voiceConfirmPhrases = ['confirm', 'yes', 'proceed', 'do it', 'run it', 'continue', '确认', '是的', '继续', 'sí', 'si', 'confirmar', 'oui', 'confirmer']
 const voiceCancelPhrases = ['cancel', 'stop', 'no', 'never mind', 'nevermind', '取消', '停止', '不要', 'no', 'cancelar', 'parar', 'non', 'annuler', 'arreter', 'arrêter']
@@ -553,6 +606,19 @@ const voiceEnablePhrases = ['enable', 'select', 'choose', 'pick', 'turn on', 'sw
 const voiceDisablePhrases = ['disable', 'unselect', 'deselect', 'cancel', 'turn off', 'switch off', 'uncheck', 'untick', 'remove', 'drop', 'exclude', '取消', '取消勾选', '关闭', '移除', '不要', 'quitar', 'desactivar', 'remover', 'excluir', 'retirer', 'desactiver', 'désactiver', 'enlever', 'exclure']
 const voiceOnlyPhrases = ['only', 'only use', '只', '只选', '只用', '仅选择', 'solo', 'solamente', 'seulement', 'uniquement']
 const voiceFollowUpPhrases = ['more', 'again', 'keep going', 'continue', 'a little bit more', 'little bit more', 'little more', 'bit more', 'further', 'more please', '再来', '继续', '再来一点', '再一点', '多一点', '再往下', '再往上', 'un poco mas', 'un poco más', 'otra vez', 'continua', 'continúa', 'encore', 'continuez', 'un peu plus']
+const voiceFullMarketPhrases = [
+  'full market', 'full market board', 'open full market', 'stock pool', 'stock universe',
+  'all stocks', 'show all stocks', 'market board', 'full stock board',
+  '全市场', '打开全市场', '股票池', '打开股票池', '全部股票', '所有股票', '完整股票列表',
+  'mercado completo', 'todas las acciones', 'liste complete actions', 'liste complète actions'
+]
+const voiceViewMoreMarketPhrases = [
+  'view more stocks', 'show more stocks', 'load more stocks', 'more stocks',
+  'view more market', 'show more market', 'load more market',
+  '查看更多股票', '加载更多股票', '显示更多股票', '更多股票', '查看更多市场',
+  'ver mas acciones', 'ver más acciones', 'mostrar mas acciones', 'mostrar más acciones',
+  'voir plus actions', 'afficher plus actions'
+]
 const voiceScrollIntentPhrases = [
   {
     intent: 'scrollDown',
@@ -2834,6 +2900,43 @@ function openVoiceNewsPanel(transcript = '') {
   setVoiceShortStatus('news', { transcript })
 }
 
+function openVoiceFullMarketBoard(transcript = '') {
+  if (!isAuthenticated.value) {
+    activePage.value = 'Sign In'
+    setVoiceShortStatus('signIn', { transcript })
+    return true
+  }
+
+  appMode.value = 'stock'
+  activePage.value = 'Explore'
+  exploreViewMode.value = 'full'
+  exploreSearchQuery.value = ''
+  setVoiceShortStatus('pageOpened', { transcript })
+  return true
+}
+
+function revealVoiceMoreMarketRows(transcript = '') {
+  if (!isAuthenticated.value) {
+    activePage.value = 'Sign In'
+    setVoiceShortStatus('signIn', { transcript })
+    return true
+  }
+
+  appMode.value = 'stock'
+  activePage.value = 'Explore'
+  exploreViewMode.value = 'full'
+  exploreSearchQuery.value = ''
+
+  if (hasMoreStockMarketRows.value) {
+    revealMoreStockMarketRows()
+    setVoiceShortStatus('more', { transcript })
+    return true
+  }
+
+  setVoiceShortStatus('done', { transcript })
+  return true
+}
+
 function toggleVoiceAssistant() {
   if (voiceAssistantEnabled.value) {
     disableVoiceAssistant()
@@ -3139,7 +3242,8 @@ function extractVoiceSymbol(command, { allowLooseTicker = true } = {}) {
     'quote', 'price', 'open', 'go', 'to', 'page', 'trade', 'look', 'up', 'down', 'top', 'bottom',
     'scroll', 'scrolling', 'move', 'screen', 'little', 'bit', 'more', 'less', 'back', 'forward',
     'show', 'the', 'a', 'stocks', 'market', 'markets', 'analysis', 'scorlling', 'scorll',
-    'scrool', 'scroolling', 'lower', 'higher', 'again', 'continue', 'further'
+    'scrool', 'scroolling', 'lower', 'higher', 'again', 'continue', 'further',
+    'full', 'board', 'pool', 'universe', 'guide', 'manual', 'user', 'learn'
   ])
   const tokens = command.split(' ').filter(Boolean)
 
@@ -3569,8 +3673,23 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
+  if (includesVoicePhrase(command, voiceViewMoreMarketPhrases)) {
+    revealVoiceMoreMarketRows(rawTranscript)
+    return
+  }
+
+  if (includesVoicePhrase(command, voiceFullMarketPhrases)) {
+    openVoiceFullMarketBoard(rawTranscript)
+    return
+  }
+
   const requestedPage = findVoicePage(command)
-  if (requestedPage && includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à'])) {
+  const guideQuestion = requestedPage === 'User Guide' && includesVoicePhrase(command, [
+    'how noobtrade works', 'how noob trade works', 'how does noobtrade work', 'how does noob trade work',
+    'what is noobtrade', 'what does noobtrade do', 'how it works',
+    '怎么用', '如何使用', '工作原理', 'noobtrade是什么', 'noob trade是什么'
+  ])
+  if (requestedPage && (guideQuestion || includesVoicePhrase(command, ['open', 'go to', 'show', 'switch to', 'navigate', '打开', '进入', '切换到', '显示', 'abrir', 'ir a', 'mostrar', 'cambiar a', 'ouvrir', 'aller a', 'aller à', 'afficher', 'passer a', 'passer à']))) {
     navigateTo(requestedPage)
     setVoiceStatus(getNavigationShortReply(requestedPage, rawTranscript), { speak: true, transcript: rawTranscript })
     return
@@ -3598,7 +3717,11 @@ async function handleVoiceCommand(rawTranscript) {
     return
   }
 
-  if (includesVoicePhrase(command, ['scan', '扫描', 'escanear', 'scanner'])) {
+  if (includesVoicePhrase(command, [
+    'scan', 'scan watchlist', 'scan saved', 'batch generate', 'full indicator scan', 'full indicators scan',
+    '扫描', '扫描自选', '星标扫描', '集体generate', '批量generate', '全指标扫描',
+    'escanear', 'scanner'
+  ])) {
     const threshold = extractVoiceProbability(command)
     watchlistScanThreshold.value = threshold
     navigateTo('Dashboard')
@@ -3675,6 +3798,18 @@ function navigateTo(page) {
     Myself: 'Settings'
   }
   const normalizedPage = pageAliases[page] || page
+
+  if (normalizedPage === 'User Guide') {
+    if (isAuthenticated.value) {
+      openUserGuide()
+      authMessage.value = ''
+      errorMessage.value = ''
+    } else {
+      activePage.value = 'Sign In'
+      authMessage.value = 'Please sign in first to open the guide.'
+    }
+    return
+  }
 
   if (accessiblePages.value.includes(normalizedPage)) {
     activePage.value = normalizedPage
@@ -5014,7 +5149,7 @@ function buildAssistantIntentContext() {
     language: uiLanguage.value,
     symbol: activeTradeResponse.value?.stock?.symbol || activeSymbol.value,
     selectedIndicators: getSelectedIndicators(),
-    availablePages: accessiblePages.value,
+    availablePages: isAuthenticated.value ? [...accessiblePages.value, 'User Guide'] : accessiblePages.value,
     availableIndicators: indicators.value.map((indicator) => indicator.name),
     probabilitySnapshot: getVoiceProbabilitySnapshot('up'),
     matchedPatternCount: activeTradeResponse.value?.patternAnalysis?.matchedHistoricalPatterns?.length || 0,
@@ -5130,6 +5265,14 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
   if (intent === 'blocked_trading') {
     setVoiceShortStatus('blockedTrading', { transcript: rawTranscript })
     return true
+  }
+
+  if (intent === 'open_full_market') {
+    return openVoiceFullMarketBoard(rawTranscript)
+  }
+
+  if (intent === 'view_more_market') {
+    return revealVoiceMoreMarketRows(rawTranscript)
   }
 
   if (intent === 'navigate' && intentPayload.page) {
@@ -5875,6 +6018,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         Myself: 'Settings'
       }
       const normalizedPage = pageAliases[page] || page
+      if (normalizedPage === 'User Guide' && isAuthenticated.value) {
+        openUserGuide()
+        return
+      }
       if (accessiblePages.value.includes(normalizedPage)) {
         activePage.value = normalizedPage
       }
