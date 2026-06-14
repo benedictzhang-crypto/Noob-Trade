@@ -2262,6 +2262,10 @@ function getSelectedIndicators() {
     .map((indicator) => indicator.name)
 }
 
+function getAllIndicatorNames() {
+  return indicators.value.map((indicator) => indicator.name)
+}
+
 function toggleIndicator(indicatorName) {
   indicators.value = indicators.value.map((indicator) => {
     if (indicator.name === indicatorName) {
@@ -3616,13 +3620,14 @@ async function scanStarredWatchlist() {
 
   isWatchlistScanning.value = true
   watchlistScanResults.value = []
-  watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} together with Generate logic...`
+  const scanIndicators = getAllIndicatorNames()
+  watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} with full-indicator Generate...`
 
   try {
     const scanResults = await runLimitedTasks(symbols, async (symbol) => {
       const data = isCryptoMode.value
-        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false })
-        : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false })
+        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
+        : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
       const probability = getAnalysisUpsideProbability(data)
       const currentPrice = Number(data?.stock?.currentPrice)
 
@@ -3835,12 +3840,12 @@ function openUserGuide() {
   })
 }
 
-function buildAnalysisCacheKey(symbol, analysisMode = 'full', assetType = 'stock') {
+function buildAnalysisCacheKey(symbol, analysisMode = 'full', assetType = 'stock', indicatorNames = getSelectedIndicators()) {
   return [
     assetType,
     String(symbol || '').trim().toUpperCase(),
     selectedChartInterval.value,
-    getSelectedIndicators().join(','),
+    indicatorNames.join(','),
     analysisMode
   ].join('|')
 }
@@ -3850,9 +3855,10 @@ function hasChartSeries(response, interval) {
   return Array.isArray(candles) && candles.length > 0
 }
 
-async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true } = {}) {
+async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock')
+  const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock', analysisIndicators)
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
@@ -3867,7 +3873,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   }
 
   const query = new URLSearchParams({
-    indicators: getSelectedIndicators().join(','),
+    indicators: analysisIndicators.join(','),
     analysis: analysisMode,
   })
   query.set('interval', selectedChartInterval.value)
@@ -3899,9 +3905,10 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   return data
 }
 
-async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true } = {}) {
+async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto')
+  const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto', analysisIndicators)
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
@@ -3916,7 +3923,7 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
   }
 
   const query = new URLSearchParams({
-    indicators: getSelectedIndicators().join(','),
+    indicators: analysisIndicators.join(','),
     analysis: analysisMode
   })
   query.set('interval', selectedChartInterval.value)
@@ -5801,15 +5808,15 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <h1 class="page-title">{{ isCryptoMode ? 'Crypto probability scan center.' : 'Stock probability scan center.' }}</h1>
           <p class="page-subtitle">
             {{ isCryptoMode
-              ? 'Scan saved crypto assets by probability, rank the strongest setups, and open the dedicated crypto trade workspace for deeper review.'
-              : 'Use your saved watchlist as a probability scanner: set a minimum threshold, run Generate logic, and review only the strongest stock setups.' }}
+              ? 'Scan saved crypto assets with the full indicator set, rank the strongest setups, and open Crypto Trade for custom single-symbol review.'
+              : 'Scan saved stocks with the full indicator set, rank the strongest setups, and open Stock Trade for custom single-symbol review.' }}
           </p>
         </div>
 
         <div class="dashboard-chart-panel">
           <div class="dashboard-chart-copy">
             <span class="section-chip">Probability Workflow</span>
-            <span class="dashboard-chart-note">Star symbols, scan probabilities, then open the strongest setup</span>
+            <span class="dashboard-chart-note">Search one symbol in Trade, or scan starred names with full indicators</span>
           </div>
 
           <div class="task-list">
@@ -5819,7 +5826,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </div>
             <div class="task-row">
               <strong>2. Set Probability</strong>
-              <span>Choose the minimum upside probability you want the Generate logic to pass.</span>
+              <span>Choose the minimum upside probability you want the full-indicator scan to pass.</span>
             </div>
             <div class="task-row">
               <strong>3. Review Matches</strong>
@@ -6002,19 +6009,19 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 
         <article class="more-card feature-story-card">
           <p class="eyebrow">Quick Start</p>
-          <h2>The normal workflow</h2>
+          <h2>Search one symbol or scan a saved list</h2>
           <div class="task-list guide-task-list">
             <div class="task-row">
-              <strong>1. Start in Explore</strong>
-              <span>Star the stocks or crypto assets you want NoobTrade to watch. Starred names become the Dashboard scan universe.</span>
+              <strong>1. Single Search</strong>
+              <span>Open Stock Trade or Crypto Trade, enter one symbol, and run Generate when you want a focused review with your current indicator choices.</span>
             </div>
             <div class="task-row">
-              <strong>2. Use Dashboard Scan</strong>
-              <span>Choose a minimum upside probability, then run Scan to evaluate all starred names together.</span>
+              <strong>2. Star Scan</strong>
+              <span>Star names in Explore, then use Dashboard Scan when you want NoobTrade to evaluate every saved stock or crypto asset together.</span>
             </div>
             <div class="task-row">
-              <strong>3. Open the strongest setup</strong>
-              <span>Click a ranked result to open Trade, where you can inspect the chart, indicators, probabilities, and matched historical moments.</span>
+              <strong>3. Indicator Difference</strong>
+              <span>Dashboard Scan uses the full indicator set by default. To customize indicators, open Trade and Generate a single symbol.</span>
             </div>
           </div>
         </article>
@@ -6023,11 +6030,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <p class="eyebrow">Dashboard Scan</p>
           <h2>Scan is batch Generate</h2>
           <p>
-            Dashboard Scan runs the same Generate-style analysis across every starred symbol in your current mode. In stock mode it scans only starred stocks;
-            in crypto mode it scans only starred crypto assets. Results are filtered by your threshold and sorted from stronger upside probability to weaker.
+            Dashboard Scan runs a full-indicator Generate-style analysis across every starred symbol in your current mode. In stock mode it scans only
+            starred stocks; in crypto mode it scans only starred crypto assets. Results are filtered by your threshold and sorted from stronger upside
+            probability to weaker.
           </p>
           <p>
-            This is meant for fast triage. Use it to find which names deserve attention first, then open Trade for the full review.
+            This is meant for fast triage with a consistent default setting. Use it to find which names deserve attention first, then open Trade for a
+            single-symbol review or a custom indicator setup.
           </p>
         </article>
 
@@ -6039,8 +6048,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             then refreshes deeper historical context in the background when available.
           </p>
           <p>
-            The chart, selected indicators, matched setup panel, suggested risk lines, and future probability ladder are there to help users compare context,
-            not to replace their own judgment.
+            Single-symbol Generate respects the indicators selected on the Trade page. Use it when you want to change the indicator mix, inspect one chart
+            more closely, or review matched historical moments before deciding what to study next.
           </p>
         </article>
 
