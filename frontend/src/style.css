@@ -126,7 +126,6 @@ select {
 .app-shell.crypto-mode .watchlist-scan-bar,
 .app-shell.crypto-mode .percent-input-shell,
 .app-shell.crypto-mode .explore-search-field,
-.app-shell.crypto-mode .voice-panel,
 .app-shell.crypto-mode .auth-field input,
 .app-shell.crypto-mode .portfolio-form-grid input,
 .app-shell.crypto-mode .portfolio-form-grid textarea,
@@ -4774,6 +4773,87 @@ select {
 .voice-bubble strong {
   color: var(--text-main);
   font-size: 0.8rem;
+}
+
+.app-shell.crypto-mode .voice-panel {
+  border-color: rgba(255, 255, 255, 0.16);
+  background:
+    radial-gradient(circle at 16% 0%, rgba(34, 197, 94, 0.18), transparent 34%),
+    linear-gradient(160deg, rgba(9, 12, 14, 0.98) 0%, rgba(18, 22, 25, 0.97) 100%);
+  color: #f8fafc;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
+}
+
+.app-shell.crypto-mode .voice-panel-header h2,
+.app-shell.crypto-mode .voice-command-box strong,
+.app-shell.crypto-mode .voice-mode-toggle strong,
+.app-shell.crypto-mode .voice-log-empty strong,
+.app-shell.crypto-mode .voice-bubble strong {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .voice-disclaimer,
+.app-shell.crypto-mode .voice-command-box small,
+.app-shell.crypto-mode .voice-command-box p,
+.app-shell.crypto-mode .voice-confirm-card p,
+.app-shell.crypto-mode .voice-mode-toggle small,
+.app-shell.crypto-mode .voice-footer,
+.app-shell.crypto-mode .voice-log-empty small,
+.app-shell.crypto-mode .voice-bubble span {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.app-shell.crypto-mode .voice-state,
+.app-shell.crypto-mode .voice-minimize-button,
+.app-shell.crypto-mode .voice-command-box,
+.app-shell.crypto-mode .voice-confirm-card,
+.app-shell.crypto-mode .voice-mode-toggle {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  box-shadow: none;
+}
+
+.app-shell.crypto-mode .voice-state.active,
+.app-shell.crypto-mode .voice-mode-toggle.enabled {
+  border-color: rgba(52, 211, 153, 0.36);
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.app-shell.crypto-mode .voice-state.active {
+  color: #86efac;
+}
+
+.app-shell.crypto-mode .voice-text-input input {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .voice-text-input input::placeholder {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.app-shell.crypto-mode .voice-text-input input:focus {
+  border-color: rgba(52, 211, 153, 0.42);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.14);
+}
+
+.app-shell.crypto-mode .voice-text-input .topbar-button.secondary,
+.app-shell.crypto-mode .voice-hints span {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .voice-bubble.user {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .voice-bubble.assistant {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: rgba(16, 185, 129, 0.14);
 }
 
 @keyframes voicePulse {
