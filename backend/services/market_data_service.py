@@ -815,15 +815,19 @@ class MarketDataService:
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False):
         price_limit = max(lookback_window + 10, 45)
-        response = self._build_cached_db_response(
-            symbol=symbol,
-            interval=interval,
-            lookback_window=lookback_window,
-            indicators=indicators,
-            chart_interval=interval,
-            compact_response=True,
-            apply_match_preview=False,
-        )
+        try:
+            response = self._build_cached_db_response(
+                symbol=symbol,
+                interval=interval,
+                lookback_window=lookback_window,
+                indicators=indicators,
+                chart_interval=interval,
+                compact_response=True,
+                apply_match_preview=False,
+            )
+        except Exception:
+            logger.warning("Compact cached stock signal is not available for %s.", symbol, exc_info=True)
+            response = self._build_empty_compact_signal_response(symbol, interval, lookback_window, indicators)
 
         self._overlay_cached_live_compact_price(response, symbol, price_limit)
 
@@ -844,6 +848,48 @@ class MarketDataService:
         else:
             self._strip_compact_analysis_payload(response)
         return response
+
+    def _build_empty_compact_signal_response(self, symbol, interval, lookback_window, indicators):
+        return {
+            "dataSource": "cached",
+            "marketDataProvider": "NoobTrade historical cache",
+            "request": {
+                "symbol": symbol,
+                "interval": interval,
+                "chartInterval": interval,
+                "lookback": lookback_window,
+                "indicators": indicators,
+            },
+            "stock": {
+                "symbol": symbol,
+                "companyName": symbol,
+                "sector": "Market Data",
+                "industry": "Historical signal pending",
+                "currentPrice": None,
+                "previousClose": None,
+                "open": None,
+                "volume": 0,
+                "week52High": None,
+                "week52Low": None,
+            },
+            "patternAnalysis": {
+                "lookbackWindow": lookback_window,
+                "selectedIndicators": indicators,
+                "probabilityOfIncrease": None,
+                "probabilityOfDecrease": None,
+                "avgReturn": None,
+                "maxDrawdown": None,
+                "matchedPatternsCount": 0,
+                "matchedHistoricalPatterns": [],
+                "quantConfidence": None,
+                "signalClassification": "Historical score is not available for this symbol yet.",
+                "futureFiveDayProbabilities": {"up": [], "down": []},
+                "recommendedSellPrice": None,
+                "recommendedSellDate": None,
+                "stopLossPrice": None,
+                "highFitHistoricalPaths": [],
+            },
+        }
 
     def _overlay_cached_live_compact_price(self, response, symbol, price_limit):
         cache_key = f"daily:{symbol}:{price_limit}"
