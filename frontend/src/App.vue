@@ -756,6 +756,7 @@ let voiceSpeechToken = 0
 let voiceLastSpeechSignature = ''
 let voiceLastSpeechAt = 0
 const stockChartRequestPromises = new Map()
+const cryptoWorkspaceLoadPromises = new Map()
 const defaultLiveLoadPromises = {
   stock: null,
   crypto: null
@@ -3829,6 +3830,9 @@ function navigateTo(page) {
     if (normalizedPage === 'Crypto Trade') {
       appMode.value = 'crypto'
       symbolInput.value = cryptoResponse.value.stock.symbol
+      void ensureCryptoWorkspaceReady(symbolInput.value).catch((error) => {
+        console.warn('Default crypto workspace search failed.', error)
+      })
     } else if (normalizedPage === 'Stock Trade') {
       appMode.value = 'stock'
       symbolInput.value = activeSymbol.value
@@ -3867,6 +3871,9 @@ function switchTradingMode() {
     if (activePage.value === 'Stock Trade') {
       activePage.value = 'Crypto Trade'
       symbolInput.value = cryptoResponse.value.stock.symbol
+      void ensureCryptoWorkspaceReady(symbolInput.value).catch((error) => {
+        console.warn('Default crypto workspace search failed.', error)
+      })
     }
     return
   }
@@ -4532,6 +4539,67 @@ function applyAnalysisResponse(data, isCryptoPage) {
   warmStockChartIntervals(data.stock.symbol)
 }
 
+function isCryptoWorkspaceReady(symbol = DEFAULT_CRYPTO_SYMBOL) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true }) || DEFAULT_CRYPTO_SYMBOL
+  const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
+
+  return (
+    currentSymbol === cleanedSymbol
+    && cryptoResponse.value?.dataSource === 'live'
+    && hasChartSeries(cryptoResponse.value, selectedChartInterval.value)
+  )
+}
+
+async function ensureCryptoWorkspaceReady(symbol = DEFAULT_CRYPTO_SYMBOL, { scrollToTop = false } = {}) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true }) || DEFAULT_CRYPTO_SYMBOL
+
+  if (!isAuthenticated.value || activePage.value !== 'Crypto Trade') {
+    return false
+  }
+
+  symbolInput.value = cleanedSymbol
+
+  if (isCryptoWorkspaceReady(cleanedSymbol)) {
+    return true
+  }
+
+  const loadKey = `${cleanedSymbol}|${selectedChartInterval.value}`
+  if (cryptoWorkspaceLoadPromises.has(loadKey)) {
+    await cryptoWorkspaceLoadPromises.get(loadKey)
+    return isCryptoWorkspaceReady(cleanedSymbol)
+  }
+
+  const loadPromise = (async () => {
+    if (cleanedSymbol === DEFAULT_CRYPTO_SYMBOL && defaultLiveLoadPromises.crypto) {
+      await defaultLiveLoadPromises.crypto
+      if (isCryptoWorkspaceReady(cleanedSymbol)) {
+        return true
+      }
+    }
+
+    const data = await fetchCryptoAnalysis(cleanedSymbol, {
+      analysisMode: 'search'
+    })
+
+    if (!isAuthenticated.value || activePage.value !== 'Crypto Trade') {
+      return false
+    }
+
+    applyAnalysisResponse(data, true)
+    if (scrollToTop) {
+      scrollAnalysisWorkspaceToTop()
+    }
+    return true
+  })()
+
+  cryptoWorkspaceLoadPromises.set(loadKey, loadPromise)
+  try {
+    return await loadPromise
+  } finally {
+    cryptoWorkspaceLoadPromises.delete(loadKey)
+  }
+}
+
 async function preloadDefaultLiveWorkspaces() {
   if (!isAuthenticated.value) {
     return
@@ -4721,13 +4789,21 @@ async function runSearch(source = 'search') {
 
   if (isCryptoPage) {
     try {
-      const data = await fetchCryptoAnalysis(cleanedSymbol, {
-        analysisMode: 'search'
-      })
-      applyAnalysisResponse(data, true)
-      scrollAnalysisWorkspaceToTop()
       if (isGenerateAction) {
+        if (isCryptoWorkspaceReady(cleanedSymbol)) {
+          scrollAnalysisWorkspaceToTop()
+        } else {
+          void ensureCryptoWorkspaceReady(cleanedSymbol, { scrollToTop: true }).catch((error) => {
+            console.warn('Default crypto workspace search failed.', error)
+          })
+        }
         void refreshFullGenerateInBackground(cleanedSymbol, true, requestVersion)
+      } else {
+        const data = await fetchCryptoAnalysis(cleanedSymbol, {
+          analysisMode: 'search'
+        })
+        applyAnalysisResponse(data, true)
+        scrollAnalysisWorkspaceToTop()
       }
     } catch (error) {
       if (isGenerateAction) {
