@@ -3249,6 +3249,10 @@ select {
   gap: 12px;
 }
 
+.auth-actions--register {
+  margin-top: 18px;
+}
+
 .public-hero-panel,
 .public-feature-item,
 .dashboard-mini-card,

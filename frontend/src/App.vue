@@ -6349,7 +6349,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               </label>
             </div>
 
-            <div class="auth-actions">
+            <div class="auth-actions auth-actions--register">
               <button class="topbar-button" type="submit">Register</button>
               <button class="topbar-button secondary" type="button" @click="navigateTo('Sign In')">Back to Sign In</button>
             </div>
