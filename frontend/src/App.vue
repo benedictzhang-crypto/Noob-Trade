@@ -1551,9 +1551,9 @@ const dashboardWatchlistRows = computed(() => {
         if (cryptoRow) {
           return {
             symbol: cryptoRow.symbol,
-            price: cryptoRow.price,
-            change: cryptoRow.change,
-            tone: cryptoRow.tone,
+            price: '--',
+            change: '--',
+            tone: 'neutral',
             note: cryptoRow.category
           }
         }
@@ -2384,26 +2384,33 @@ function getDefaultAddedMonth() {
 }
 
 function getTrackedPrice(symbol) {
-  if (symbol === stockResponse.value.stock.symbol) {
-    return Number(stockResponse.value.stock.currentPrice)
+  const cleanedSymbol = String(symbol || '').trim().toUpperCase()
+  const parseDisplayPrice = (value) => {
+    const parsed = Number(String(value || '').replace('$', '').replace(',', ''))
+    return Number.isFinite(parsed) ? parsed : 0
   }
 
-  const cryptoRow = cryptoExploreRows.find((row) => row.symbol === symbol)
-  if (cryptoRow) {
-    return Number(String(cryptoRow.price || '').replace('$', '').replace(',', ''))
+  if (cleanedSymbol === String(stockResponse.value.stock.symbol || '').toUpperCase() && stockResponse.value.dataSource === 'live') {
+    const price = Number(stockResponse.value.stock.currentPrice)
+    return Number.isFinite(price) ? price : 0
   }
 
-  const exploreRow = allExploreRows.value.find((row) => row.symbol === symbol)
-  if (exploreRow) {
-    return Number(String(exploreRow.price || '').replace('$', '').replace(',', ''))
+  if (cleanedSymbol === String(cryptoResponse.value.stock.symbol || '').toUpperCase() && cryptoResponse.value.dataSource === 'live') {
+    const price = Number(cryptoResponse.value.stock.currentPrice)
+    return Number.isFinite(price) ? price : 0
   }
 
-  const starredRow = dashboardWatchlistRows.value.find((row) => row.symbol === symbol)
+  const liveQuote = liveStockQuoteLookup.value[cleanedSymbol]
+  if (liveQuote) {
+    return parseDisplayPrice(liveQuote.price)
+  }
+
+  const starredRow = dashboardWatchlistRows.value.find((row) => row.symbol === cleanedSymbol)
   if (starredRow) {
-    return Number(String(starredRow.price || '').replace('$', '').replace(',', ''))
+    return parseDisplayPrice(starredRow.price)
   }
 
-  return 100
+  return 0
 }
 
 function buildSparklinePoints(values) {
@@ -6925,9 +6932,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>Symbol</span>
               <span>Name</span>
               <span>Category</span>
-              <span>Price</span>
-              <span>Market Value</span>
-              <span>1D</span>
               <span>Star</span>
             </div>
             <div
@@ -6943,9 +6947,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               </button>
               <span>{{ row.name }}</span>
               <span>{{ row.category }}</span>
-              <span>{{ row.price }}</span>
-              <span>{{ row.notional }}</span>
-              <strong :class="row.tone">{{ row.change }}</strong>
               <button
                 type="button"
                 class="star-toggle"

@@ -3703,7 +3703,7 @@ select {
 
 .explore-head,
 .explore-row {
-  grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 64px;
+  grid-template-columns: 0.9fr 1.6fr 1.1fr 64px;
 }
 
 .crypto-explore-head,
@@ -4371,8 +4371,8 @@ select {
 
   .explore-table .explore-head,
   .explore-table .explore-row {
-    grid-template-columns: 0.8fr 1.4fr 1fr 0.9fr 0.9fr 0.8fr 64px;
-    min-width: 760px;
+    grid-template-columns: 0.9fr 1.6fr 1.1fr 64px;
+    min-width: 520px;
     align-items: center;
   }
 
