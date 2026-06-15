@@ -4677,6 +4677,7 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
   } finally {
     if (requestVersion === analysisRequestVersion) {
       isPredictionLoading.value = false
+      isGenerating.value = false
     }
   }
 }
@@ -4714,6 +4715,7 @@ async function runSearch(source = 'search') {
   } else {
     isSearching.value = true
     isPredictionLoading.value = false
+    isGenerating.value = false
   }
   errorMessage.value = ''
 
@@ -4730,13 +4732,12 @@ async function runSearch(source = 'search') {
     } catch (error) {
       if (isGenerateAction) {
         isPredictionLoading.value = false
+        isGenerating.value = false
       }
       errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
       console.error(error)
     } finally {
-      if (isGenerateAction) {
-        isGenerating.value = false
-      } else {
+      if (!isGenerateAction) {
         isSearching.value = false
       }
     }
@@ -4756,13 +4757,12 @@ async function runSearch(source = 'search') {
   } catch (error) {
     if (isGenerateAction) {
       isPredictionLoading.value = false
+      isGenerating.value = false
     }
     errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
     console.error(error)
   } finally {
-    if (isGenerateAction) {
-      isGenerating.value = false
-    } else {
+    if (!isGenerateAction) {
       isSearching.value = false
     }
   }
