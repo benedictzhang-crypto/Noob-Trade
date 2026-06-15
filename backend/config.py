@@ -201,6 +201,17 @@ class Config:
         os.getenv("STOCK_ANALYSIS_CACHE_WARM_SYMBOLS"),
         ["AAPL", "NVDA", "TSLA", "SPY", "MSFT", "AMZN"],
     )
+    PERIODIC_CACHE_WARM_ENABLED = os.getenv("PERIODIC_CACHE_WARM_ENABLED", "true").lower() == "true"
+    PERIODIC_CACHE_WARM_INITIAL_DELAY_SECONDS = int(os.getenv("PERIODIC_CACHE_WARM_INITIAL_DELAY_SECONDS", "60"))
+    PERIODIC_CACHE_WARM_INTERVAL_SECONDS = int(os.getenv("PERIODIC_CACHE_WARM_INTERVAL_SECONDS", "240"))
+    PERIODIC_CACHE_WARM_STOCK_SYMBOLS = _parse_symbol_list(
+        os.getenv("PERIODIC_CACHE_WARM_STOCK_SYMBOLS"),
+        ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN"],
+    )
+    PERIODIC_CACHE_WARM_CRYPTO_SYMBOLS = _parse_symbol_list(
+        os.getenv("PERIODIC_CACHE_WARM_CRYPTO_SYMBOLS"),
+        ["BTC", "ETH", "SOL", "OKB"],
+    )
     ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
     YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
     OKX_DATA_BASE_URL = os.getenv("OKX_DATA_BASE_URL", "https://www.okx.com")
