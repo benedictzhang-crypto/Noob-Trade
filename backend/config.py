@@ -194,6 +194,12 @@ class Config:
     MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_INTRADAY_CACHE_TTL_SECONDS", "60"))
     MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS = int(os.getenv("MARKET_DATA_OVERVIEW_CACHE_TTL_SECONDS", "900"))
     ANALYSIS_RESPONSE_CACHE_TTL_SECONDS = int(os.getenv("ANALYSIS_RESPONSE_CACHE_TTL_SECONDS", "300"))
+    MATCH_PREVIEW_CACHE_TTL_SECONDS = int(os.getenv("MATCH_PREVIEW_CACHE_TTL_SECONDS", "900"))
+    STOCK_ANALYSIS_CACHE_WARM_ON_START = os.getenv("STOCK_ANALYSIS_CACHE_WARM_ON_START", "true").lower() == "true"
+    STOCK_ANALYSIS_CACHE_WARM_SYMBOLS = _parse_symbol_list(
+        os.getenv("STOCK_ANALYSIS_CACHE_WARM_SYMBOLS"),
+        ["AAPL", "NVDA", "TSLA", "SPY", "MSFT", "AMZN"],
+    )
     ALPACA_DATA_BASE_URL = os.getenv("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
     YAHOO_DATA_BASE_URL = os.getenv("YAHOO_DATA_BASE_URL", "https://query1.finance.yahoo.com")
     OKX_DATA_BASE_URL = os.getenv("OKX_DATA_BASE_URL", "https://www.okx.com")

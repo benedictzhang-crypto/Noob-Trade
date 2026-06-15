@@ -1,5 +1,8 @@
+from copy import deepcopy
 from datetime import date, datetime
 from statistics import mean, pstdev
+import threading
+import time
 from types import SimpleNamespace
 
 from sqlalchemy import literal
@@ -25,6 +28,10 @@ class PersistenceService:
     MATCH_TARGET = 20
     MATCH_CANDIDATE_POOL_SIZE = 4000
     MATCH_SCORING_SYMBOLS = tuple(Config.MATCH_SCORING_SYMBOLS)
+    MATCH_PREVIEW_CACHE = {}
+    MATCH_PREVIEW_CACHE_LOCK = threading.RLock()
+    MATCH_PREVIEW_CACHE_MAX_ENTRIES = 512
+    MATCH_PREVIEW_CACHE_TTL_SECONDS = Config.MATCH_PREVIEW_CACHE_TTL_SECONDS
     HIGH_FIT_THRESHOLD = 70.0
     SUPPORTED_TIMEFRAMES = ("daily", "5day", "weekly", "2week", "monthly")
 
@@ -386,6 +393,13 @@ class PersistenceService:
         if current_window is None:
             return []
 
+        preview_cache_key = None
+        if not persist_matches:
+            preview_cache_key = self._match_preview_cache_key(current_window, selected_indicators)
+            cached_preview = self._get_cached_match_preview(preview_cache_key)
+            if cached_preview is not None:
+                return self._hydrate_cached_match_preview(cached_preview, include_historical_candles)
+
         candidate_window_ids = self._candidate_window_ids(current_window, selected_indicators)
 
         if not candidate_window_ids:
@@ -415,6 +429,7 @@ class PersistenceService:
     
         ranked_matches.sort(key=lambda item: item[1]["selected_score_percent"], reverse=True)
         top_matches = self._select_match_bundles(ranked_matches)
+        matched_window_ids = [matched_window.id for matched_window, _ in top_matches]
         matched_symbol_ids = [matched_window.symbol_id for matched_window, _ in top_matches]
         symbol_lookup = {
             symbol.id: symbol.symbol
@@ -467,8 +482,97 @@ class PersistenceService:
                     "historicalCandles": historical_candles,
                 }
             )
-    
+
+        if preview_cache_key:
+            self._store_match_preview_cache(preview_cache_key, matched_window_ids, response_matches)
+
         return response_matches
+
+    def _match_preview_cache_key(self, current_window, selected_indicators):
+        feature_vector = getattr(current_window, "feature_vector", {}) or {}
+        normalized_indicators = tuple(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
+
+        def normalize_number(value):
+            parsed = self._to_float(value)
+            if parsed is None:
+                return None
+            return round(parsed, 6)
+
+        feature_items = tuple(
+            sorted(
+                (str(key), normalize_number(value))
+                for key, value in feature_vector.items()
+                if normalize_number(value) is not None
+            )
+        )
+        end_date = getattr(current_window, "end_date", None)
+        if hasattr(end_date, "isoformat"):
+            end_date = end_date.isoformat()
+
+        return repr(
+            (
+                getattr(current_window, "timeframe", None),
+                getattr(current_window, "window_size", None),
+                end_date,
+                normalize_number(getattr(current_window, "return_pct", None)),
+                normalized_indicators,
+                feature_items,
+            )
+        )
+
+    def _get_cached_match_preview(self, cache_key):
+        if not cache_key:
+            return None
+
+        with self.MATCH_PREVIEW_CACHE_LOCK:
+            cached = self.MATCH_PREVIEW_CACHE.get(cache_key)
+            if cached and cached.get("expires_at", 0) > time.time():
+                return deepcopy(cached)
+            if cached:
+                self.MATCH_PREVIEW_CACHE.pop(cache_key, None)
+        return None
+
+    def _store_match_preview_cache(self, cache_key, window_ids, matches):
+        if not cache_key:
+            return
+
+        with self.MATCH_PREVIEW_CACHE_LOCK:
+            if len(self.MATCH_PREVIEW_CACHE) >= self.MATCH_PREVIEW_CACHE_MAX_ENTRIES:
+                oldest_key = min(
+                    self.MATCH_PREVIEW_CACHE,
+                    key=lambda key: self.MATCH_PREVIEW_CACHE[key].get("stored_at", 0),
+                )
+                self.MATCH_PREVIEW_CACHE.pop(oldest_key, None)
+
+            now = time.time()
+            self.MATCH_PREVIEW_CACHE[cache_key] = {
+                "stored_at": now,
+                "expires_at": now + self.MATCH_PREVIEW_CACHE_TTL_SECONDS,
+                "window_ids": list(window_ids or []),
+                "matches": deepcopy(matches or []),
+            }
+
+    def _hydrate_cached_match_preview(self, cached_preview, include_historical_candles):
+        matches = deepcopy(cached_preview.get("matches") or [])
+        if not include_historical_candles:
+            for match in matches:
+                match["historicalCandles"] = []
+            return matches
+
+        needs_candles = any(not match.get("historicalCandles") for match in matches)
+        window_ids = cached_preview.get("window_ids") or []
+        if not needs_candles or not window_ids:
+            return matches
+
+        window_records = PatternWindow.query.filter(PatternWindow.id.in_(window_ids)).all()
+        window_lookup = {window.id: window for window in window_records}
+        ordered_windows = [window_lookup[window_id] for window_id in window_ids if window_id in window_lookup]
+        candle_lookup = self._build_match_candles_map(ordered_windows)
+
+        for match, window_id in zip(matches, window_ids):
+            match["historicalCandles"] = candle_lookup.get(window_id, [])
+
+        return matches
 
     def _build_match_candles_map(self, window_records):
         if not window_records:

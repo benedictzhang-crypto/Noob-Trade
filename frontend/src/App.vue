@@ -759,6 +759,8 @@ const defaultLiveLoadPromises = {
   stock: null,
   crypto: null
 }
+const dashboardGenerateWarmKeys = new Set()
+let dashboardGenerateWarmTimer = null
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -4206,7 +4208,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
     analysis: analysisMode,
   })
   query.set('interval', STOCK_GENERATE_INTERVAL)
-  query.set('chartInterval', selectedChartInterval.value)
+  query.set('chartInterval', compact ? STOCK_GENERATE_INTERVAL : selectedChartInterval.value)
   if (compact) {
     query.set('compact', '1')
   }
@@ -4571,6 +4573,69 @@ async function preloadDefaultLiveWorkspaces() {
     defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
+  scheduleDashboardGenerateWarmup()
+}
+
+function scheduleDashboardGenerateWarmup(delayMs = 900) {
+  if (!isAuthenticated.value) {
+    return
+  }
+
+  if (dashboardGenerateWarmTimer) {
+    window.clearTimeout(dashboardGenerateWarmTimer)
+  }
+
+  dashboardGenerateWarmTimer = window.setTimeout(() => {
+    dashboardGenerateWarmTimer = null
+    void warmDashboardGenerateCaches()
+  }, delayMs)
+}
+
+async function warmDashboardGenerateCaches() {
+  if (!isAuthenticated.value) {
+    return
+  }
+
+  const scanIndicators = getAllIndicatorNames()
+  const warmItems = [
+    ...starredSymbols.value.map((symbol) => ({ assetType: 'stock', symbol })),
+    ...cryptoStarredSymbols.value.map((symbol) => ({ assetType: 'crypto', symbol })),
+  ]
+    .map((item) => ({
+      ...item,
+      symbol: String(item.symbol || '').trim().toUpperCase(),
+    }))
+    .filter((item) => item.symbol)
+
+  await runLimitedTasks(warmItems, async ({ assetType, symbol }) => {
+    const warmKey = `${assetType}|${symbol}|${scanIndicators.join(',')}`
+    if (dashboardGenerateWarmKeys.has(warmKey)) {
+      return
+    }
+
+    dashboardGenerateWarmKeys.add(warmKey)
+    try {
+      if (assetType === 'crypto') {
+        await fetchCryptoAnalysis(symbol, {
+          analysisMode: 'full',
+          compact: true,
+          cacheResult: false,
+          indicatorNames: scanIndicators,
+        })
+        return
+      }
+
+      await fetchStockAnalysis(symbol, {
+        analysisMode: 'full',
+        compact: true,
+        cacheResult: false,
+        indicatorNames: scanIndicators,
+      })
+    } catch (error) {
+      dashboardGenerateWarmKeys.delete(warmKey)
+      console.warn(`Could not warm ${assetType} Generate cache for ${symbol}.`, error)
+    }
+  }, 2)
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
@@ -4937,6 +5002,23 @@ watch(
     refreshStockWatchlistQuotes(activeStarredSymbols.value).catch((error) => {
       console.warn('Could not refresh dashboard stock quotes.', error)
     })
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [isAuthenticated.value, starredSymbols.value.join('|'), cryptoStarredSymbols.value.join('|')],
+  ([authenticated]) => {
+    if (!authenticated) {
+      dashboardGenerateWarmKeys.clear()
+      if (dashboardGenerateWarmTimer) {
+        window.clearTimeout(dashboardGenerateWarmTimer)
+        dashboardGenerateWarmTimer = null
+      }
+      return
+    }
+
+    scheduleDashboardGenerateWarmup(1200)
   },
   { immediate: true }
 )

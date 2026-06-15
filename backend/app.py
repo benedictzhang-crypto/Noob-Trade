@@ -441,6 +441,7 @@ def _start_background_database_init(app):
             app.config["_DB_INIT_READY"] = True
             app.config["_DB_INIT_ERROR"] = None
             _warm_crypto_pattern_store(app)
+            _warm_stock_analysis_cache(app)
         except Exception as error:
             app.logger.exception("Background database initialization failed.")
             app.config["_DB_INIT_READY"] = False
@@ -462,6 +463,48 @@ def _warm_crypto_pattern_store(app):
         app.logger.info("Crypto pattern store warmup complete: %s", result)
     except Exception:
         app.logger.exception("Crypto pattern store warmup failed; continuing with lazy loading.")
+
+
+def _warm_stock_analysis_cache(app):
+    if not app.config.get("STOCK_ANALYSIS_CACHE_WARM_ON_START", True):
+        return
+
+    symbols = app.config.get("STOCK_ANALYSIS_CACHE_WARM_SYMBOLS") or []
+    if not symbols:
+        return
+
+    def _runner():
+        with app.app_context():
+            try:
+                from services.market_data_service import MarketDataService
+
+                market_data_service = MarketDataService(app.config)
+                indicators = app.config.get("DEFAULT_INDICATORS") or []
+                raw_indicators = ",".join(indicators)
+                warmed_symbols = []
+
+                for symbol in symbols:
+                    try:
+                        started_at = time.time()
+                        market_data_service.get_stock_pattern_analysis(
+                            symbol=symbol,
+                            interval=app.config.get("DEFAULT_INTERVAL", "daily"),
+                            chart_interval=app.config.get("DEFAULT_INTERVAL", "daily"),
+                            lookback_window=app.config.get("DEFAULT_LOOKBACK", 30),
+                            raw_indicators=raw_indicators,
+                            default_indicators=indicators,
+                            compact_response=True,
+                            analysis_mode="full",
+                        )
+                        warmed_symbols.append(f"{symbol}:{time.time() - started_at:.1f}s")
+                    except Exception:
+                        app.logger.warning("Stock analysis cache warmup failed for %s.", symbol, exc_info=True)
+
+                app.logger.info("Stock analysis cache warmup complete: %s", warmed_symbols)
+            except Exception:
+                app.logger.exception("Stock analysis cache warmup failed; continuing with lazy loading.")
+
+    threading.Thread(target=_runner, daemon=True).start()
 
 
 def create_app():
