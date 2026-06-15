@@ -809,7 +809,10 @@ class MarketDataService:
             }
 
         if apply_match_preview:
-            return self.persistence_service.apply_cached_match_preview(response)
+            return self.persistence_service.apply_cached_match_preview(
+                response,
+                include_historical_candles=not compact_response,
+            )
 
         return response
 
@@ -839,14 +842,11 @@ class MarketDataService:
         if current_window is None:
             raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
 
-        cached_signal = self.get_cached_pro_signal(
-            symbol=symbol,
-            interval=interval,
-            lookback_window=lookback_window,
-            current_price=current_price,
-            indicators=indicators,
+        analysis = self._empty_live_match_summary(
+            interval,
+            daily_candles[-1]["date"] if daily_candles else None,
+            current_price,
         )
-        analysis = cached_signal.get("patternAnalysis", {})
 
         response = {
             "dataSource": "live",
@@ -896,7 +896,10 @@ class MarketDataService:
         }
 
         try:
-            response = self.persistence_service.apply_cached_match_preview(response)
+            response = self.persistence_service.apply_cached_match_preview(
+                response,
+                include_historical_candles=False,
+            )
         except Exception:
             logger.warning(
                 "Production compact cached match preview failed for %s; returning compact signal.",

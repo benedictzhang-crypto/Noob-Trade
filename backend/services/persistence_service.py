@@ -109,7 +109,7 @@ class PersistenceService:
             db.session.rollback()
             raise
 
-    def apply_cached_match_preview(self, response_data):
+    def apply_cached_match_preview(self, response_data, include_historical_candles=True):
         """Apply indicator-aware historical matches without persisting a new analysis run."""
         current_window = self._hydrate_current_window(response_data.get("_currentWindow"))
 
@@ -121,6 +121,7 @@ class PersistenceService:
             current_window=current_window,
             selected_indicators=response_data.get("request", {}).get("indicators", []),
             persist_matches=False,
+            include_historical_candles=include_historical_candles,
         )
 
         if matched_patterns:
@@ -381,7 +382,7 @@ class PersistenceService:
             window_size=lookback_window,
         ).order_by(PatternWindow.end_date.desc()).first()
     
-    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True):
+    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True, include_historical_candles=True):
         if current_window is None:
             return []
 
@@ -419,9 +420,11 @@ class PersistenceService:
             symbol.id: symbol.symbol
             for symbol in Symbol.query.filter(Symbol.id.in_(matched_symbol_ids)).all()
         } if matched_symbol_ids else {}
-        historical_candle_lookup = self._build_match_candles_map(
-            [matched_window for matched_window, _ in top_matches]
-        )
+        historical_candle_lookup = {}
+        if include_historical_candles:
+            historical_candle_lookup = self._build_match_candles_map(
+                [matched_window for matched_window, _ in top_matches]
+            )
     
         response_matches = []
     
