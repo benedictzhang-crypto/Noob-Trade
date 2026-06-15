@@ -561,69 +561,69 @@ class PersistenceService:
             if cached is not None:
                 return cached
 
-        query = db.session.query(
-            PatternWindow.id,
-            PatternWindow.symbol_id,
-            PatternWindow.timeframe,
-            PatternWindow.window_size,
-            PatternWindow.start_date,
-            PatternWindow.end_date,
-            PatternWindow.return_pct,
-            PatternWindow.avg_return,
-            PatternWindow.max_drawdown,
-            PatternWindow.volatility,
-            PatternWindow.probability_score,
-            PatternWindow.ma_slope,
-            PatternWindow.ema_slope,
-            PatternWindow.macd_trend,
-            PatternWindow.rsi_avg,
-            PatternWindow.rsi_min,
-            PatternWindow.rsi_max,
-            PatternWindow.volume_change_ratio,
-            PatternWindow.feature_vector,
-        ).filter(
-            PatternWindow.timeframe == timeframe,
-            PatternWindow.window_size == int(window_size),
-        )
-
-        if self.MATCH_SCORING_SYMBOLS:
-            query = query.join(
-                Symbol,
-                Symbol.id == PatternWindow.symbol_id,
-            ).filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
-
-        rows = query.order_by(
-            PatternWindow.end_date.desc(),
-            PatternWindow.id.desc(),
-        ).all()
-
-        snapshot = [
-            SimpleNamespace(
-                id=row.id,
-                symbol_id=row.symbol_id,
-                timeframe=row.timeframe,
-                window_size=row.window_size,
-                start_date=row.start_date,
-                end_date=row.end_date,
-                return_pct=row.return_pct,
-                avg_return=row.avg_return,
-                max_drawdown=row.max_drawdown,
-                volatility=row.volatility,
-                probability_score=row.probability_score,
-                ma_slope=row.ma_slope,
-                ema_slope=row.ema_slope,
-                macd_trend=row.macd_trend,
-                rsi_avg=row.rsi_avg,
-                rsi_min=row.rsi_min,
-                rsi_max=row.rsi_max,
-                volume_change_ratio=row.volume_change_ratio,
-                feature_vector=row.feature_vector or {},
+            query = db.session.query(
+                PatternWindow.id,
+                PatternWindow.symbol_id,
+                PatternWindow.timeframe,
+                PatternWindow.window_size,
+                PatternWindow.start_date,
+                PatternWindow.end_date,
+                PatternWindow.return_pct,
+                PatternWindow.avg_return,
+                PatternWindow.max_drawdown,
+                PatternWindow.volatility,
+                PatternWindow.probability_score,
+                PatternWindow.ma_slope,
+                PatternWindow.ema_slope,
+                PatternWindow.macd_trend,
+                PatternWindow.rsi_avg,
+                PatternWindow.rsi_min,
+                PatternWindow.rsi_max,
+                PatternWindow.volume_change_ratio,
+                PatternWindow.feature_vector,
+            ).filter(
+                PatternWindow.timeframe == timeframe,
+                PatternWindow.window_size == int(window_size),
             )
-            for row in rows
-        ]
 
-        with self.MATCH_CANDIDATE_SNAPSHOT_LOCK:
-            return self.MATCH_CANDIDATE_SNAPSHOT.setdefault(cache_key, snapshot)
+            if self.MATCH_SCORING_SYMBOLS:
+                query = query.join(
+                    Symbol,
+                    Symbol.id == PatternWindow.symbol_id,
+                ).filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
+
+            rows = query.order_by(
+                PatternWindow.end_date.desc(),
+                PatternWindow.id.desc(),
+            ).all()
+
+            snapshot = [
+                SimpleNamespace(
+                    id=row.id,
+                    symbol_id=row.symbol_id,
+                    timeframe=row.timeframe,
+                    window_size=row.window_size,
+                    start_date=row.start_date,
+                    end_date=row.end_date,
+                    return_pct=row.return_pct,
+                    avg_return=row.avg_return,
+                    max_drawdown=row.max_drawdown,
+                    volatility=row.volatility,
+                    probability_score=row.probability_score,
+                    ma_slope=row.ma_slope,
+                    ema_slope=row.ema_slope,
+                    macd_trend=row.macd_trend,
+                    rsi_avg=row.rsi_avg,
+                    rsi_min=row.rsi_min,
+                    rsi_max=row.rsi_max,
+                    volume_change_ratio=row.volume_change_ratio,
+                    feature_vector=row.feature_vector or {},
+                )
+                for row in rows
+            ]
+
+            self.MATCH_CANDIDATE_SNAPSHOT[cache_key] = snapshot
+            return snapshot
 
     def _candidate_distance_value(self, current_window, candidate_window, selected_indicators):
         selected = set(self.quant_scoring_service.normalize_indicator_names(selected_indicators))

@@ -12,7 +12,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
-const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
@@ -690,8 +689,8 @@ const activePage = ref('Home')
 const appMode = ref('stock')
 const uiLanguage = ref('en')
 const isAuthenticated = ref(false)
-const symbolInput = ref(DEFAULT_STOCK_SYMBOL)
-const activeSymbol = ref(DEFAULT_STOCK_SYMBOL)
+const symbolInput = ref('')
+const activeSymbol = ref('')
 const selectedChartInterval = ref('daily')
 const currentExploreTab = ref('Watchlist')
 const exploreViewMode = ref('ranked')
@@ -793,7 +792,7 @@ const activeTradeResponse = computed(() => (
     : stockResponse.value
 ))
 const activeMarketSymbol = computed(() => (isCryptoMode.value ? cryptoResponse.value?.stock?.symbol || 'BTC' : activeSymbol.value))
-const displayedTradeSymbol = computed(() => activeTradeResponse.value?.stock?.symbol || activeSymbol.value)
+const displayedTradeSymbol = computed(() => activeTradeResponse.value?.stock?.symbol || activeSymbol.value || 'Search')
 const tradeSearchPlaceholder = computed(() => (
   activePage.value === 'Crypto Trade' ? 'Enter Crypto Ticker (e.g. BTC)' : 'Enter Ticker (e.g. AAPL)'
 ))
@@ -1614,6 +1613,14 @@ const isStandaloneMode = computed(() => {
 })
 const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferredInstallPrompt.value) || isAppleMobile.value))
 const dataSourceMeta = computed(() => {
+  if (activeTradeResponse.value.dataSource === 'idle') {
+    return {
+      label: 'Market Data',
+      description: 'Search a symbol to load market data',
+      tone: 'live'
+    }
+  }
+
   if (activeTradeResponse.value.dataSource === 'crypto-mock') {
     return {
       label: 'Market Data',
@@ -1981,115 +1988,44 @@ async function loadMarketNews() {
 
 function createDefaultResponse() {
   return {
-    dataSource: 'mock',
+    dataSource: 'idle',
     request: {
-      symbol: 'AAPL',
+      symbol: '',
       interval: 'daily',
-      indicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol']
+      indicators: []
     },
     stock: {
-      symbol: 'AAPL',
-      companyName: 'Apple Inc.',
-      sector: 'Technology',
-      industry: 'Consumer Electronics',
-      currentPrice: 184.25,
-      previousClose: 181.9,
-      open: 182.4,
-      volume: 3245600,
-      week52High: 205.8,
-      week52Low: 121.35
+      symbol: '',
+      companyName: 'Search a stock',
+      sector: 'Market Data',
+      industry: 'Search first',
+      currentPrice: null,
+      previousClose: null,
+      open: null,
+      volume: 0,
+      week52High: null,
+      week52Low: null
     },
     patternAnalysis: {
-      selectedIndicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol'],
-      probabilityOfIncrease: 90,
-      probabilityOfDecrease: 55,
-      avgReturn: 6.8,
-      maxDrawdown: -4.9,
-      matchedPatternsCount: 20,
-      signalClassification: 'Bullish Bias',
+      selectedIndicators: [],
+      probabilityOfIncrease: null,
+      probabilityOfDecrease: null,
+      avgReturn: null,
+      maxDrawdown: null,
+      matchedPatternsCount: 0,
+      signalClassification: 'Search first',
       futureFiveDayProbabilities: {
-        up: [
-          { threshold: 1, probability: 90 },
-          { threshold: 5, probability: 80 },
-          { threshold: 10, probability: 30 }
-        ],
-        down: [
-          { threshold: 1, probability: 55 },
-          { threshold: 5, probability: 20 },
-          { threshold: 10, probability: 5 }
-        ]
+        up: [],
+        down: []
       },
-      recommendedSellPrice: 198.4,
-      recommendedSellDate: 'Within 5 trading days',
-      stopLossPrice: 178.8,
-      matchedHistoricalPatterns: [
-        {
-          patternName: 'Historical setup #1',
-          matchScore: 91,
-          date: '2026-03-10',
-          symbol: 'AAPL',
-          timeframe: 'daily',
-          returnPct: 8.42,
-          maxDrawdown: -3.8
-        },
-        {
-          patternName: 'Historical setup #2',
-          matchScore: 87,
-          date: '2026-02-24',
-          symbol: 'NVDA',
-          timeframe: 'daily',
-          returnPct: 6.21,
-          maxDrawdown: -4.2
-        },
-        {
-          patternName: 'Historical setup #3',
-          matchScore: 82,
-          date: '2026-01-15',
-          symbol: 'TSLA',
-          timeframe: 'daily',
-          returnPct: 5.14,
-          maxDrawdown: -5.6
-        }
-      ],
-      highFitHistoricalPaths: [
-        { label: 'AAPL continuation path', fitScore: 91, status: 'AAPL ended on 2026-03-10' },
-        { label: 'NVDA momentum path', fitScore: 87, status: 'NVDA ended on 2026-02-24' },
-        { label: 'TSLA rebound path', fitScore: 82, status: 'TSLA ended on 2026-01-15' }
-      ]
+      recommendedSellPrice: null,
+      recommendedSellDate: null,
+      stopLossPrice: null,
+      matchedHistoricalPatterns: [],
+      highFitHistoricalPaths: []
     },
     chartData: {
-      series: {
-        daily: [
-          { date: '2026-03-10', open: 186.8, high: 188.5, low: 185.4, close: 187.9, volume: 1270000 },
-          { date: '2026-03-11', open: 187.9, high: 189.1, low: 186.0, close: 186.7, volume: 1120000 },
-          { date: '2026-03-12', open: 186.7, high: 187.8, low: 184.5, close: 185.1, volume: 1200000 },
-          { date: '2026-03-13', open: 185.1, high: 186.3, low: 183.2, close: 184.0, volume: 1090000 },
-          { date: '2026-03-16', open: 184.0, high: 185.8, low: 182.9, close: 184.9, volume: 980000 },
-          { date: '2026-03-17', open: 184.9, high: 186.8, low: 184.0, close: 186.0, volume: 1030000 },
-          { date: '2026-03-18', open: 186.0, high: 187.3, low: 184.9, close: 185.3, volume: 970000 },
-          { date: '2026-03-19', open: 185.3, high: 186.6, low: 183.8, close: 184.25, volume: 1010000 }
-        ],
-        '5day': [
-          { date: '2026-02-28', open: 175.8, high: 186.4, low: 172.4, close: 182.6, volume: 23200000 },
-          { date: '2026-03-19', open: 182.6, high: 189.1, low: 182.2, close: 184.25, volume: 16500000 }
-        ],
-        weekly: [
-          { date: '2026-W09', open: 175.8, high: 186.4, low: 172.4, close: 182.6, volume: 23200000 },
-          { date: '2026-W11', open: 182.6, high: 189.1, low: 182.2, close: 184.25, volume: 16500000 }
-        ],
-        '2week': [
-          { date: '2026-H1', open: 175.8, high: 186.4, low: 172.4, close: 182.6, volume: 23200000 },
-          { date: '2026-H2', open: 182.6, high: 189.1, low: 182.2, close: 184.25, volume: 16500000 }
-        ],
-        monthly: [
-          { date: '2025-10', open: 154.2, high: 162.5, low: 149.8, close: 160.6, volume: 19200000 },
-          { date: '2025-11', open: 160.6, high: 168.0, low: 158.2, close: 166.9, volume: 20100000 },
-          { date: '2025-12', open: 166.9, high: 172.8, low: 163.9, close: 171.5, volume: 21400000 },
-          { date: '2026-01', open: 171.5, high: 177.6, low: 169.7, close: 175.8, volume: 20600000 },
-          { date: '2026-02', open: 175.8, high: 186.4, low: 172.4, close: 182.6, volume: 23200000 },
-          { date: '2026-03', open: 182.6, high: 189.1, low: 182.2, close: 184.25, volume: 16500000 }
-        ]
-      }
+      series: {}
     }
   }
 }
@@ -4636,29 +4572,6 @@ async function preloadDefaultLiveWorkspaces() {
     return
   }
 
-  // Warm default workspaces after auth so Trade opens with live data, not demo placeholders.
-  if (!defaultLiveLoadPromises.stock) {
-    defaultLiveLoadPromises.stock = fetchStockAnalysis(DEFAULT_STOCK_SYMBOL, {
-      analysisMode: 'search'
-    })
-      .then((data) => {
-        if (!isAuthenticated.value || String(stockResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_STOCK_SYMBOL) {
-          return
-        }
-
-        mergeActiveStockResponse(data)
-        activeSymbol.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
-        if (activePage.value === 'Stock Trade') {
-          symbolInput.value = data.stock.symbol || DEFAULT_STOCK_SYMBOL
-        }
-        warmStockChartIntervals(data.stock.symbol || DEFAULT_STOCK_SYMBOL)
-      })
-      .catch((error) => {
-        console.warn('Default stock workspace preload failed.', error)
-        defaultLiveLoadPromises.stock = null
-      })
-  }
-
   if (!defaultLiveLoadPromises.crypto) {
     defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
       analysisMode: 'search'
@@ -4680,7 +4593,6 @@ async function preloadDefaultLiveWorkspaces() {
   }
 
   await Promise.allSettled([
-    defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
   scheduleDashboardGenerateWarmup()
@@ -6356,6 +6268,9 @@ function signOut() {
   csrfToken.value = ''
   defaultLiveLoadPromises.stock = null
   defaultLiveLoadPromises.crypto = null
+  symbolInput.value = ''
+  activeSymbol.value = ''
+  stockResponse.value = createDefaultResponse()
   clearStockMatchDetailReveal()
   clearAdminUsersCache()
   signInForm.value = {
