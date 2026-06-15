@@ -155,6 +155,13 @@ class MarketDataService:
     PRODUCTION_MATCH_STEP = 3
     PRODUCTION_MATCH_TARGET = 6
     CHART_ONLY_PRICE_LIMIT = 1600
+    CHART_ONLY_DAILY_LIMITS = {
+        "daily": 420,
+        "5day": 700,
+        "weekly": 900,
+        "2week": 900,
+        "monthly": 1600,
+    }
     PRO_SIGNAL_DEEP_CANDIDATE_LIMIT = 2000
     SYMBOL_ALIASES = {
         "APL": "AAPL",
@@ -467,10 +474,7 @@ class MarketDataService:
             except Exception:
                 logger.warning("Could not build chart-only %s candles for %s.", chart_interval, symbol_code, exc_info=True)
 
-        price_limit = max(
-            self.CHART_ONLY_PRICE_LIMIT,
-            VISIBLE_INTERVAL_BARS.get(chart_interval, VISIBLE_INTERVAL_BARS["daily"]),
-        )
+        price_limit = self.CHART_ONLY_DAILY_LIMITS.get(chart_interval, 700)
         prices_payload = self._get_cached_market_payload(
             f"daily:{symbol_code}:{price_limit}",
             self.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
@@ -488,6 +492,8 @@ class MarketDataService:
         high_values = [self._to_float(item.get("high", item.get("close"))) for item in daily_candles]
         low_values = [self._to_float(item.get("low", item.get("close"))) for item in daily_candles]
         volume_values = [self._to_int(item.get("volume", 0)) for item in daily_candles]
+        interval_series = self._build_interval_series(daily_candles, prices, chart_interval, symbol_code)
+        selected_series = interval_series.get(chart_interval) or interval_series.get("daily") or []
 
         return {
             "dataSource": "live",
@@ -509,7 +515,9 @@ class MarketDataService:
                 "week52Low": round(min(low_values[-252:] or low_values), 2),
             },
             "chartData": {
-                "series": self._build_interval_series(daily_candles, prices, chart_interval, symbol_code),
+                "series": {
+                    chart_interval: selected_series,
+                },
             },
         }
 
