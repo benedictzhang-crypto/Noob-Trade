@@ -3308,6 +3308,27 @@ select {
   gap: 12px;
 }
 
+.public-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 220px);
+  align-items: stretch;
+}
+
+.public-hero-actions .topbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  min-height: 50px;
+  padding: 13px 20px;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
 .auth-actions--register {
   margin-top: 28px;
 }
@@ -4143,6 +4164,10 @@ select {
   .dashboard-hero-meta {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .public-hero-actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .dashboard-watchlist-head,

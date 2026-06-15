@@ -6258,7 +6258,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <div class="public-hero-copy">
           <p class="eyebrow">Public Home</p>
           <h1 class="page-title">Learn the tape before you risk real money.</h1>
-          <div class="hero-actions">
+          <div class="hero-actions public-hero-actions">
             <button class="topbar-button" @click="navigateTo('Register')">Register</button>
             <button class="topbar-button secondary" @click="navigateTo('Sign In')">I already have access</button>
           </div>
