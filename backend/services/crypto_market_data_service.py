@@ -68,34 +68,77 @@ class CryptoMarketDataService(MarketDataService):
         normalized_interval = self._normalize_strategy_interval(interval)
         if self._uses_daily_generate_strategy(normalized_interval):
             raw_indicators = ",".join(self.DAILY_GENERATE_STRATEGY["indicators"])
-            pattern_store = CryptoPatternStoreService(self.config)
-            if pattern_store.is_available():
-                try:
-                    response = pattern_store.get_crypto_pattern_analysis(
-                        symbol=symbol,
-                        interval=normalized_interval,
-                        lookback_window=lookback_window,
-                        compact_response=compact_response,
-                        analysis_mode=analysis_mode,
-                    )
-                    self._apply_daily_generate_strategy(response)
-                    return response
-                except ValueError as error:
-                    if not self._should_fallback_from_pattern_store(error):
-                        raise
-                    logger.info("Crypto pattern store skipped for %s: %s", symbol, error)
+            response = self._get_daily_pattern_store_response(
+                symbol=symbol,
+                requested_interval=normalized_interval,
+                lookback_window=lookback_window,
+                compact_response=compact_response,
+                analysis_mode=analysis_mode,
+            )
+            if response is not None:
+                return response
 
-        response = self.get_stock_pattern_analysis(
-            symbol=symbol,
-            interval=normalized_interval,
-            lookback_window=lookback_window,
-            raw_indicators=raw_indicators,
-            default_indicators=default_indicators,
-            compact_response=compact_response,
-            analysis_mode=analysis_mode,
-        )
+        try:
+            response = self.get_stock_pattern_analysis(
+                symbol=symbol,
+                interval=normalized_interval,
+                lookback_window=lookback_window,
+                raw_indicators=raw_indicators,
+                default_indicators=default_indicators,
+                compact_response=compact_response,
+                analysis_mode=analysis_mode,
+            )
+        except Exception:
+            response = self._get_daily_pattern_store_response(
+                symbol=symbol,
+                requested_interval=normalized_interval,
+                lookback_window=lookback_window,
+                compact_response=compact_response,
+                analysis_mode=analysis_mode,
+            )
+            if response is not None:
+                logger.warning(
+                    "Crypto live market data failed for %s/%s; using daily pattern-store fallback.",
+                    symbol,
+                    normalized_interval,
+                    exc_info=True,
+                )
+                return response
+            raise
         if self._uses_daily_generate_strategy(normalized_interval):
             self._apply_daily_generate_strategy(response)
+        return response
+
+    def _get_daily_pattern_store_response(
+        self,
+        symbol,
+        requested_interval,
+        lookback_window,
+        compact_response,
+        analysis_mode,
+    ):
+        pattern_store = CryptoPatternStoreService(self.config)
+        if not pattern_store.is_available():
+            return None
+
+        try:
+            response = pattern_store.get_crypto_pattern_analysis(
+                symbol=symbol,
+                interval=self.DAILY_GENERATE_STRATEGY["timeframe"],
+                lookback_window=lookback_window,
+                compact_response=compact_response,
+                analysis_mode=analysis_mode,
+            )
+        except ValueError as error:
+            if not self._should_fallback_from_pattern_store(error):
+                raise
+            logger.info("Crypto pattern store skipped for %s: %s", symbol, error)
+            return None
+
+        self._apply_daily_generate_strategy(response)
+        request = response.setdefault("request", {})
+        request["requestedInterval"] = requested_interval
+        request["fallbackInterval"] = self.DAILY_GENERATE_STRATEGY["timeframe"]
         return response
 
     def _should_fallback_from_pattern_store(self, error):
