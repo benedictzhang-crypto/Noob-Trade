@@ -23,6 +23,8 @@ PRIVATE_RESPONSE_KEYS = {
     "windowSize",
     "regime",
     "diversityKey",
+    "strategyProfile",
+    "sourceVariantId",
 }
 
 
