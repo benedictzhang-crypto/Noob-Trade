@@ -4186,7 +4186,7 @@ function hasChartSeries(response, interval) {
   return Array.isArray(candles) && candles.length > 0
 }
 
-async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
+async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
   const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock', analysisIndicators)
@@ -4211,6 +4211,9 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   query.set('chartInterval', compact ? STOCK_GENERATE_INTERVAL : selectedChartInterval.value)
   if (compact) {
     query.set('compact', '1')
+  }
+  if (matchDetails) {
+    query.set('matchDetails', '1')
   }
 
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
@@ -4642,7 +4645,7 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
   try {
     const data = isCryptoPage
       ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
-      : await fetchStockAnalysis(symbol, { analysisMode: 'full' })
+      : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, matchDetails: true })
 
     if (requestVersion !== analysisRequestVersion) {
       return

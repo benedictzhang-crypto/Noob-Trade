@@ -245,6 +245,7 @@ def get_stock(symbol):
     prefetch_only = request.args.get("prefetch", default=0, type=int) == 1
     persist_analysis = request.args.get("persist", default=0, type=int) == 1
     compact_response = request.args.get("compact", default=0, type=int) == 1
+    match_details = request.args.get("matchDetails", default=0, type=int) == 1
     analysis_mode = request.args.get("analysis", default="full", type=str).strip().lower()
     if analysis_mode == "summary":
         analysis_mode = "search"
@@ -311,6 +312,7 @@ def get_stock(symbol):
             default_indicators=current_app.config["DEFAULT_INDICATORS"],
             compact_response=compact_response,
             analysis_mode=analysis_mode,
+            include_match_details=match_details,
         )
         response_data = _trim_trade_response_payload(response_data)
 

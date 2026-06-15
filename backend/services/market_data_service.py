@@ -261,6 +261,7 @@ class MarketDataService:
         compact_response=False,
         analysis_mode="full",
         chart_interval=None,
+        include_match_details=False,
     ):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = self._normalize_symbol_code(symbol)
@@ -277,6 +278,7 @@ class MarketDataService:
                 compact_response=compact_response,
                 analysis_mode=analysis_mode,
                 chart_interval=chart_interval,
+                include_match_details=include_match_details,
             )
             cached_response = self._get_cached_analysis_response(cache_key)
             if cached_response is not None:
@@ -301,6 +303,7 @@ class MarketDataService:
                             interval=interval,
                             lookback_window=lookback_window,
                             indicators=indicators,
+                            include_match_details=include_match_details,
                         ))
                     except Exception:
                         logger.warning(
@@ -816,7 +819,7 @@ class MarketDataService:
 
         return response
 
-    def _build_production_compact_response(self, symbol, interval, lookback_window, indicators):
+    def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False):
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=max(lookback_window + 10, 40),
@@ -898,7 +901,7 @@ class MarketDataService:
         try:
             response = self.persistence_service.apply_cached_match_preview(
                 response,
-                include_historical_candles=False,
+                include_historical_candles=include_match_details,
             )
         except Exception:
             logger.warning(
@@ -907,7 +910,10 @@ class MarketDataService:
                 exc_info=True,
             )
 
-        self._strip_compact_analysis_payload(response)
+        if include_match_details:
+            response.pop("_currentWindow", None)
+        else:
+            self._strip_compact_analysis_payload(response)
         return response
 
     def _strip_compact_analysis_payload(self, response):
@@ -1277,6 +1283,7 @@ class MarketDataService:
         compact_response,
         analysis_mode,
         chart_interval=None,
+        include_match_details=False,
     ):
         normalized_indicators = ",".join(parse_indicators(",".join(indicators or []), ""))
         return "|".join(
@@ -1290,6 +1297,7 @@ class MarketDataService:
                 normalized_indicators,
                 str(analysis_mode or "full").lower(),
                 "compact" if compact_response else "full",
+                "match-details" if include_match_details else "summary",
             ]
         )
 
