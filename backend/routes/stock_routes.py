@@ -143,9 +143,11 @@ def _build_live_search_payload(
     chart_interval=None,
 ):
     symbol_code = _normalize_symbol_code(symbol)
-    prices_payload = market_data_service.market_api.get_daily_prices(
-        symbol_code,
-        limit=max(lookback + 10, 45),
+    price_limit = max(lookback + 10, 45)
+    prices_payload = market_data_service._get_cached_market_payload(
+        f"daily:{symbol_code}:{price_limit}",
+        current_app.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
+        lambda: market_data_service.market_api.get_daily_prices(symbol_code, limit=price_limit),
     )
     prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
     if len(prices) < 2:

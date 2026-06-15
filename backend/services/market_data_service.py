@@ -814,77 +814,18 @@ class MarketDataService:
         return response
 
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False):
-        overview, prices = self._fetch_live_overview_and_prices(
-            symbol,
-            price_limit=max(lookback_window + 10, 40),
+        price_limit = max(lookback_window + 10, 45)
+        response = self._build_cached_db_response(
+            symbol=symbol,
+            interval=interval,
+            lookback_window=lookback_window,
+            indicators=indicators,
+            chart_interval=interval,
+            compact_response=True,
+            apply_match_preview=False,
         )
 
-        if not prices:
-            raise ValueError("No price data returned from market API.")
-
-        current_price = self._to_float(prices[0].get("close"))
-        previous_close = self._to_float(prices[1].get("close", current_price)) if len(prices) > 1 else current_price
-        open_price = self._to_float(prices[0].get("open", current_price))
-        high_values = [self._to_float(item.get("high", item.get("close"))) for item in prices]
-        low_values = [self._to_float(item.get("low", item.get("close"))) for item in prices]
-        volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
-        daily_candles = self._build_daily_candles(prices)
-        prepared_candles = self.persistence_service._prepare_candles(daily_candles)
-        current_window = self._build_current_window_snapshot(
-            prepared_candles,
-            interval,
-            lookback_window,
-        )
-
-        if current_window is None:
-            raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
-
-        analysis = self._empty_live_match_summary(
-            interval,
-            daily_candles[-1]["date"] if daily_candles else None,
-            current_price,
-        )
-
-        response = {
-            "dataSource": "live",
-            "marketDataProvider": self._market_provider_label(),
-            "_currentWindow": self._current_window_payload(current_window, interval, lookback_window),
-            "request": {
-                "symbol": symbol,
-                "interval": interval,
-                "lookback": lookback_window,
-                "indicators": indicators,
-            },
-            "stock": {
-                "symbol": symbol,
-                "companyName": overview.get("companyName", f"{symbol} Holdings Inc."),
-                "sector": overview.get("sector", "Unknown"),
-                "industry": overview.get("industry", "Unknown"),
-                "currentPrice": current_price,
-                "previousClose": previous_close,
-                "open": open_price,
-                "volume": sum(volume_values),
-                "week52High": round(max(high_values), 2),
-                "week52Low": round(min(low_values), 2),
-            },
-            "patternAnalysis": {
-                "lookbackWindow": lookback_window,
-                "selectedIndicators": indicators,
-                "probabilityOfIncrease": analysis.get("probabilityOfIncrease", 50.0),
-                "probabilityOfDecrease": analysis.get("probabilityOfDecrease", 50.0),
-                "avgReturn": analysis.get("avgReturn"),
-                "maxDrawdown": analysis.get("maxDrawdown"),
-                "matchedPatternsCount": analysis.get("matchedPatternsCount", 0),
-                "matchedHistoricalPatterns": analysis.get("matchedHistoricalPatterns", []),
-                "quantConfidence": analysis.get("quantConfidence", 0.0),
-                "signalClassification": analysis.get("signalClassification", "Bullish Bias"),
-                "futureFiveDayProbabilities": analysis.get("futureFiveDayProbabilities", {"up": [], "down": []}),
-                "recommendedSellPrice": analysis.get("recommendedSellPrice"),
-                "recommendedSellDate": analysis.get("recommendedSellDate"),
-                "stopLossPrice": analysis.get("stopLossPrice"),
-                "highFitHistoricalPaths": analysis.get("highFitHistoricalPaths", []),
-            },
-        }
+        self._overlay_cached_live_compact_price(response, symbol, price_limit)
 
         try:
             response = self.persistence_service.apply_cached_match_preview(
@@ -902,6 +843,37 @@ class MarketDataService:
             response.pop("_currentWindow", None)
         else:
             self._strip_compact_analysis_payload(response)
+        return response
+
+    def _overlay_cached_live_compact_price(self, response, symbol, price_limit):
+        cache_key = f"daily:{symbol}:{price_limit}"
+        prices_payload = self._peek_cached_market_payload(cache_key)
+        prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
+        prices = self._normalize_price_rows_latest_first(prices)
+
+        if not prices:
+            return response
+
+        current_price = self._to_float(prices[0].get("close"))
+        previous_close = self._to_float(prices[1].get("close", current_price)) if len(prices) > 1 else current_price
+        open_price = self._to_float(prices[0].get("open", current_price))
+        high_values = [self._to_float(item.get("high", item.get("close"))) for item in prices]
+        low_values = [self._to_float(item.get("low", item.get("close"))) for item in prices]
+        volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
+
+        stock = response.setdefault("stock", {})
+        stock.update(
+            {
+                "currentPrice": current_price,
+                "previousClose": previous_close,
+                "open": open_price,
+                "volume": sum(volume_values),
+                "week52High": round(max(high_values), 2),
+                "week52Low": round(min(low_values), 2),
+            }
+        )
+        response["dataSource"] = "live"
+        response["marketDataProvider"] = self._market_provider_label()
         return response
 
     def _strip_compact_analysis_payload(self, response):
@@ -1255,6 +1227,12 @@ class MarketDataService:
             }
 
         return value
+
+    def _peek_cached_market_payload(self, cache_key):
+        cached = self.MARKET_API_CACHE.get(cache_key)
+        if cached and cached.get("expires_at", 0) > time.time():
+            return deepcopy(cached["value"])
+        return None
 
     def _analysis_response_cache_key(
         self,
