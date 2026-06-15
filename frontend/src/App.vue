@@ -4266,6 +4266,30 @@ async function fetchStockChartData(symbol, interval) {
   }
 }
 
+async function fetchStockLiveQuoteData(symbol) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol)
+  const query = new URLSearchParams({
+    indicators: '',
+    analysis: 'search',
+    interval: STOCK_GENERATE_INTERVAL,
+    chartInterval: 'daily',
+    compact: '1'
+  })
+  const response = await secureFetch(`${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`, {
+    timeoutMs: 8000
+  })
+
+  if (!response.ok) {
+    const payload = await parseErrorResponse(
+      response,
+      `${cleanedSymbol} quote is not accessible right now.`
+    )
+    throw new Error(payload.message || `${cleanedSymbol} quote is not accessible right now.`)
+  }
+
+  return response.json()
+}
+
 function buildLiveStockQuoteRow(symbol, stockData) {
   const cleanedSymbol = String(symbol || stockData?.symbol || '').trim().toUpperCase()
   const currentPrice = Number(stockData?.currentPrice)
@@ -4298,8 +4322,8 @@ async function refreshStockWatchlistQuotes(symbols) {
   }
 
   await runLimitedTasks(cleanedSymbols, async (symbol) => {
-    const chartData = await fetchStockChartData(symbol, 'daily')
-    const quoteRow = buildLiveStockQuoteRow(symbol, chartData?.stock)
+    const quoteData = await fetchStockLiveQuoteData(symbol)
+    const quoteRow = buildLiveStockQuoteRow(symbol, quoteData?.stock)
     if (!quoteRow) {
       return
     }
