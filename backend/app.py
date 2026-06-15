@@ -466,7 +466,7 @@ def _warm_crypto_pattern_store(app):
 
 
 def _warm_stock_analysis_cache(app):
-    if not app.config.get("STOCK_ANALYSIS_CACHE_WARM_ON_START", True):
+    if not app.config.get("STOCK_ANALYSIS_CACHE_WARM_ON_START", False):
         return
 
     symbols = app.config.get("STOCK_ANALYSIS_CACHE_WARM_SYMBOLS") or []
