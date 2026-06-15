@@ -3900,7 +3900,7 @@ function formatScanTimestamp(date = new Date()) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-async function runLimitedTasks(items, worker, limit = 4) {
+async function runLimitedTasks(items, worker, limit = 4, onSettled = null) {
   const results = []
   let nextIndex = 0
 
@@ -3919,6 +3919,10 @@ async function runLimitedTasks(items, worker, limit = 4) {
           status: 'rejected',
           reason: error
         }
+      }
+
+      if (typeof onSettled === 'function') {
+        onSettled(results[currentIndex], items[currentIndex], currentIndex)
       }
     }
   }
@@ -3947,9 +3951,25 @@ async function scanStarredWatchlist() {
   watchlistScanResults.value = []
   const scanIndicators = getAllIndicatorNames()
   watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} with full-indicator Generate...`
+  const passedResults = []
+  const failedSymbols = []
+  let completedSymbols = 0
+
+  const applyScanResult = (result, symbol) => {
+    completedSymbols += 1
+
+    if (result?.status !== 'fulfilled') {
+      failedSymbols.push(symbol)
+    } else if (result.value.probability >= threshold) {
+      passedResults.push(result.value)
+      watchlistScanResults.value = [...passedResults].sort((left, right) => right.probability - left.probability)
+    }
+
+    watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'}: ${completedSymbols}/${symbols.length} checked, ${passedResults.length} passed >= ${threshold.toFixed(0)}%.`
+  }
 
   try {
-    const scanResults = await runLimitedTasks(symbols, async (symbol) => {
+    await runLimitedTasks(symbols, async (symbol) => {
       const data = isCryptoMode.value
         ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
         : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
@@ -3964,23 +3984,7 @@ async function scanStarredWatchlist() {
         matchedCount: Number(data?.patternAnalysis?.matchedPatternsCount || data?.patternAnalysis?.matchedHistoricalPatterns?.length || 0),
         dataSource: data?.dataSource || 'live'
       }
-    }, symbols.length)
-
-    const passedResults = []
-    const failedSymbols = []
-
-    scanResults.forEach((result, index) => {
-      const symbol = symbols[index]
-
-      if (result?.status !== 'fulfilled') {
-        failedSymbols.push(symbol)
-        return
-      }
-
-      if (result.value.probability >= threshold) {
-        passedResults.push(result.value)
-      }
-    })
+    }, symbols.length, applyScanResult)
 
     watchlistScanResults.value = passedResults.sort((left, right) => right.probability - left.probability)
     watchlistScanScannedAt.value = formatScanTimestamp()
