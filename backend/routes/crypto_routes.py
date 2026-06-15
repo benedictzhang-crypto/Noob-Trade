@@ -106,6 +106,51 @@ def _public_crypto_error_message(error, symbol):
     return f"{symbol_code} crypto data is not accessible right now."
 
 
+def _empty_crypto_search_analysis(indicators, current_price):
+    return {
+        "lookbackWindow": current_app.config["DEFAULT_LOOKBACK"],
+        "selectedIndicators": indicators,
+        "probabilityOfIncrease": None,
+        "probabilityOfDecrease": None,
+        "avgReturn": None,
+        "maxDrawdown": None,
+        "matchedPatternsCount": 0,
+        "matchedHistoricalPatterns": [],
+        "quantConfidence": None,
+        "signalClassification": "Search loads live market data only. Generate to score.",
+        "futureFiveDayProbabilities": {"up": [], "down": []},
+        "recommendedSellPrice": round(current_price * 1.012, 8) if current_price else None,
+        "recommendedSellDate": None,
+        "stopLossPrice": round(current_price * 0.974, 8) if current_price else None,
+        "highFitHistoricalPaths": [],
+    }
+
+
+def _build_crypto_live_search_payload(market_data_service, symbol, interval, indicators):
+    response_data = market_data_service.get_stock_chart_data(
+        symbol=symbol,
+        chart_interval=interval,
+    )
+    stock = response_data.setdefault("stock", {})
+    current_price = _to_float(stock.get("currentPrice"))
+    stock["sector"] = "Crypto"
+    stock["industry"] = "Digital Asset"
+    request_payload = response_data.setdefault("request", {})
+    request_payload["interval"] = interval
+    request_payload["indicators"] = indicators
+    response_data["patternAnalysis"] = _empty_crypto_search_analysis(indicators, current_price)
+    return response_data
+
+
+def _to_float(value, default=0.0):
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
 @crypto_blueprint.route("/crypto/<symbol>", methods=["GET"])
 def get_crypto(symbol):
     symbol = _normalize_crypto_symbol(symbol)
@@ -137,6 +182,28 @@ def get_crypto(symbol):
 
     market_data_service = _crypto_market_data_service()
     persistence_service = None
+
+    if analysis_mode == "search":
+        indicators = parse_indicators(raw_indicators, current_app.config["DEFAULT_INDICATORS"])
+        try:
+            response_data = _build_crypto_live_search_payload(
+                market_data_service=market_data_service,
+                symbol=symbol,
+                interval=interval,
+                indicators=indicators,
+            )
+            return jsonify(_sanitize_response_payload(_trim_trade_response_payload(response_data)))
+        except Exception as error:
+            current_app.logger.exception("Crypto live search failed for %s", symbol)
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": _public_crypto_error_message(error, symbol),
+                    "symbol": symbol.upper(),
+                    "interval": interval,
+                    "lookback": lookback,
+                }
+            ), 500
 
     try:
         response_data = market_data_service.get_crypto_pattern_analysis(
@@ -176,6 +243,37 @@ def get_crypto(symbol):
                 "symbol": symbol.upper(),
                 "interval": interval,
                 "lookback": lookback,
+            }
+        ), 500
+
+
+@crypto_blueprint.route("/crypto/<symbol>/chart", methods=["GET"])
+def get_crypto_chart(symbol):
+    symbol = _normalize_crypto_symbol(symbol)
+    chart_interval = request.args.get(
+        "interval",
+        default=current_app.config["DEFAULT_INTERVAL"],
+        type=str,
+    )
+    market_data_service = _crypto_market_data_service()
+
+    try:
+        response_data = market_data_service.get_stock_chart_data(
+            symbol=symbol,
+            chart_interval=chart_interval,
+        )
+        stock = response_data.setdefault("stock", {})
+        stock["sector"] = "Crypto"
+        stock["industry"] = "Digital Asset"
+        return jsonify(_sanitize_response_payload(response_data))
+    except Exception as error:
+        current_app.logger.exception("Crypto chart data failed for %s", symbol)
+        return jsonify(
+            {
+                "status": "error",
+                "message": _public_crypto_error_message(error, symbol),
+                "symbol": symbol.upper(),
+                "chartInterval": chart_interval,
             }
         ), 500
 

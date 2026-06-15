@@ -503,12 +503,32 @@ def create_app():
         host = request.host.split(":", 1)[0].lower()
         return host in {"amplialpha.net", "www.amplialpha.net"}
 
+    def _is_live_market_snapshot_request():
+        if request.method != "GET":
+            return False
+
+        if request.endpoint in {
+            "stock.get_stock_chart",
+            "stock.get_market_news",
+            "crypto.get_crypto_chart",
+            "crypto.get_crypto_top50",
+        }:
+            return True
+
+        if request.endpoint in {"stock.get_stock", "crypto.get_crypto"}:
+            analysis_mode = str(request.args.get("analysis", "")).strip().lower()
+            return analysis_mode in {"search", "summary"}
+
+        return False
+
     @app.before_request
     def apply_basic_security():
         is_public_ready_endpoint = request.endpoint in {
             "stock.health_check",
             "serve_ampli_lab",
         }
+        if _is_live_market_snapshot_request():
+            is_public_ready_endpoint = True
         if request.endpoint == "serve_frontend" and _is_ampli_lab_host():
             is_public_ready_endpoint = True
 

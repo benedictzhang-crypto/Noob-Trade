@@ -1614,17 +1614,17 @@ const canInstallApp = computed(() => !isStandaloneMode.value && (Boolean(deferre
 const dataSourceMeta = computed(() => {
   if (activeTradeResponse.value.dataSource === 'crypto-mock') {
     return {
-      label: 'Crypto Preview',
-      description: 'Sample crypto workspace',
-      tone: 'mock'
+      label: 'Market Data',
+      description: 'Loading crypto market feed',
+      tone: 'live'
     }
   }
 
   if (activeTradeResponse.value.dataSource === 'crypto-demo') {
     return {
-      label: 'Crypto Replay',
-      description: 'Sample crypto replay',
-      tone: 'mock'
+      label: 'Market Data',
+      description: 'Loading crypto market feed',
+      tone: 'live'
     }
   }
 
@@ -1646,16 +1646,16 @@ const dataSourceMeta = computed(() => {
 
   if (activeTradeResponse.value.dataSource === 'demo') {
     return {
-      label: 'Demo Replay',
-      description: 'Sample replay feed',
-      tone: 'mock'
+      label: 'Market Data',
+      description: 'Loading market feed',
+      tone: 'live'
     }
   }
 
   return {
-    label: 'Mock Data',
-    description: 'Fallback sample feed',
-    tone: 'mock'
+    label: 'Market Data',
+    description: 'Loading market feed',
+    tone: 'live'
   }
 })
 const voiceActionLabel = computed(() => {
@@ -4270,6 +4270,41 @@ async function fetchStockChartData(symbol, interval) {
   }
 }
 
+async function fetchCryptoChartData(symbol, interval) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
+  const cacheKey = `crypto|${cleanedSymbol}|${interval}`
+  if (stockChartRequestPromises.has(cacheKey)) {
+    return stockChartRequestPromises.get(cacheKey)
+  }
+
+  const query = new URLSearchParams({
+    interval
+  })
+  const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}/chart?${query.toString()}`
+  const requestPromise = (async () => {
+    const response = await secureFetch(requestUrl, {
+      timeoutMs: 15000
+    })
+
+    if (!response.ok) {
+      const payload = await parseErrorResponse(
+        response,
+        `${cleanedSymbol} crypto chart data is not accessible right now.`
+      )
+      throw new Error(payload.message || `${cleanedSymbol} crypto chart data is not accessible right now.`)
+    }
+
+    return response.json()
+  })()
+
+  stockChartRequestPromises.set(cacheKey, requestPromise)
+  try {
+    return await requestPromise
+  } finally {
+    stockChartRequestPromises.delete(cacheKey)
+  }
+}
+
 async function fetchStockLiveQuoteData(symbol) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const query = new URLSearchParams({
@@ -4398,19 +4433,18 @@ function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterv
   const existingSeries = stockResponse.value?.chartData?.series || {}
   const missingIntervals = orderedIntervals.filter((interval) => !existingSeries[interval]?.length)
 
-  missingIntervals.forEach((interval) => {
-    fetchStockChartData(cleanedSymbol, interval)
-      .then((chartData) => {
-        const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
-        if (currentSymbol !== cleanedSymbol) {
-          return
-        }
-        stockResponse.value = mergeStockChartData(stockResponse.value, chartData)
-      })
-      .catch((error) => {
-        console.warn(`Could not warm ${cleanedSymbol} ${interval} chart data.`, error)
-      })
-  })
+  void runLimitedTasks(missingIntervals, async (interval) => {
+    try {
+      const chartData = await fetchStockChartData(cleanedSymbol, interval)
+      const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+      if (currentSymbol !== cleanedSymbol) {
+        return
+      }
+      stockResponse.value = mergeStockChartData(stockResponse.value, chartData)
+    } catch (error) {
+      console.warn(`Could not warm ${cleanedSymbol} ${interval} chart data.`, error)
+    }
+  }, 2)
 }
 
 async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
@@ -4493,7 +4527,7 @@ async function preloadDefaultLiveWorkspaces() {
   // Warm default workspaces after auth so Trade opens with live data, not demo placeholders.
   if (!defaultLiveLoadPromises.stock) {
     defaultLiveLoadPromises.stock = fetchStockAnalysis(DEFAULT_STOCK_SYMBOL, {
-      analysisMode: 'full'
+      analysisMode: 'search'
     })
       .then((data) => {
         if (!isAuthenticated.value || String(stockResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_STOCK_SYMBOL) {
@@ -4515,7 +4549,7 @@ async function preloadDefaultLiveWorkspaces() {
 
   if (!defaultLiveLoadPromises.crypto) {
     defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
-      analysisMode: 'full'
+      analysisMode: 'search'
     })
       .then((data) => {
         if (!isAuthenticated.value || String(cryptoResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_CRYPTO_SYMBOL) {
@@ -4663,12 +4697,17 @@ async function handleChartIntervalChange(interval) {
   try {
     if (isCryptoPage) {
       selectedChartInterval.value = interval
-      const data = await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      const data = await fetchCryptoChartData(symbol, interval)
       if (requestVersion !== chartIntervalRequestVersion) {
         return
       }
-      responseRef.value = data
-      symbolInput.value = data.stock.symbol
+      const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
+      if (currentSymbol !== String(symbol || '').toUpperCase()) {
+        return
+      }
+      const mergedData = mergeStockChartData(cryptoResponse.value, data)
+      cryptoResponse.value = mergedData
+      symbolInput.value = mergedData.stock.symbol
       return
     }
 
