@@ -7,6 +7,83 @@ This project is split into two simple parts:
 
 The goal is to give you a clean beginner-friendly starting point for a stock pattern analysis dashboard without connecting to real APIs yet.
 
+## Current Live Data Notes
+
+Last verified: 2026-05-31.
+
+NoobTrade now has two live market-data paths:
+
+- Stock route: `/api/stock/<symbol>` uses `MARKET_DATA_PROVIDER=auto`.
+  - With Alpaca market-data credentials configured, auto mode uses Alpaca IEX first and Yahoo Finance as fallback.
+  - Without Alpaca credentials, auto mode uses the no-key Yahoo Finance chart API.
+- Crypto route: `/api/crypto/<symbol>` uses OKX public spot candles.
+  - Crypto top assets use CoinGecko market-cap data, with stablecoins filtered when `CRYPTO_EXCLUDE_STABLECOINS=true`.
+
+Smoke-tested endpoints:
+
+- local backend `http://127.0.0.1:5055/api/stock/AAPL?interval=daily&lookback=30&analysis=search&compact=1`
+- local backend `http://127.0.0.1:5055/api/stock/NVDA?interval=5min&lookback=30&analysis=search&compact=1`
+- local backend `http://127.0.0.1:5055/api/crypto/BTC?interval=15min&lookback=30&analysis=search&compact=1`
+- local backend `http://127.0.0.1:5055/api/crypto/ETH?interval=1hour&lookback=30&analysis=search&compact=1`
+- Render backend `https://noobtrade.onrender.com/api/health`
+- Render backend `https://noobtrade.onrender.com/api/stock/AAPL?interval=daily&lookback=30&analysis=search&compact=1`
+- Render backend `https://noobtrade.onrender.com/api/crypto/BTC?interval=15min&lookback=30&analysis=search&compact=1`
+- Render backend `https://noobtrade.onrender.com/api/crypto/top50?limit=5`
+
+Important routing note:
+
+- `https://noobtrade.onrender.com` currently reaches the Flask API and returns healthy production responses backed by Postgres.
+- `https://noobtrade.com/api/...` and `https://www.noobtrade.com/api/...` currently return `{"detail":"Not Found"}` after redirect, so custom-domain API routing needs Render/DNS review before ProTrade should use that domain as `NOOBTRADE_BASE_URL`.
+
+## Desktop Data Map
+
+Last verified: 2026-05-31.
+
+Keep NoobTrade market history separated into three logical buckets:
+
+1. Stock Top50 history.
+   - Source of truth: Render Postgres `noobtrade-db`.
+   - Desktop backup: included inside `NoobTrade-Archive/02_market_data_sqlite/full_market_185_symbols_from_render_postgres`.
+   - Current export check: 48 of the ProTrade Top50 symbols are present in the 185-symbol stock set.
+2. Stock non-Top50 / extra S&P 500 history.
+   - Source of truth: Render Postgres `noobtrade-db`.
+   - Desktop backup: `NoobTrade-Archive/02_market_data_sqlite/non_top50_market_137_symbols_from_render_postgres`.
+   - This 137-symbol subset is also included inside the 185-symbol full stock backup.
+3. Crypto BTC/ETH history.
+   - Desktop backup only: `/Users/benedict/Desktop/Crypto History Data/noobtrade_crypto_history.sqlite`.
+   - It is intentionally separate from Render stock/Postgres exports and old stock SQLite backups.
+
+## Crypto History Backup
+
+Last verified: 2026-05-31.
+
+The desktop crypto history backup is separate from the stock history data:
+
+```text
+/Users/benedict/Desktop/Crypto History Data/noobtrade_crypto_history.sqlite
+```
+
+It stores only `crypto_*` tables and cached Binance public spot kline archives. It must not be mixed with the stock `daily_prices`, `daily_indicators`, `pattern_windows`, or stock Render/Postgres backups.
+
+Verified BTC/ETH coverage:
+
+- Raw source: Binance public spot `1m` klines.
+- BTC 1m: `4,612,159` rows, `2017-08-17 04:00:00 UTC` through `2026-05-30 23:59:00 UTC`.
+- ETH 1m: `4,612,158` rows, `2017-08-17 04:00:00 UTC` through `2026-05-30 23:59:00 UTC`.
+- Derived intervals available for both BTC and ETH: `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `6h`, `12h`, `1d`, `5d`.
+- Requested intervals verified for both BTC and ETH: `1m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `6h`, `1d`, `5d`.
+- SQLite `PRAGMA integrity_check` returned `ok`.
+
+Render `noobtrade-db` is a separate Postgres backup concern. Do not place Render DB exports inside the crypto folder.
+
+Latest Render `noobtrade-db` logical export:
+
+```text
+/Users/benedict/Desktop/NoobTrade-Render-DB-Backups/noobtrade-db-export-20260531-213335
+```
+
+That export contains 21 Render Postgres tables and 1,370,685 rows as compressed CSV plus schema metadata. It stays separate from the crypto history backup.
+
 ## Email Setup For Other Users
 
 If you want other people to download the app and successfully:
