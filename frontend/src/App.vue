@@ -703,6 +703,7 @@ const exploreSearchQuery = ref('')
 const stockMarketVisibleCount = ref(STOCK_MARKET_PAGE_SIZE)
 const isSearching = ref(false)
 const isGenerating = ref(false)
+const isPredictionLoading = ref(false)
 const errorMessage = ref('')
 const authMessage = ref('')
 const portfolioMessage = ref('')
@@ -4673,6 +4674,10 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
     applyAnalysisResponse(data, isCryptoPage)
   } catch (error) {
     console.warn('Full Generate refresh could not finish.', error)
+  } finally {
+    if (requestVersion === analysisRequestVersion) {
+      isPredictionLoading.value = false
+    }
   }
 }
 
@@ -4705,8 +4710,10 @@ async function runSearch(source = 'search') {
   const requestVersion = ++analysisRequestVersion
   if (isGenerateAction) {
     isGenerating.value = true
+    isPredictionLoading.value = true
   } else {
     isSearching.value = true
+    isPredictionLoading.value = false
   }
   errorMessage.value = ''
 
@@ -4721,6 +4728,9 @@ async function runSearch(source = 'search') {
         void refreshFullGenerateInBackground(cleanedSymbol, true, requestVersion)
       }
     } catch (error) {
+      if (isGenerateAction) {
+        isPredictionLoading.value = false
+      }
       errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
       console.error(error)
     } finally {
@@ -4744,6 +4754,9 @@ async function runSearch(source = 'search') {
       void refreshFullGenerateInBackground(cleanedSymbol, false, requestVersion)
     }
   } catch (error) {
+    if (isGenerateAction) {
+      isPredictionLoading.value = false
+    }
     errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
     console.error(error)
   } finally {
@@ -6863,6 +6876,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :request-data="activeTradeResponse.request"
           :stock-data="activeTradeResponse.stock"
           :analysis-data="activeTradeResponse.patternAnalysis"
+          :is-loading="isPredictionLoading"
         />
 
         <MatchedPatterns

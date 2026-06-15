@@ -17,6 +17,10 @@ const props = defineProps({
   formatPercent: {
     type: Function,
     required: true
+  },
+  isLoading: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -185,7 +189,14 @@ defineExpose({
 <template>
   <div class="inner-card">
     <div class="section-header">Prediction Summary</div>
-    <div class="stats-list">
+    <div v-if="isLoading" class="prediction-loading-card" role="status" aria-live="polite">
+      <span class="prediction-loading-spinner" aria-hidden="true"></span>
+      <div class="prediction-loading-copy">
+        <strong>Generating probabilities</strong>
+        <small>Loading matched history and probability ranges.</small>
+      </div>
+    </div>
+    <div v-else class="stats-list">
       <div class="summary-hero">
         <div>
           <p class="summary-label">5D Probability Of Reaching +1%</p>
