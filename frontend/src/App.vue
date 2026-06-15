@@ -6238,10 +6238,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <div class="public-hero-copy">
           <p class="eyebrow">Public Home</p>
           <h1 class="page-title">Learn the tape before you risk real money.</h1>
-          <p class="page-subtitle">
-            NoobTrade gives unauthenticated visitors a clear story: search-driven stock analysis,
-            guided decision support, and a mock trading workflow that becomes richer after sign-in.
-          </p>
           <div class="hero-actions">
             <button class="topbar-button" @click="navigateTo('Register')">Register</button>
             <button class="topbar-button secondary" @click="navigateTo('Sign In')">I already have access</button>
