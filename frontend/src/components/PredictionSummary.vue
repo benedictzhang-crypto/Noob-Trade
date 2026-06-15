@@ -31,6 +31,19 @@ function getSignalLabel(signal) {
   return signal || 'Bullish Bias'
 }
 
+function formatProbabilityLabel(value) {
+  if (value === null || value === undefined || value === '') {
+    return 'Generate'
+  }
+
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return 'Generate'
+  }
+
+  return `${numericValue.toFixed(0)}%`
+}
+
 function formatPrice(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return 'TBD'
@@ -80,6 +93,11 @@ const matchedPatternCount = computed(() => {
 
   return matchedPatterns.value.length
 })
+const hasHeadlineProbability = computed(() => {
+  const value = props.analysisData.probabilityOfIncrease
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+})
+const headlineProbabilityLabel = computed(() => formatProbabilityLabel(props.analysisData.probabilityOfIncrease))
 const currentPrice = computed(() => {
   const value = Number(props.stockData?.currentPrice)
   return Number.isFinite(value) ? value : null
@@ -117,7 +135,7 @@ function calculateDynamicProbability(side, threshold) {
   }, 0)
 
   if (!totalWeight) {
-    return '0%'
+    return 'Generate'
   }
 
   const hitWeight = matchedPatterns.value.reduce((sum, match) => {
@@ -175,7 +193,7 @@ function getProbabilitySnapshot(side = 'up', value = null) {
     probability: calculateDynamicProbability(normalizedSide, threshold),
     onePercentUp: findThresholdProbability('up', 1),
     onePercentDown: findThresholdProbability('down', 1),
-    headlineProbability: `${props.analysisData.probabilityOfIncrease ?? 'TBD'}%`,
+    headlineProbability: headlineProbabilityLabel.value,
     matchedPatternCount: matchedPatternCount.value
   }
 }
@@ -200,11 +218,14 @@ defineExpose({
       <div class="summary-hero">
         <div>
           <p class="summary-label">5D Probability Of Reaching +1%</p>
-          <h3>{{ analysisData.probabilityOfIncrease }}%</h3>
-          <p class="summary-disclaimer">
+          <h3>{{ headlineProbabilityLabel }}</h3>
+          <p v-if="hasHeadlineProbability" class="summary-disclaimer">
             This result is based on the {{ matchedPatternCount }} most similar historical setups. We measure how often price touched upside and
             downside thresholds within the following 5 trading days. The upside and downside probabilities can both be
             triggered by the same 5-day path.
+          </p>
+          <p v-else class="summary-disclaimer">
+            Search loads live market data only. Generate to score probabilities and matched historical setups.
           </p>
         </div>
         <span class="summary-badge">{{ getSignalLabel(analysisData.signalClassification) }}</span>

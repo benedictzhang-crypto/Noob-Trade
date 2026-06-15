@@ -2289,6 +2289,19 @@ function formatPercent(value) {
   return `${numericValue > 0 ? '+' : ''}${numericValue}%`
 }
 
+function formatProbabilityDisplay(value) {
+  if (value === null || value === undefined || value === '') {
+    return 'Generate'
+  }
+
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) {
+    return 'Generate'
+  }
+
+  return `${numericValue.toFixed(0)}%`
+}
+
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -3896,10 +3909,13 @@ function normalizeProbabilityThreshold(value) {
 }
 
 function getAnalysisUpsideProbability(data) {
-  const directProbability = Number(data?.patternAnalysis?.probabilityOfIncrease)
+  const rawProbability = data?.patternAnalysis?.probabilityOfIncrease
 
-  if (Number.isFinite(directProbability)) {
-    return directProbability
+  if (rawProbability !== null && rawProbability !== undefined && rawProbability !== '') {
+    const directProbability = Number(rawProbability)
+    if (Number.isFinite(directProbability)) {
+      return directProbability
+    }
   }
 
   const ladder = data?.patternAnalysis?.futureFiveDayProbabilities?.up || []
@@ -7427,19 +7443,19 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <div class="spotlight-grid">
             <div class="spotlight-item">
               <span>Current Price</span>
-              <strong>${{ activeTradeResponse.stock.currentPrice }}</strong>
+              <strong>{{ formatMarketPrice(activeTradeResponse.stock.currentPrice) }}</strong>
             </div>
             <div class="spotlight-item">
               <span>52W High</span>
-              <strong>${{ activeTradeResponse.stock.week52High }}</strong>
+              <strong>{{ formatMarketPrice(activeTradeResponse.stock.week52High) }}</strong>
             </div>
             <div class="spotlight-item">
               <span>52W Low</span>
-              <strong>${{ activeTradeResponse.stock.week52Low }}</strong>
+              <strong>{{ formatMarketPrice(activeTradeResponse.stock.week52Low) }}</strong>
             </div>
             <div class="spotlight-item">
               <span>Probability</span>
-              <strong>{{ activeTradeResponse.patternAnalysis.probabilityOfIncrease }}%</strong>
+              <strong>{{ formatProbabilityDisplay(activeTradeResponse.patternAnalysis.probabilityOfIncrease) }}</strong>
             </div>
           </div>
         </article>
