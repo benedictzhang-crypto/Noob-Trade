@@ -875,7 +875,7 @@ const publicFeatureRows = [
   }
 ]
 
-const starredSymbols = ref(['AAPL', 'NVDA', 'TSLA', 'SPY'])
+const starredSymbols = ref(['AAPL', 'NVDA', 'TSLA'])
 const cryptoStarredSymbols = ref(['BTC', 'ETH', 'SOL', 'OKB'])
 
 const stockDashboardAnnouncements = [
