@@ -23,9 +23,9 @@ from services.mock_market_data_service import (
 logger = logging.getLogger(__name__)
 
 VISIBLE_INTERVAL_BARS = {
-    "1min": 390,
-    "5min": 390,
-    "15min": 260,
+    "1min": 240,
+    "5min": 240,
+    "15min": 240,
     "30min": 220,
     "1hour": 220,
     "daily": 3200,
