@@ -595,7 +595,7 @@ class PersistenceService:
             rows = query.order_by(
                 PatternWindow.end_date.desc(),
                 PatternWindow.id.desc(),
-            ).all()
+            ).limit(self.MATCH_CANDIDATE_POOL_SIZE).all()
 
             snapshot = [
                 SimpleNamespace(
