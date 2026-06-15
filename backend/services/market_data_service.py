@@ -820,6 +820,16 @@ class MarketDataService:
         high_values = [self._to_float(item.get("high", item.get("close"))) for item in prices]
         low_values = [self._to_float(item.get("low", item.get("close"))) for item in prices]
         volume_values = [self._to_int(item.get("volume", 0)) for item in prices]
+        daily_candles = self._build_daily_candles(prices)
+        prepared_candles = self.persistence_service._prepare_candles(daily_candles)
+        current_window = self._build_current_window_snapshot(
+            prepared_candles,
+            interval,
+            lookback_window,
+        )
+
+        if current_window is None:
+            raise ValueError(f"Not enough recent data to build {interval}/{lookback_window} snapshot.")
 
         cached_signal = self.get_cached_pro_signal(
             symbol=symbol,
@@ -830,9 +840,16 @@ class MarketDataService:
         )
         analysis = cached_signal.get("patternAnalysis", {})
 
-        return {
+        response = {
             "dataSource": "live",
             "marketDataProvider": self._market_provider_label(),
+            "_currentWindow": {
+                "featureVector": current_window.feature_vector,
+                "returnPct": self._to_float(current_window.return_pct),
+                "timeframe": interval,
+                "windowSize": lookback_window,
+                "endDate": current_window.end_date.isoformat(),
+            },
             "request": {
                 "symbol": symbol,
                 "interval": interval,
@@ -869,6 +886,26 @@ class MarketDataService:
                 "highFitHistoricalPaths": analysis.get("highFitHistoricalPaths", []),
             },
         }
+
+        try:
+            response = self.persistence_service.apply_cached_match_preview(response)
+        except Exception:
+            logger.warning(
+                "Production compact cached match preview failed for %s; returning compact signal.",
+                symbol,
+                exc_info=True,
+            )
+
+        self._strip_compact_analysis_payload(response)
+        return response
+
+    def _strip_compact_analysis_payload(self, response):
+        response.pop("_currentWindow", None)
+        analysis = response.get("patternAnalysis")
+        if isinstance(analysis, dict):
+            analysis.pop("matchedHistoricalPatterns", None)
+            analysis.pop("highFitHistoricalPaths", None)
+        return response
 
     def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None, chart_interval=None):
         overview, prices = self._fetch_live_overview_and_prices(
