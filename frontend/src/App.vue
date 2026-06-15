@@ -6205,9 +6205,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
     <header class="topbar">
       <div class="topbar-brand-block">
         <div class="topbar-brand">NoobTrade</div>
-        <div class="topbar-brand-meta">
-          {{ isAuthenticated ? '' : 'Stock analysis platform for new traders' }}
-        </div>
       </div>
 
       <nav class="topbar-nav">
