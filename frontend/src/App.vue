@@ -67,7 +67,6 @@ const uiCopy = {
     currentLogin: 'Current login',
     verified: 'Verified',
     pendingVerification: 'Pending verification',
-    settingsNote: 'Your account stays stored in Render Postgres while market data and product features evolve.',
     aiMode: 'AI Voice Mode',
     aiTitle: 'Noob AI Assistant',
     shrink: 'Shrink',
@@ -134,7 +133,6 @@ const uiCopy = {
     currentLogin: '当前登录',
     verified: '已验证',
     pendingVerification: '等待验证',
-    settingsNote: '用户账户存储在 Render Postgres，市场数据和产品功能可以独立更新。',
     aiMode: 'AI 语音模式',
     aiTitle: 'Noob AI 助手',
     shrink: '缩小',
@@ -201,7 +199,6 @@ const uiCopy = {
     currentLogin: 'Inicio actual',
     verified: 'Verificado',
     pendingVerification: 'Verificación pendiente',
-    settingsNote: 'Tu cuenta se guarda en Render Postgres mientras evolucionan los datos y funciones.',
     aiMode: 'Modo de voz AI',
     aiTitle: 'Asistente Noob AI',
     shrink: 'Reducir',
@@ -268,7 +265,6 @@ const uiCopy = {
     currentLogin: 'Connexion actuelle',
     verified: 'Vérifié',
     pendingVerification: 'Vérification en attente',
-    settingsNote: 'Votre compte reste dans Render Postgres pendant l’évolution des données et fonctions.',
     aiMode: 'Mode vocal IA',
     aiTitle: 'Assistant Noob AI',
     shrink: 'Réduire',
@@ -7498,7 +7494,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="dashboard-mini-card">
               <span>{{ t('currentLogin') }}</span>
               <strong>{{ currentUser?.emailVerified ? t('verified') : t('pendingVerification') }}</strong>
-              <small>{{ t('settingsNote') }}</small>
             </div>
           </div>
           <div class="myself-actions">
