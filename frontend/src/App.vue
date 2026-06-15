@@ -6346,7 +6346,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               {{ authMessage }}
             </div>
 
-            <div class="auth-form-grid two-columns">
+            <div class="auth-form-grid auth-form-grid--register">
               <label class="auth-field">
                 <span>Username</span>
                 <input
@@ -6362,7 +6362,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 <span>Email</span>
                 <input v-model="registrationForm.email" type="email" placeholder="noobtrade@example.com" />
               </label>
-              <label class="auth-field">
+              <label class="auth-field auth-field--register-password">
                 <span>Password</span>
                 <input v-model="registrationForm.password" type="password" placeholder="Create a password" />
                 <small class="auth-field-hint">Use at least 8 characters and include one special symbol such as _, !, or #.</small>

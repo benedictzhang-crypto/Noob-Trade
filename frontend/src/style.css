@@ -3309,7 +3309,7 @@ select {
 }
 
 .auth-actions--register {
-  margin-top: 18px;
+  margin-top: 28px;
 }
 
 .public-hero-panel,
@@ -3375,6 +3375,17 @@ select {
 
 .auth-form-grid.two-columns {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.auth-form-grid--register {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  column-gap: 16px;
+  row-gap: 20px;
+}
+
+.auth-field--register-password {
+  grid-column: 1 / -1;
 }
 
 .auth-field {
@@ -4088,9 +4099,14 @@ select {
   .dashboard-grid,
   .explore-layout,
   .auth-form-grid.two-columns,
+  .auth-form-grid--register,
   .trade-ticket-grid,
   .dashboard-card-grid {
     grid-template-columns: 1fr;
+  }
+
+  .auth-field--register-password {
+    grid-column: auto;
   }
 }
 
@@ -4375,8 +4391,13 @@ select {
   .portfolio-entry-grid,
   .search-form,
   .auth-form-grid,
-  .auth-form-grid.two-columns {
+  .auth-form-grid.two-columns,
+  .auth-form-grid--register {
     grid-template-columns: 1fr;
+  }
+
+  .auth-field--register-password {
+    grid-column: auto;
   }
 
   .data-table {
