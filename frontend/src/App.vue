@@ -700,6 +700,7 @@ const stockMarketVisibleCount = ref(STOCK_MARKET_PAGE_SIZE)
 const isSearching = ref(false)
 const isGenerating = ref(false)
 const isPredictionLoading = ref(false)
+const isMatchDetailsLoading = ref(false)
 const errorMessage = ref('')
 const authMessage = ref('')
 const portfolioMessage = ref('')
@@ -759,6 +760,7 @@ const defaultLiveLoadPromises = {
 }
 const dashboardGenerateWarmKeys = new Set()
 let dashboardGenerateWarmTimer = null
+let stockMatchDetailRevealTimer = null
 
 const indicators = ref([
   { name: 'MA', active: true },
@@ -1866,6 +1868,7 @@ onBeforeUnmount(() => {
 
   stopVoiceListening()
   clearVoiceRestartTimer()
+  clearStockMatchDetailReveal()
 
   if (voiceVoicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.removeEventListener?.('voiceschanged', voiceVoicesChangedHandler)
@@ -4537,18 +4540,34 @@ function scrollAnalysisWorkspaceToTop() {
   })
 }
 
+function normalizeAnalysisResponseCollections(data) {
+  return {
+    ...data,
+    patternAnalysis: {
+      ...(data?.patternAnalysis || {}),
+      matchedHistoricalPatterns: Array.isArray(data?.patternAnalysis?.matchedHistoricalPatterns)
+        ? data.patternAnalysis.matchedHistoricalPatterns
+        : [],
+      highFitHistoricalPaths: Array.isArray(data?.patternAnalysis?.highFitHistoricalPaths)
+        ? data.patternAnalysis.highFitHistoricalPaths
+        : [],
+    },
+  }
+}
+
 function applyAnalysisResponse(data, isCryptoPage) {
+  const normalizedData = normalizeAnalysisResponseCollections(data)
   if (isCryptoPage) {
-    cryptoResponse.value = data
-    symbolInput.value = data.stock.symbol
+    cryptoResponse.value = normalizedData
+    symbolInput.value = normalizedData.stock.symbol
     return
   }
 
-  mergeActiveStockResponse(data)
-  activeSymbol.value = data.stock.symbol
-  symbolInput.value = data.stock.symbol
+  mergeActiveStockResponse(normalizedData)
+  activeSymbol.value = normalizedData.stock.symbol
+  symbolInput.value = normalizedData.stock.symbol
   activePage.value = 'Stock Trade'
-  warmStockChartIntervals(data.stock.symbol)
+  warmStockChartIntervals(normalizedData.stock.symbol)
 }
 
 function isCryptoWorkspaceReady(symbol = DEFAULT_CRYPTO_SYMBOL) {
@@ -4688,10 +4707,9 @@ async function warmDashboardGenerateCaches() {
   }
 
   const scanIndicators = getAllIndicatorNames()
-  const warmItems = [
-    ...starredSymbols.value.map((symbol) => ({ assetType: 'stock', symbol })),
-    ...cryptoStarredSymbols.value.map((symbol) => ({ assetType: 'crypto', symbol })),
-  ]
+  // Stock Generate should stay user-triggered; warming several full stock scans can block the
+  // single Render worker and make the next manual Generate feel stuck.
+  const warmItems = cryptoStarredSymbols.value.map((symbol) => ({ assetType: 'crypto', symbol }))
     .map((item) => ({
       ...item,
       symbol: String(item.symbol || '').trim().toUpperCase(),
@@ -4706,17 +4724,7 @@ async function warmDashboardGenerateCaches() {
 
     dashboardGenerateWarmKeys.add(warmKey)
     try {
-      if (assetType === 'crypto') {
-        await fetchCryptoAnalysis(symbol, {
-          analysisMode: 'full',
-          compact: true,
-          cacheResult: false,
-          indicatorNames: scanIndicators,
-        })
-        return
-      }
-
-      await fetchStockAnalysis(symbol, {
+      await fetchCryptoAnalysis(symbol, {
         analysisMode: 'full',
         compact: true,
         cacheResult: false,
@@ -4730,10 +4738,16 @@ async function warmDashboardGenerateCaches() {
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
+  const analysisIndicatorNames = isCryptoPage ? null : getSelectedIndicators()
   try {
     const data = isCryptoPage
       ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
-      : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, matchDetails: true })
+      : await fetchStockAnalysis(symbol, {
+        analysisMode: 'full',
+        compact: true,
+        cacheResult: false,
+        indicatorNames: analysisIndicatorNames,
+      })
 
     if (requestVersion !== analysisRequestVersion) {
       return
@@ -4741,6 +4755,7 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
 
     const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
     if (responseSymbol !== String(symbol || '').toUpperCase()) {
+      isMatchDetailsLoading.value = false
       return
     }
 
@@ -4752,6 +4767,9 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
     }
 
     applyAnalysisResponse(data, isCryptoPage)
+    if (!isCryptoPage) {
+      void refreshStockMatchDetailsInBackground(symbol, requestVersion, analysisIndicatorNames)
+    }
   } catch (error) {
     console.warn('Full Generate refresh could not finish.', error)
   } finally {
@@ -4759,6 +4777,150 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
       isPredictionLoading.value = false
       isGenerating.value = false
     }
+  }
+}
+
+function clearStockMatchDetailReveal({ resetLoading = true } = {}) {
+  if (stockMatchDetailRevealTimer) {
+    window.clearTimeout(stockMatchDetailRevealTimer)
+    stockMatchDetailRevealTimer = null
+  }
+
+  if (resetLoading) {
+    isMatchDetailsLoading.value = false
+  }
+}
+
+function isActiveStockGenerateRequest(symbol, requestVersion) {
+  const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+  return (
+    requestVersion === analysisRequestVersion
+    && activePage.value === 'Stock Trade'
+    && currentSymbol === String(symbol || '').toUpperCase()
+  )
+}
+
+function applyStockResponseWithoutChartWarmup(data) {
+  const normalizedData = normalizeAnalysisResponseCollections(data)
+  mergeActiveStockResponse(normalizedData)
+  activeSymbol.value = normalizedData.stock.symbol
+  symbolInput.value = normalizedData.stock.symbol
+}
+
+function buildStockResponseWithVisibleMatches(data, visiblePatterns, visiblePaths) {
+  return {
+    ...data,
+    patternAnalysis: {
+      ...(data.patternAnalysis || {}),
+      matchedHistoricalPatterns: visiblePatterns,
+      highFitHistoricalPaths: visiblePaths,
+    },
+  }
+}
+
+function revealStockMatchDetailsProgressively(data, symbol, requestVersion) {
+  clearStockMatchDetailReveal({ resetLoading: false })
+
+  const patterns = data?.patternAnalysis?.matchedHistoricalPatterns || []
+  const highFitPaths = data?.patternAnalysis?.highFitHistoricalPaths || []
+  if (!patterns.length) {
+    if (isActiveStockGenerateRequest(symbol, requestVersion)) {
+      applyStockResponseWithoutChartWarmup(data)
+    }
+    isMatchDetailsLoading.value = false
+    return
+  }
+
+  let visibleCount = 0
+  const revealNext = () => {
+    if (!isActiveStockGenerateRequest(symbol, requestVersion)) {
+      clearStockMatchDetailReveal()
+      return
+    }
+
+    visibleCount += 1
+    applyStockResponseWithoutChartWarmup(
+      buildStockResponseWithVisibleMatches(
+        data,
+        patterns.slice(0, visibleCount),
+        highFitPaths.slice(0, visibleCount),
+      )
+    )
+
+    if (visibleCount < patterns.length) {
+      stockMatchDetailRevealTimer = window.setTimeout(revealNext, 120)
+      return
+    }
+
+    stockMatchDetailRevealTimer = null
+    isMatchDetailsLoading.value = false
+  }
+
+  revealNext()
+}
+
+async function refreshStockMatchDetailsInBackground(symbol, requestVersion, indicatorNames) {
+  if (!isActiveStockGenerateRequest(symbol, requestVersion)) {
+    return
+  }
+
+  isMatchDetailsLoading.value = true
+  try {
+    const data = await fetchStockAnalysis(symbol, {
+      analysisMode: 'full',
+      compact: true,
+      matchDetails: true,
+      cacheResult: false,
+      indicatorNames,
+    })
+
+    const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
+    if (!isActiveStockGenerateRequest(symbol, requestVersion)) {
+      return
+    }
+
+    if (responseSymbol !== String(symbol || '').toUpperCase()) {
+      isMatchDetailsLoading.value = false
+      return
+    }
+
+    revealStockMatchDetailsProgressively(data, symbol, requestVersion)
+  } catch (error) {
+    if (isActiveStockGenerateRequest(symbol, requestVersion)) {
+      console.warn('Stock matched history details could not finish.', error)
+    }
+    isMatchDetailsLoading.value = false
+  }
+}
+
+async function refreshStockSearchContextInBackground(symbol, requestVersion) {
+  try {
+    const data = await fetchStockAnalysis(symbol, {
+      analysisMode: 'search',
+      cacheResult: false,
+    })
+
+    const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
+    if (
+      requestVersion !== analysisRequestVersion
+      || activePage.value !== 'Stock Trade'
+      || responseSymbol !== String(symbol || '').toUpperCase()
+    ) {
+      return
+    }
+
+    const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+    const currentAnalysis = currentSymbol === responseSymbol
+      ? stockResponse.value?.patternAnalysis
+      : null
+    const mergedData = {
+      ...data,
+      patternAnalysis: currentAnalysis || data.patternAnalysis,
+    }
+
+    applyAnalysisResponse(mergedData, false)
+  } catch (error) {
+    console.warn('Stock search context could not refresh in background.', error)
   }
 }
 
@@ -4789,6 +4951,7 @@ async function runSearch(source = 'search') {
   symbolInput.value = cleanedSymbol
   const isGenerateAction = source === 'generate'
   const requestVersion = ++analysisRequestVersion
+  clearStockMatchDetailReveal()
   if (isGenerateAction) {
     isGenerating.value = true
     isPredictionLoading.value = true
@@ -4832,6 +4995,13 @@ async function runSearch(source = 'search') {
     return
   }
 
+  if (isGenerateAction) {
+    scrollAnalysisWorkspaceToTop()
+    void refreshFullGenerateInBackground(cleanedSymbol, false, requestVersion)
+    void refreshStockSearchContextInBackground(cleanedSymbol, requestVersion)
+    return
+  }
+
   try {
     const data = await fetchStockAnalysis(cleanedSymbol, {
       analysisMode: 'search'
@@ -4839,20 +5009,11 @@ async function runSearch(source = 'search') {
 
     applyAnalysisResponse(data, false)
     scrollAnalysisWorkspaceToTop()
-    if (isGenerateAction) {
-      void refreshFullGenerateInBackground(cleanedSymbol, false, requestVersion)
-    }
   } catch (error) {
-    if (isGenerateAction) {
-      isPredictionLoading.value = false
-      isGenerating.value = false
-    }
     errorMessage.value = getReadableMarketDataError(error?.message, cleanedSymbol)
     console.error(error)
   } finally {
-    if (!isGenerateAction) {
-      isSearching.value = false
-    }
+    isSearching.value = false
   }
 }
 
@@ -6195,6 +6356,7 @@ function signOut() {
   csrfToken.value = ''
   defaultLiveLoadPromises.stock = null
   defaultLiveLoadPromises.crypto = null
+  clearStockMatchDetailReveal()
   clearAdminUsersCache()
   signInForm.value = {
     email: '',
@@ -6971,6 +7133,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           ref="matchedPatternsRef"
           :matched-patterns="activeTradeResponse.patternAnalysis.matchedHistoricalPatterns"
           :high-fit-paths="activeTradeResponse.patternAnalysis.highFitHistoricalPaths"
+          :is-loading-details="isMatchDetailsLoading"
           @open-replay="openHistoricalReplay"
         />
 

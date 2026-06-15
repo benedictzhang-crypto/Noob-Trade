@@ -5,7 +5,7 @@ import threading
 import time
 from types import SimpleNamespace
 
-from sqlalchemy import literal
+from sqlalchemy import and_, literal, or_
 
 from config import Config
 from extensions import db
@@ -578,17 +578,25 @@ class PersistenceService:
         if not window_records:
             return {}
 
-        symbol_ids = {window.symbol_id for window in window_records if window.symbol_id is not None}
-        start_dates = [window.start_date for window in window_records if window.start_date is not None]
-        end_dates = [window.end_date for window in window_records if window.end_date is not None]
+        valid_windows = [
+            window for window in window_records
+            if window.symbol_id is not None and window.start_date is not None and window.end_date is not None
+        ]
 
-        if not symbol_ids or not start_dates or not end_dates:
+        if not valid_windows:
             return {}
 
+        window_filters = [
+            and_(
+                DailyPrice.symbol_id == window.symbol_id,
+                DailyPrice.trade_date >= window.start_date,
+                DailyPrice.trade_date <= window.end_date,
+            )
+            for window in valid_windows
+        ]
+
         price_records = DailyPrice.query.filter(
-            DailyPrice.symbol_id.in_(symbol_ids),
-            DailyPrice.trade_date >= min(start_dates),
-            DailyPrice.trade_date <= max(end_dates),
+            or_(*window_filters),
         ).order_by(
             DailyPrice.symbol_id.asc(),
             DailyPrice.trade_date.asc(),
@@ -599,7 +607,7 @@ class PersistenceService:
             records_by_symbol.setdefault(record.symbol_id, []).append(record)
 
         candle_lookup = {}
-        for window in window_records:
+        for window in valid_windows:
             candle_lookup[window.id] = self._serialize_match_candles(
                 window,
                 records_by_symbol.get(window.symbol_id, []),
@@ -1021,7 +1029,12 @@ class PersistenceService:
 
         ordered_records = [
             record for record in price_records
-            if record.trade_date is not None
+            if (
+                record.trade_date is not None
+                and window_record.start_date is not None
+                and window_record.end_date is not None
+                and window_record.start_date <= record.trade_date <= window_record.end_date
+            )
         ]
 
         if not ordered_records:

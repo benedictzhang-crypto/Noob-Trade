@@ -9,6 +9,10 @@ const props = defineProps({
   highFitPaths: {
     type: Array,
     required: true
+  },
+  isLoadingDetails: {
+    type: Boolean,
+    default: false
   }
 })
 const emit = defineEmits(['open-replay'])
@@ -313,6 +317,9 @@ function getCandleWidth(count) {
           <span class="match-load-more__arrow" aria-hidden="true">↓</span>
         </button>
       </div>
+    </div>
+    <div v-else-if="isLoadingDetails" class="empty-state">
+      Loading matched historical patterns...
     </div>
     <div v-else class="empty-state">
       Similar historical moves will appear here after Generate.
