@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import date, datetime
+import heapq
 from statistics import mean, pstdev
 import threading
 import time
@@ -28,6 +29,8 @@ class PersistenceService:
     MATCH_TARGET = 20
     MATCH_CANDIDATE_POOL_SIZE = 4000
     MATCH_SCORING_SYMBOLS = tuple(Config.MATCH_SCORING_SYMBOLS)
+    MATCH_CANDIDATE_SNAPSHOT = {}
+    MATCH_CANDIDATE_SNAPSHOT_LOCK = threading.RLock()
     MATCH_PREVIEW_CACHE = {}
     MATCH_PREVIEW_CACHE_LOCK = threading.RLock()
     MATCH_PREVIEW_CACHE_MAX_ENTRIES = 512
@@ -145,6 +148,17 @@ class PersistenceService:
         return SimpleNamespace(
             feature_vector=current_window_payload.get("featureVector") or {},
             return_pct=current_window_payload.get("returnPct"),
+            avg_return=current_window_payload.get("avgReturn"),
+            max_drawdown=current_window_payload.get("maxDrawdown"),
+            volatility=current_window_payload.get("volatility"),
+            probability_score=current_window_payload.get("probabilityScore"),
+            ma_slope=current_window_payload.get("maSlope"),
+            ema_slope=current_window_payload.get("emaSlope"),
+            macd_trend=current_window_payload.get("macdTrend"),
+            rsi_avg=current_window_payload.get("rsiAvg"),
+            rsi_min=current_window_payload.get("rsiMin"),
+            rsi_max=current_window_payload.get("rsiMax"),
+            volume_change_ratio=current_window_payload.get("volumeChangeRatio"),
             timeframe=current_window_payload.get("timeframe"),
             window_size=current_window_payload.get("windowSize"),
             end_date=end_date,
@@ -400,14 +414,18 @@ class PersistenceService:
             if cached_preview is not None:
                 return self._hydrate_cached_match_preview(cached_preview, include_historical_candles)
 
-        candidate_window_ids = self._candidate_window_ids(current_window, selected_indicators)
+        candidate_windows = self._candidate_windows_from_snapshot(current_window, selected_indicators)
+        if candidate_windows is None:
+            candidate_window_ids = self._candidate_window_ids(current_window, selected_indicators)
 
-        if not candidate_window_ids:
+            if not candidate_window_ids:
+                return []
+
+            candidate_windows = PatternWindow.query.filter(
+                PatternWindow.id.in_(candidate_window_ids),
+            ).all()
+        elif not candidate_windows:
             return []
-
-        candidate_windows = PatternWindow.query.filter(
-            PatternWindow.id.in_(candidate_window_ids),
-        ).all()
     
         ranked_matches = []
     
@@ -487,6 +505,161 @@ class PersistenceService:
             self._store_match_preview_cache(preview_cache_key, matched_window_ids, response_matches)
 
         return response_matches
+
+    def warm_match_candidate_snapshot(self, timeframes=None, window_sizes=None):
+        """Load stock match candidates from noobtrade-db into a crypto-style in-memory snapshot."""
+        warmed = []
+        for timeframe in (timeframes or ("daily",)):
+            for window_size in (window_sizes or (30,)):
+                snapshot = self._get_match_candidate_snapshot(timeframe, window_size)
+                warmed.append({
+                    "timeframe": timeframe,
+                    "windowSize": window_size,
+                    "windows": len(snapshot or []),
+                })
+        return warmed
+
+    def _candidate_windows_from_snapshot(self, current_window, selected_indicators):
+        snapshot = self._get_match_candidate_snapshot(
+            getattr(current_window, "timeframe", None),
+            getattr(current_window, "window_size", None),
+        )
+
+        if snapshot is None:
+            return None
+
+        end_date = getattr(current_window, "end_date", None)
+        current_id = getattr(current_window, "id", None)
+        candidates = [
+            window for window in snapshot
+            if (
+                (current_id is None or window.id != current_id)
+                and (end_date is None or window.end_date < end_date)
+            )
+        ]
+
+        if len(candidates) <= self.MATCH_CANDIDATE_POOL_SIZE:
+            return candidates
+
+        return heapq.nsmallest(
+            self.MATCH_CANDIDATE_POOL_SIZE,
+            candidates,
+            key=lambda window: self._candidate_distance_value(current_window, window, selected_indicators),
+        )
+
+    def _get_match_candidate_snapshot(self, timeframe, window_size):
+        if not timeframe or not window_size:
+            return None
+
+        cache_key = (
+            str(timeframe),
+            int(window_size),
+            tuple(self.MATCH_SCORING_SYMBOLS or ()),
+        )
+        with self.MATCH_CANDIDATE_SNAPSHOT_LOCK:
+            cached = self.MATCH_CANDIDATE_SNAPSHOT.get(cache_key)
+            if cached is not None:
+                return cached
+
+        query = db.session.query(
+            PatternWindow.id,
+            PatternWindow.symbol_id,
+            PatternWindow.timeframe,
+            PatternWindow.window_size,
+            PatternWindow.start_date,
+            PatternWindow.end_date,
+            PatternWindow.return_pct,
+            PatternWindow.avg_return,
+            PatternWindow.max_drawdown,
+            PatternWindow.volatility,
+            PatternWindow.probability_score,
+            PatternWindow.ma_slope,
+            PatternWindow.ema_slope,
+            PatternWindow.macd_trend,
+            PatternWindow.rsi_avg,
+            PatternWindow.rsi_min,
+            PatternWindow.rsi_max,
+            PatternWindow.volume_change_ratio,
+            PatternWindow.feature_vector,
+        ).filter(
+            PatternWindow.timeframe == timeframe,
+            PatternWindow.window_size == int(window_size),
+        )
+
+        if self.MATCH_SCORING_SYMBOLS:
+            query = query.join(
+                Symbol,
+                Symbol.id == PatternWindow.symbol_id,
+            ).filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
+
+        rows = query.order_by(
+            PatternWindow.end_date.desc(),
+            PatternWindow.id.desc(),
+        ).all()
+
+        snapshot = [
+            SimpleNamespace(
+                id=row.id,
+                symbol_id=row.symbol_id,
+                timeframe=row.timeframe,
+                window_size=row.window_size,
+                start_date=row.start_date,
+                end_date=row.end_date,
+                return_pct=row.return_pct,
+                avg_return=row.avg_return,
+                max_drawdown=row.max_drawdown,
+                volatility=row.volatility,
+                probability_score=row.probability_score,
+                ma_slope=row.ma_slope,
+                ema_slope=row.ema_slope,
+                macd_trend=row.macd_trend,
+                rsi_avg=row.rsi_avg,
+                rsi_min=row.rsi_min,
+                rsi_max=row.rsi_max,
+                volume_change_ratio=row.volume_change_ratio,
+                feature_vector=row.feature_vector or {},
+            )
+            for row in rows
+        ]
+
+        with self.MATCH_CANDIDATE_SNAPSHOT_LOCK:
+            return self.MATCH_CANDIDATE_SNAPSHOT.setdefault(cache_key, snapshot)
+
+    def _candidate_distance_value(self, current_window, candidate_window, selected_indicators):
+        selected = set(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
+
+        def diff(attribute_name, current_value, weight=1.0):
+            current_number = self._to_float(current_value)
+            candidate_number = self._to_float(getattr(candidate_window, attribute_name, None))
+            if current_number is None:
+                current_number = 0.0
+            if candidate_number is None:
+                candidate_number = 0.0
+            return abs(candidate_number - current_number) * weight
+
+        distance = (
+            diff("return_pct", getattr(current_window, "return_pct", None), 0.35)
+            + diff("max_drawdown", getattr(current_window, "max_drawdown", None), 0.35)
+            + diff("volatility", getattr(current_window, "volatility", None), 0.2)
+            + diff("probability_score", getattr(current_window, "probability_score", None), 0.15)
+        )
+
+        if "MA" in selected:
+            distance += diff("ma_slope", getattr(current_window, "ma_slope", None), 2.5)
+        if "EMA" in selected:
+            distance += diff("ema_slope", getattr(current_window, "ema_slope", None), 2.5)
+        if "MACD" in selected:
+            distance += diff("macd_trend", getattr(current_window, "macd_trend", None), 4.0)
+        if "BOLL" in selected:
+            distance += diff("volatility", getattr(current_window, "volatility", None), 2.0)
+        if "RSI" in selected:
+            distance += diff("rsi_avg", getattr(current_window, "rsi_avg", None), 1.8)
+            distance += diff("rsi_min", getattr(current_window, "rsi_min", None), 0.8)
+            distance += diff("rsi_max", getattr(current_window, "rsi_max", None), 0.8)
+        if "VOL" in selected:
+            distance += diff("volume_change_ratio", getattr(current_window, "volume_change_ratio", None), 2.0)
+
+        return distance
 
     def _match_preview_cache_key(self, current_window, selected_indicators):
         feature_vector = getattr(current_window, "feature_vector", {}) or {}

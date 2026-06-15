@@ -762,13 +762,7 @@ class MarketDataService:
         response = {
             "dataSource": "cached",
             "marketDataProvider": "Cached database",
-            "_currentWindow": {
-                "featureVector": current_window.feature_vector if current_window is not None else {},
-                "returnPct": self._to_float(current_window.return_pct) if current_window is not None else None,
-                "timeframe": interval,
-                "windowSize": lookback_window,
-                "endDate": current_window.end_date.isoformat() if current_window and current_window.end_date else None,
-            },
+            "_currentWindow": self._current_window_payload(current_window, interval, lookback_window),
             "request": {
                 "symbol": symbol,
                 "interval": interval,
@@ -854,13 +848,7 @@ class MarketDataService:
         response = {
             "dataSource": "live",
             "marketDataProvider": self._market_provider_label(),
-            "_currentWindow": {
-                "featureVector": current_window.feature_vector,
-                "returnPct": self._to_float(current_window.return_pct),
-                "timeframe": interval,
-                "windowSize": lookback_window,
-                "endDate": current_window.end_date.isoformat(),
-            },
+            "_currentWindow": self._current_window_payload(current_window, interval, lookback_window),
             "request": {
                 "symbol": symbol,
                 "interval": interval,
@@ -967,13 +955,7 @@ class MarketDataService:
         response = {
             "dataSource": "live",
             "marketDataProvider": self._market_provider_label(),
-            "_currentWindow": {
-                "featureVector": current_window.feature_vector,
-                "returnPct": self._to_float(current_window.return_pct),
-                "timeframe": interval,
-                "windowSize": lookback_window,
-                "endDate": current_window.end_date.isoformat(),
-            },
+            "_currentWindow": self._current_window_payload(current_window, interval, lookback_window),
             "_skipCacheWrite": True,
             "request": {
                 "symbol": symbol,
@@ -2093,11 +2075,50 @@ class MarketDataService:
             return_pct=summary["return_pct"],
             avg_return=summary["avg_return"],
             max_drawdown=summary["max_drawdown"],
+            volatility=summary["volatility"],
+            probability_score=summary["probability_score"],
+            ma_slope=summary["ma_slope"],
+            ema_slope=summary["ema_slope"],
+            macd_trend=summary["macd_trend"],
+            rsi_avg=summary["rsi_avg"],
+            rsi_min=summary["rsi_min"],
+            rsi_max=summary["rsi_max"],
+            volume_change_ratio=summary["volume_change_ratio"],
             timeframe=interval,
             window_size=lookback_window,
             end_date=current_window_candles[-1]["trade_date"],
             id=None,
         )
+
+    def _current_window_payload(self, current_window, interval, lookback_window):
+        if current_window is None:
+            return {
+                "featureVector": {},
+                "returnPct": None,
+                "timeframe": interval,
+                "windowSize": lookback_window,
+                "endDate": None,
+            }
+
+        end_date = getattr(current_window, "end_date", None)
+        return {
+            "featureVector": getattr(current_window, "feature_vector", None) or {},
+            "returnPct": self._to_float(getattr(current_window, "return_pct", None)),
+            "avgReturn": self._to_float(getattr(current_window, "avg_return", None)),
+            "maxDrawdown": self._to_float(getattr(current_window, "max_drawdown", None)),
+            "volatility": self._to_float(getattr(current_window, "volatility", None)),
+            "probabilityScore": self._to_float(getattr(current_window, "probability_score", None)),
+            "maSlope": self._to_float(getattr(current_window, "ma_slope", None)),
+            "emaSlope": self._to_float(getattr(current_window, "ema_slope", None)),
+            "macdTrend": self._to_float(getattr(current_window, "macd_trend", None)),
+            "rsiAvg": self._to_float(getattr(current_window, "rsi_avg", None)),
+            "rsiMin": self._to_float(getattr(current_window, "rsi_min", None)),
+            "rsiMax": self._to_float(getattr(current_window, "rsi_max", None)),
+            "volumeChangeRatio": self._to_float(getattr(current_window, "volume_change_ratio", None)),
+            "timeframe": interval,
+            "windowSize": lookback_window,
+            "endDate": end_date.isoformat() if hasattr(end_date, "isoformat") else end_date,
+        }
 
     def _estimate_sell_date(self, interval, prices):
         last_date = prices[0].get("date", "N/A")

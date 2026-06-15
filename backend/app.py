@@ -441,6 +441,7 @@ def _start_background_database_init(app):
             app.config["_DB_INIT_READY"] = True
             app.config["_DB_INIT_ERROR"] = None
             _warm_crypto_pattern_store(app)
+            _warm_stock_pattern_snapshot(app)
             _warm_stock_analysis_cache(app)
         except Exception as error:
             app.logger.exception("Background database initialization failed.")
@@ -463,6 +464,26 @@ def _warm_crypto_pattern_store(app):
         app.logger.info("Crypto pattern store warmup complete: %s", result)
     except Exception:
         app.logger.exception("Crypto pattern store warmup failed; continuing with lazy loading.")
+
+
+def _warm_stock_pattern_snapshot(app):
+    if not app.config.get("STOCK_PATTERN_SNAPSHOT_WARM_ON_START", True):
+        return
+
+    def _runner():
+        with app.app_context():
+            try:
+                from services.persistence_service import PersistenceService
+
+                result = PersistenceService().warm_match_candidate_snapshot(
+                    timeframes=[app.config.get("DEFAULT_INTERVAL", "daily")],
+                    window_sizes=[app.config.get("DEFAULT_LOOKBACK", 30)],
+                )
+                app.logger.info("Stock pattern snapshot warmup complete: %s", result)
+            except Exception:
+                app.logger.exception("Stock pattern snapshot warmup failed; continuing with lazy loading.")
+
+    threading.Thread(target=_runner, daemon=True).start()
 
 
 def _warm_stock_analysis_cache(app):
