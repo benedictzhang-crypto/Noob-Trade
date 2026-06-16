@@ -1,5 +1,7 @@
 import smtplib
 from email.message import EmailMessage
+from email.utils import formataddr, formatdate, make_msgid, parseaddr
+import html
 
 
 class EmailService:
@@ -42,10 +44,46 @@ class EmailService:
         smtp_client = smtplib.SMTP_SSL if smtp_settings["use_ssl"] else smtplib.SMTP
 
         with smtp_client(smtp_settings["smtp_host"], int(smtp_settings["smtp_port"]), timeout=20) as server:
+            server.ehlo()
             if smtp_settings["use_tls"] and not smtp_settings["use_ssl"]:
                 server.starttls()
+                server.ehlo()
             server.login(smtp_settings["smtp_username"], smtp_settings["smtp_password"])
-            server.send_message(message)
+            refused = server.send_message(message)
+
+        if refused:
+            refused_recipients = ", ".join(refused.keys())
+            raise ValueError(f"Email server refused the recipient: {refused_recipients}")
+
+    def _sender_header(self, email_from):
+        sender_name, sender_email = parseaddr(str(email_from or ""))
+        if sender_name or not sender_email:
+            return email_from
+        return formataddr((self._brand_name(), sender_email))
+
+    def _message_id_domain(self, email_from):
+        _, sender_email = parseaddr(str(email_from or ""))
+        if "@" not in sender_email:
+            return None
+        return sender_email.rsplit("@", 1)[-1]
+
+    def _support_email(self):
+        support_email = self.config.get("SUPPORT_EMAIL")
+        email_from = self.config.get("EMAIL_FROM")
+        _, parsed_support = parseaddr(str(support_email or ""))
+        _, parsed_from = parseaddr(str(email_from or ""))
+        return parsed_support or parsed_from or "support@noobtrade.com"
+
+    def _prepare_transactional_message(self, message, subject, recipient_email):
+        smtp_settings = self._get_smtp_settings()
+        message["Subject"] = subject
+        message["From"] = self._sender_header(smtp_settings["email_from"])
+        message["To"] = recipient_email
+        message["Reply-To"] = self._support_email()
+        message["Date"] = formatdate(localtime=False, usegmt=True)
+        message["Message-ID"] = make_msgid(domain=self._message_id_domain(smtp_settings["email_from"]))
+        message["Auto-Submitted"] = "auto-generated"
+        message["X-Auto-Response-Suppress"] = "All"
 
     def send_login_code(self, recipient_email, code):
         expiry_minutes = self.config.get("LOGIN_CODE_EXPIRY_MINUTES", 10)
@@ -90,24 +128,24 @@ class EmailService:
         )
 
     def send_login_notice(self, recipient_email, login_context=None):
-        smtp_settings = self._get_smtp_settings()
-
         message = EmailMessage()
-        message["Subject"] = "Noob Trade login notice"
-        message["From"] = smtp_settings["email_from"]
-        message["To"] = recipient_email
+        self._prepare_transactional_message(
+            message=message,
+            subject="Noob Trade login notice",
+            recipient_email=recipient_email,
+        )
         message.set_content(self._build_login_notice_plain_text(login_context))
         message.add_alternative(self._build_login_notice_html(login_context), subtype="html")
 
         self._send_message(message)
 
     def _send_security_code_email(self, recipient_email, subject, eyebrow, title, intro, code, expiry_minutes, action_label, action_href):
-        smtp_settings = self._get_smtp_settings()
-
         message = EmailMessage()
-        message["Subject"] = subject
-        message["From"] = smtp_settings["email_from"]
-        message["To"] = recipient_email
+        self._prepare_transactional_message(
+            message=message,
+            subject=subject,
+            recipient_email=recipient_email,
+        )
         message.set_content(self._build_code_plain_text(title, intro, code, expiry_minutes, action_href))
         message.add_alternative(
             self._build_code_email_html(
@@ -141,7 +179,7 @@ class EmailService:
         links = self._brand_links()
 
         return "\n".join(
-            [
+            [line for line in [
                 brand_name,
                 "",
                 title,
@@ -150,18 +188,38 @@ class EmailService:
                 f"Code: {code}",
                 f"Expires in: {expiry_minutes} minutes",
                 "",
-                f"Open app: {action_href}",
+                f"Open app: {action_href}" if action_href else "",
                 f"Support email: {links['email']}",
                 f"Support phone: {links['phone']}",
                 f"X: {links['x']}",
                 f"Instagram: {links['instagram']}",
                 f"Discord: {links['discord']}",
-            ]
+            ] if line]
         )
 
     def _build_code_email_html(self, eyebrow, title, intro, code, expiry_minutes, action_label, action_href):
-        brand_name = self._brand_name()
-        links = self._brand_links()
+        brand_name = html.escape(self._brand_name())
+        safe_eyebrow = html.escape(str(eyebrow or "Security Code"))
+        safe_title = html.escape(str(title or "Your verification code"))
+        safe_intro = html.escape(str(intro or "Enter this code to continue."))
+        safe_code = html.escape(str(code))
+        safe_action_label = html.escape(str(action_label or "Open Noob Trade"))
+        safe_action_href = html.escape(str(action_href or ""), quote=True)
+        safe_expiry_minutes = html.escape(str(expiry_minutes))
+        links = {
+            key: html.escape(str(value or ""), quote=True)
+            for key, value in self._brand_links().items()
+        }
+        action_html = ""
+
+        if safe_action_href:
+            action_html = f"""
+                    <tr>
+                      <td style="padding:0 34px 26px;">
+                        <a href="{safe_action_href}" style="display:inline-block;background:#ea580c;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;letter-spacing:0.02em;padding:14px 22px;border-radius:999px;">{safe_action_label}</a>
+                      </td>
+                    </tr>
+            """
 
         return f"""
         <!doctype html>
@@ -180,16 +238,16 @@ class EmailService:
                       <td style="padding:0;">
                         <div style="background:linear-gradient(135deg,#fff7ed 0%,#ffedd5 42%,#fdba74 100%);padding:34px 34px 28px;">
                           <div style="font-size:36px;font-weight:900;letter-spacing:-0.05em;color:#ea580c;line-height:1;">{brand_name}</div>
-                          <div style="margin-top:10px;font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a3412;">{eyebrow}</div>
+                          <div style="margin-top:10px;font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a3412;">{safe_eyebrow}</div>
                           <div style="margin-top:18px;display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:end;">
                             <div>
-                              <div style="font-size:30px;font-weight:850;line-height:1.15;color:#111827;">{title}</div>
-                              <p style="margin:14px 0 0;font-size:15px;line-height:1.8;color:#7c2d12;">{intro}</p>
+                              <div style="font-size:30px;font-weight:850;line-height:1.15;color:#111827;">{safe_title}</div>
+                              <p style="margin:14px 0 0;font-size:15px;line-height:1.8;color:#7c2d12;">{safe_intro}</p>
                             </div>
                             <div style="background:rgba(255,255,255,0.68);border:1px solid rgba(249,115,22,0.22);border-radius:22px;padding:18px 18px 16px;text-align:left;">
                               <div style="font-size:11px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9a3412;">Security code</div>
-                              <div style="margin-top:10px;font-size:34px;font-weight:900;letter-spacing:0.22em;color:#ea580c;">{code}</div>
-                              <div style="margin-top:12px;font-size:13px;line-height:1.6;color:#7c2d12;">Valid for <strong>{expiry_minutes} minutes</strong></div>
+                              <div style="margin-top:10px;font-size:34px;font-weight:900;letter-spacing:0.22em;color:#ea580c;">{safe_code}</div>
+                              <div style="margin-top:12px;font-size:13px;line-height:1.6;color:#7c2d12;">Valid for <strong>{safe_expiry_minutes} minutes</strong></div>
                             </div>
                           </div>
                         </div>
@@ -206,11 +264,7 @@ class EmailService:
                         </div>
                       </td>
                     </tr>
-                    <tr>
-                      <td style="padding:0 34px 26px;">
-                        <a href="{action_href}" style="display:inline-block;background:#ea580c;color:#ffffff;text-decoration:none;font-size:14px;font-weight:800;letter-spacing:0.02em;padding:14px 22px;border-radius:999px;">{action_label}</a>
-                      </td>
-                    </tr>
+                    {action_html}
                     <tr>
                       <td style="padding:0 34px 10px;">
                         <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9a3412;">Stay connected</div>
