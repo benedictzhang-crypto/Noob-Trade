@@ -682,6 +682,7 @@ def create_app():
         is_public_ready_endpoint = request.endpoint in {
             "stock.health_check",
             "serve_ampli_lab",
+            "serve_frontend",
         }
         if _is_live_market_snapshot_request():
             is_public_ready_endpoint = True
