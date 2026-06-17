@@ -253,11 +253,14 @@ class Config:
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() == "true"
     SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "false").lower() == "true"
+    SMTP_TIMEOUT_SECONDS = float(os.getenv("SMTP_TIMEOUT_SECONDS", "20"))
+    SMTP_SEND_ATTEMPTS = int(os.getenv("SMTP_SEND_ATTEMPTS", "3"))
+    SMTP_RETRY_DELAY_SECONDS = float(os.getenv("SMTP_RETRY_DELAY_SECONDS", "0.8"))
     EMAIL_FROM = os.getenv("EMAIL_FROM", "")
     ALLOW_LOCAL_EMAIL_BYPASS = os.getenv("ALLOW_LOCAL_EMAIL_BYPASS", "false").lower() == "true"
     APP_NAME = os.getenv("APP_NAME", "Noob Trade")
     APP_BASE_URL = os.getenv("APP_BASE_URL", "https://noobtrade.onrender.com")
-    SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "support@noobtrade.com")
+    SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", os.getenv("EMAIL_FROM", "support@noobtrade.com"))
     SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "+1 (800) 555-0149")
     X_URL = os.getenv("X_URL", "https://x.com/noobtrade")
     INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://noobtrade.onrender.com")

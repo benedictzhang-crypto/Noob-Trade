@@ -95,7 +95,7 @@ If you want other people to download the app and successfully:
 
 then the backend must be connected to a real outbound mail provider.
 
-Use [backend/.env.example](/Users/benedict/Desktop/NoobTrade/backend/.env.example) as your template and configure:
+Use [backend/.env.example](/Users/benedict/Desktop/Noob-Trade/backend/.env.example) as your template and configure:
 
 - `SMTP_HOST`
 - `SMTP_PORT`
@@ -103,6 +103,7 @@ Use [backend/.env.example](/Users/benedict/Desktop/NoobTrade/backend/.env.exampl
 - `SMTP_PASSWORD`
 - `EMAIL_FROM`
 - `APP_BASE_URL`
+- `SUPPORT_EMAIL`
 
 Recommended mode split:
 
@@ -110,6 +111,8 @@ Recommended mode split:
 - shared or distributed app: `APP_ENV=production` and `ALLOW_LOCAL_EMAIL_BYPASS=false`
 
 In production mode, Noob Trade will now refuse to silently bypass email delivery. That prevents shipping a build that only works on the developer's machine.
+
+For Gmail and university inboxes, the sending address should use a real mailbox or an authenticated sending domain. Make sure the SMTP account, `EMAIL_FROM`, and `SUPPORT_EMAIL` are aligned, and that the sender domain has SPF, DKIM, and DMARC records set by the mail provider. The app logs SMTP acceptance and retries transient handoff failures, but final inbox placement is still controlled by the recipient provider.
 
 ## Project Structure
 

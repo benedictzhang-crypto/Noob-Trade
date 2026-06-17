@@ -1,7 +1,13 @@
 import smtplib
+import logging
+import socket
+import time
 from email.message import EmailMessage
 from email.utils import formataddr, formatdate, make_msgid, parseaddr
 import html
+
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -25,6 +31,9 @@ class EmailService:
         email_from = self.config.get("EMAIL_FROM")
         use_tls = self.config.get("SMTP_USE_TLS", True)
         use_ssl = self.config.get("SMTP_USE_SSL", False)
+        timeout_seconds = float(self.config.get("SMTP_TIMEOUT_SECONDS", 20))
+        send_attempts = int(self.config.get("SMTP_SEND_ATTEMPTS", 3))
+        retry_delay_seconds = float(self.config.get("SMTP_RETRY_DELAY_SECONDS", 0.8))
 
         if not self.is_configured():
             raise ValueError("Email delivery is not configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, and EMAIL_FROM.")
@@ -37,29 +46,131 @@ class EmailService:
             "email_from": email_from,
             "use_tls": use_tls,
             "use_ssl": use_ssl,
+            "timeout_seconds": timeout_seconds,
+            "send_attempts": max(1, send_attempts),
+            "retry_delay_seconds": max(0.1, retry_delay_seconds),
         }
 
     def _send_message(self, message):
         smtp_settings = self._get_smtp_settings()
         smtp_client = smtplib.SMTP_SSL if smtp_settings["use_ssl"] else smtplib.SMTP
+        from_addr = self._sender_address(smtp_settings["email_from"])
+        to_addrs = self._recipient_addresses(message.get("To"))
+        last_error = None
 
-        with smtp_client(smtp_settings["smtp_host"], int(smtp_settings["smtp_port"]), timeout=20) as server:
-            server.ehlo()
-            if smtp_settings["use_tls"] and not smtp_settings["use_ssl"]:
-                server.starttls()
-                server.ehlo()
-            server.login(smtp_settings["smtp_username"], smtp_settings["smtp_password"])
-            refused = server.send_message(message)
+        for attempt in range(1, smtp_settings["send_attempts"] + 1):
+            try:
+                with smtp_client(
+                    smtp_settings["smtp_host"],
+                    int(smtp_settings["smtp_port"]),
+                    timeout=smtp_settings["timeout_seconds"],
+                ) as server:
+                    server.ehlo()
+                    if smtp_settings["use_tls"] and not smtp_settings["use_ssl"]:
+                        server.starttls()
+                        server.ehlo()
+                    server.login(smtp_settings["smtp_username"], smtp_settings["smtp_password"])
+                    refused = server.send_message(message, from_addr=from_addr, to_addrs=to_addrs)
 
-        if refused:
-            refused_recipients = ", ".join(refused.keys())
-            raise ValueError(f"Email server refused the recipient: {refused_recipients}")
+                if refused:
+                    refused_recipients = ", ".join(refused.keys())
+                    raise ValueError(f"Email server refused the recipient: {refused_recipients}")
+
+                logger.info(
+                    "Transactional email accepted by SMTP for %s with message id %s",
+                    ", ".join(to_addrs),
+                    message.get("Message-ID", ""),
+                )
+                return {
+                    "acceptedRecipients": to_addrs,
+                    "messageId": message.get("Message-ID"),
+                }
+            except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused) as error:
+                raise ValueError(self._format_refusal_error(error)) from error
+            except smtplib.SMTPAuthenticationError as error:
+                raise RuntimeError("Email server authentication failed. Please check SMTP credentials.") from error
+            except smtplib.SMTPDataError as error:
+                last_error = error
+                if not self._should_retry_smtp_error(error, attempt, smtp_settings["send_attempts"]):
+                    raise RuntimeError("Email server rejected the message content.") from error
+            except (
+                smtplib.SMTPConnectError,
+                smtplib.SMTPHeloError,
+                smtplib.SMTPServerDisconnected,
+                smtplib.SMTPNotSupportedError,
+                OSError,
+                TimeoutError,
+                socket.timeout,
+            ) as error:
+                last_error = error
+                if attempt >= smtp_settings["send_attempts"]:
+                    break
+
+            logger.warning(
+                "Transactional email handoff attempt %s/%s failed for %s; retrying.",
+                attempt,
+                smtp_settings["send_attempts"],
+                ", ".join(to_addrs),
+                exc_info=True,
+            )
+            time.sleep(smtp_settings["retry_delay_seconds"] * attempt)
+
+        raise RuntimeError("Email server did not complete the message handoff. Please try again.") from last_error
+
+    def _sender_address(self, email_from):
+        _, sender_email = parseaddr(str(email_from or ""))
+        if "@" not in sender_email:
+            raise ValueError("EMAIL_FROM must contain a deliverable email address.")
+        return sender_email
+
+    def _recipient_addresses(self, recipient_email):
+        _, recipient = parseaddr(str(recipient_email or ""))
+        if "@" not in recipient:
+            raise ValueError("Verification email recipient address is invalid.")
+        return [recipient]
+
+    def _should_retry_smtp_error(self, error, attempt, max_attempts):
+        smtp_code = getattr(error, "smtp_code", None)
+        if attempt >= max_attempts:
+            return False
+        if smtp_code is None:
+            return True
+        return 400 <= int(smtp_code) < 500
+
+    def _format_refusal_error(self, error):
+        if isinstance(error, smtplib.SMTPRecipientsRefused):
+            refused_recipients = ", ".join(error.recipients.keys())
+            return f"Email server refused the recipient: {refused_recipients}"
+        if isinstance(error, smtplib.SMTPSenderRefused):
+            return "Email server refused the sender address. Please check EMAIL_FROM and SMTP domain authentication."
+        return "Email server refused the message."
 
     def _sender_header(self, email_from):
         sender_name, sender_email = parseaddr(str(email_from or ""))
         if sender_name or not sender_email:
             return email_from
         return formataddr((self._brand_name(), sender_email))
+
+    def _sender_domain(self, email_from):
+        _, sender_email = parseaddr(str(email_from or ""))
+        if "@" not in sender_email:
+            return None
+        return sender_email.rsplit("@", 1)[-1].lower()
+
+    def _sender_alignment_notice(self, email_from):
+        sender_domain = self._sender_domain(email_from)
+        username_domain = self._sender_domain(self.config.get("SMTP_USERNAME"))
+        if not sender_domain or not username_domain or sender_domain == username_domain:
+            return None
+        return (
+            "EMAIL_FROM and SMTP_USERNAME use different domains. Gmail and university mailboxes "
+            "may quarantine verification codes unless SPF, DKIM, and DMARC are aligned."
+        )
+
+    def _warn_if_sender_alignment_is_risky(self, email_from):
+        notice = self._sender_alignment_notice(email_from)
+        if notice:
+            logger.warning(notice)
 
     def _message_id_domain(self, email_from):
         _, sender_email = parseaddr(str(email_from or ""))
@@ -76,14 +187,19 @@ class EmailService:
 
     def _prepare_transactional_message(self, message, subject, recipient_email):
         smtp_settings = self._get_smtp_settings()
+        self._warn_if_sender_alignment_is_risky(smtp_settings["email_from"])
+        message_id = make_msgid(domain=self._message_id_domain(smtp_settings["email_from"]))
         message["Subject"] = subject
         message["From"] = self._sender_header(smtp_settings["email_from"])
         message["To"] = recipient_email
         message["Reply-To"] = self._support_email()
         message["Date"] = formatdate(localtime=False, usegmt=True)
-        message["Message-ID"] = make_msgid(domain=self._message_id_domain(smtp_settings["email_from"]))
+        message["Message-ID"] = message_id
         message["Auto-Submitted"] = "auto-generated"
         message["X-Auto-Response-Suppress"] = "All"
+        message["X-Entity-Ref-ID"] = message_id.strip("<>")
+        message["X-NoobTrade-Message-Type"] = "transactional-security"
+        message["Feedback-ID"] = "security:noobtrade"
 
     def send_login_code(self, recipient_email, code):
         expiry_minutes = self.config.get("LOGIN_CODE_EXPIRY_MINUTES", 10)
@@ -190,10 +306,6 @@ class EmailService:
                 "",
                 f"Open app: {action_href}" if action_href else "",
                 f"Support email: {links['email']}",
-                f"Support phone: {links['phone']}",
-                f"X: {links['x']}",
-                f"Instagram: {links['instagram']}",
-                f"Discord: {links['discord']}",
             ] if line]
         )
 
@@ -210,6 +322,7 @@ class EmailService:
             key: html.escape(str(value or ""), quote=True)
             for key, value in self._brand_links().items()
         }
+        safe_preheader = html.escape(f"Your {self._brand_name()} security code expires in {expiry_minutes} minutes.")
         action_html = ""
 
         if safe_action_href:
@@ -230,6 +343,7 @@ class EmailService:
             <title>{brand_name}</title>
           </head>
           <body style="margin:0;padding:0;background:#fff8f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1f2937;">
+            <div style="display:none!important;visibility:hidden;opacity:0;color:transparent;height:0;width:0;overflow:hidden;mso-hide:all;">{safe_preheader}</div>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff8f2;padding:28px 12px;">
               <tr>
                 <td align="center">
@@ -266,37 +380,9 @@ class EmailService:
                     </tr>
                     {action_html}
                     <tr>
-                      <td style="padding:0 34px 10px;">
-                        <div style="font-size:12px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;color:#9a3412;">Stay connected</div>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding:0 34px 28px;">
-                        <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">
-                          <tr>
-                            <td style="padding:0 12px 0 0;">
-                              <a href="{links['x']}" style="display:block;text-decoration:none;background:#fff7ed;border:1px solid rgba(251,146,60,0.18);border-radius:18px;padding:14px 12px;text-align:center;color:#9a3412;font-size:12px;font-weight:800;">X</a>
-                            </td>
-                            <td style="padding:0 12px 0 0;">
-                              <a href="mailto:{links['email']}" style="display:block;text-decoration:none;background:#fff7ed;border:1px solid rgba(251,146,60,0.18);border-radius:18px;padding:14px 12px;text-align:center;color:#9a3412;font-size:12px;font-weight:800;">Email</a>
-                            </td>
-                            <td style="padding:0 12px 0 0;">
-                              <a href="tel:{links['phone']}" style="display:block;text-decoration:none;background:#fff7ed;border:1px solid rgba(251,146,60,0.18);border-radius:18px;padding:14px 12px;text-align:center;color:#9a3412;font-size:12px;font-weight:800;">Phone</a>
-                            </td>
-                            <td style="padding:0 12px 0 0;">
-                              <a href="{links['instagram']}" style="display:block;text-decoration:none;background:#fff7ed;border:1px solid rgba(251,146,60,0.18);border-radius:18px;padding:14px 12px;text-align:center;color:#9a3412;font-size:12px;font-weight:800;">IG</a>
-                            </td>
-                            <td style="padding:0;">
-                              <a href="{links['discord']}" style="display:block;text-decoration:none;background:#fff7ed;border:1px solid rgba(251,146,60,0.18);border-radius:18px;padding:14px 12px;text-align:center;color:#9a3412;font-size:12px;font-weight:800;">Discord</a>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                    <tr>
                       <td style="padding:18px 34px 28px;background:#fffaf5;border-top:1px solid rgba(251,146,60,0.14);font-size:12px;line-height:1.8;color:#9ca3af;">
                         {brand_name} account security email<br />
-                        {links['email']} · {links['phone']}
+                        {links['email']}
                       </td>
                     </tr>
                   </table>
