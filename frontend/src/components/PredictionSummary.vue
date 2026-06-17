@@ -21,6 +21,14 @@ const props = defineProps({
   isLoading: {
     type: Boolean,
     default: false
+  },
+  loadingTitle: {
+    type: String,
+    default: 'Generating probabilities'
+  },
+  loadingMessage: {
+    type: String,
+    default: 'Loading matched history and probability ranges.'
   }
 })
 
@@ -210,8 +218,8 @@ defineExpose({
     <div v-if="isLoading" class="prediction-loading-card" role="status" aria-live="polite">
       <span class="prediction-loading-spinner" aria-hidden="true"></span>
       <div class="prediction-loading-copy">
-        <strong>Generating probabilities</strong>
-        <small>Loading matched history and probability ranges.</small>
+        <strong>{{ loadingTitle }}</strong>
+        <small>{{ loadingMessage }}</small>
       </div>
     </div>
     <div v-else class="stats-list">

@@ -799,6 +799,14 @@ const tradeSearchPlaceholder = computed(() => (
 const tradeSearchLoadingLabel = computed(() => (
   activePage.value === 'Crypto Trade' ? 'Loading crypto data for' : 'Loading stock data for'
 ))
+const predictionLoadingTitle = computed(() => (
+  activePage.value === 'Crypto Trade' ? 'Generating crypto probabilities' : 'Generating stock probabilities'
+))
+const predictionLoadingMessage = computed(() => (
+  activePage.value === 'Crypto Trade'
+    ? 'Loading matched history and probability ranges.'
+    : 'The historical database cache is warming up. The first Generate after opening the app may take a little longer, please wait.'
+))
 const tradePopularSymbols = computed(() => (
   activePage.value === 'Crypto Trade' ? ['BTC', 'ETH', 'OKB', 'SOL'] : ['AAPL', 'TSLA', 'NVDA', 'SPY']
 ))
@@ -7042,6 +7050,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :stock-data="activeTradeResponse.stock"
           :analysis-data="activeTradeResponse.patternAnalysis"
           :is-loading="isPredictionLoading"
+          :loading-title="predictionLoadingTitle"
+          :loading-message="predictionLoadingMessage"
         />
 
         <MatchedPatterns
