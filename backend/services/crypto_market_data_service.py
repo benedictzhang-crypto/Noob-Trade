@@ -166,7 +166,7 @@ class CryptoMarketDataService(MarketDataService):
 
         previous_close = self._to_float(prices[1].get("close", current_price)) if len(prices) > 1 else current_price
         open_price = self._to_float(prices[0].get("open", current_price))
-        volume = self._to_float(prices[0].get("volume"), 0.0)
+        volume = self._to_float(prices[0].get("volume")) or 0.0
         stock = response.setdefault("stock", {})
         stock.update(
             {
