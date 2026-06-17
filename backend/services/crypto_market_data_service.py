@@ -76,6 +76,7 @@ class CryptoMarketDataService(MarketDataService):
                 analysis_mode=analysis_mode,
             )
             if response is not None:
+                self._overlay_live_crypto_price(response, symbol)
                 return response
 
         try:
@@ -103,6 +104,7 @@ class CryptoMarketDataService(MarketDataService):
                     normalized_interval,
                     exc_info=True,
                 )
+                self._overlay_live_crypto_price(response, symbol)
                 return response
             raise
         if self._uses_daily_generate_strategy(normalized_interval):
@@ -139,6 +141,53 @@ class CryptoMarketDataService(MarketDataService):
         request = response.setdefault("request", {})
         request["requestedInterval"] = requested_interval
         request["fallbackInterval"] = self.DAILY_GENERATE_STRATEGY["timeframe"]
+        return response
+
+    def _overlay_live_crypto_price(self, response, symbol):
+        if not isinstance(response, dict):
+            return response
+
+        symbol_code = self._normalize_symbol_code(symbol)
+        try:
+            _overview, prices = self._fetch_live_overview_and_prices(
+                symbol_code,
+                price_limit=max(45, int(self.config.get("DEFAULT_LOOKBACK", 30) or 30) + 10),
+            )
+        except Exception:
+            logger.warning("Could not refresh crypto live price for %s.", symbol_code, exc_info=True)
+            return response
+
+        if not prices:
+            return response
+
+        current_price = self._to_float(prices[0].get("close"))
+        if current_price is None:
+            return response
+
+        previous_close = self._to_float(prices[1].get("close", current_price)) if len(prices) > 1 else current_price
+        open_price = self._to_float(prices[0].get("open", current_price))
+        volume = self._to_float(prices[0].get("volume"), 0.0)
+        stock = response.setdefault("stock", {})
+        stock.update(
+            {
+                "currentPrice": current_price,
+                "previousClose": previous_close,
+                "open": open_price,
+                "volume": volume,
+            }
+        )
+
+        analysis = response.get("patternAnalysis")
+        if isinstance(analysis, dict):
+            avg_return = self._to_float(analysis.get("avgReturn"))
+            max_drawdown = self._to_float(analysis.get("maxDrawdown"))
+            if avg_return is not None:
+                analysis["recommendedSellPrice"] = round(current_price * (1 + max(avg_return, 0.0) / 100), 8)
+            if max_drawdown is not None:
+                analysis["stopLossPrice"] = round(current_price * (1 + min(max_drawdown, 0.0) / 100), 8)
+
+        response["dataSource"] = "live"
+        response["marketDataProvider"] = self._market_provider_label()
         return response
 
     def _should_fallback_from_pattern_store(self, error):
