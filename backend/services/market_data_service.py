@@ -282,6 +282,12 @@ class MarketDataService:
             )
             cached_response = self._get_cached_analysis_response(cache_key)
             if cached_response is not None:
+                if compact_response:
+                    self._overlay_cached_live_compact_price(
+                        cached_response,
+                        symbol_code,
+                        max(lookback_window + 10, 45),
+                    )
                 return cached_response
             is_cache_owner, cache_event = self._begin_analysis_cache_fill(cache_key)
             if not is_cache_owner:
@@ -893,7 +899,15 @@ class MarketDataService:
 
     def _overlay_cached_live_compact_price(self, response, symbol, price_limit):
         cache_key = f"daily:{symbol}:{price_limit}"
-        prices_payload = self._peek_cached_market_payload(cache_key)
+        try:
+            prices_payload = self._get_cached_market_payload(
+                cache_key,
+                self.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
+                lambda: self.market_api.get_daily_prices(symbol, limit=price_limit),
+            )
+        except Exception:
+            logger.warning("Could not refresh compact live price for %s.", symbol, exc_info=True)
+            prices_payload = self._peek_cached_market_payload(cache_key)
         prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
         prices = self._normalize_price_rows_latest_first(prices)
 
