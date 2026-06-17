@@ -683,6 +683,7 @@ def create_app():
             "stock.health_check",
             "serve_ampli_lab",
             "serve_frontend",
+            "static",
         }
         if _is_live_market_snapshot_request():
             is_public_ready_endpoint = True
