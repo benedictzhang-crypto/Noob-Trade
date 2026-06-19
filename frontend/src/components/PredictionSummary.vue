@@ -41,12 +41,12 @@ function getSignalLabel(signal) {
 
 function formatProbabilityLabel(value) {
   if (value === null || value === undefined || value === '') {
-    return 'Generate'
+    return '--'
   }
 
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) {
-    return 'Generate'
+    return '--'
   }
 
   return `${numericValue.toFixed(0)}%`
@@ -91,6 +91,21 @@ function findThresholdProbability(side, threshold) {
   return Number(matched.probability).toFixed(0) + '%'
 }
 
+function getNumericProbability(value) {
+  if (value === null || value === undefined || value === '') {
+    return null
+  }
+
+  const numericValue = Number(value)
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function getLadderProbability(side, threshold) {
+  const ladder = props.analysisData.futureFiveDayProbabilities?.[side] || []
+  const matched = ladder.find((item) => Number(item.threshold) === Number(threshold))
+  return getNumericProbability(matched?.probability)
+}
+
 const matchedPatterns = computed(() => props.analysisData.matchedHistoricalPatterns || [])
 const matchedPatternCount = computed(() => {
   const explicitCount = Number(props.analysisData.matchedPatternsCount)
@@ -101,11 +116,14 @@ const matchedPatternCount = computed(() => {
 
   return matchedPatterns.value.length
 })
+const headlineProbabilityValue = computed(() => (
+  getNumericProbability(props.analysisData.probabilityOfIncrease)
+    ?? getLadderProbability('up', 1)
+))
 const hasHeadlineProbability = computed(() => {
-  const value = props.analysisData.probabilityOfIncrease
-  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value))
+  return headlineProbabilityValue.value !== null
 })
-const headlineProbabilityLabel = computed(() => formatProbabilityLabel(props.analysisData.probabilityOfIncrease))
+const headlineProbabilityLabel = computed(() => formatProbabilityLabel(headlineProbabilityValue.value))
 const currentPrice = computed(() => {
   const value = Number(props.stockData?.currentPrice)
   return Number.isFinite(value) ? value : null
@@ -143,7 +161,7 @@ function calculateDynamicProbability(side, threshold) {
   }, 0)
 
   if (!totalWeight) {
-    return 'Generate'
+    return '--'
   }
 
   const hitWeight = matchedPatterns.value.reduce((sum, match) => {

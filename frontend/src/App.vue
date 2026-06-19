@@ -791,7 +791,7 @@ const activeTradeResponse = computed(() => (
     ? cryptoResponse.value
     : stockResponse.value
 ))
-const activeMarketSymbol = computed(() => (isCryptoMode.value ? cryptoResponse.value?.stock?.symbol || 'BTC' : activeSymbol.value))
+const activeMarketSymbol = computed(() => (isCryptoMode.value ? cryptoResponse.value?.stock?.symbol || '' : activeSymbol.value))
 const displayedTradeSymbol = computed(() => activeTradeResponse.value?.stock?.symbol || activeSymbol.value || 'Search')
 const tradeSearchPlaceholder = computed(() => (
   activePage.value === 'Crypto Trade' ? 'Enter Crypto Ticker (e.g. BTC)' : 'Enter Ticker (e.g. AAPL)'
@@ -2038,8 +2038,30 @@ function createDefaultResponse() {
   }
 }
 
-function createCryptoWorkspaceResponse(symbol = 'BTC') {
-  const normalizedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
+function createCryptoWorkspaceResponse(symbol = '') {
+  const normalizedSymbol = String(symbol || '').trim().toUpperCase()
+  if (!normalizedSymbol) {
+    return {
+      ...createDefaultResponse(),
+      stock: {
+        symbol: '',
+        companyName: 'Search a crypto asset',
+        sector: 'Crypto',
+        industry: 'Search first',
+        currentPrice: null,
+        previousClose: null,
+        open: null,
+        volume: 0,
+        week52High: null,
+        week52Low: null
+      },
+      patternAnalysis: {
+        ...createDefaultResponse().patternAnalysis,
+        signalClassification: 'Search first'
+      }
+    }
+  }
+
   const cryptoLookup = {
     BTC: {
       companyName: 'Bitcoin',
@@ -2238,12 +2260,12 @@ function formatPercent(value) {
 
 function formatProbabilityDisplay(value) {
   if (value === null || value === undefined || value === '') {
-    return 'Generate'
+    return '--'
   }
 
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) {
-    return 'Generate'
+    return '--'
   }
 
   return `${numericValue.toFixed(0)}%`
@@ -3785,10 +3807,7 @@ function navigateTo(page) {
 
     if (normalizedPage === 'Crypto Trade') {
       appMode.value = 'crypto'
-      symbolInput.value = cryptoResponse.value.stock.symbol
-      void ensureCryptoWorkspaceReady(symbolInput.value).catch((error) => {
-        console.warn('Default crypto workspace search failed.', error)
-      })
+      symbolInput.value = cryptoResponse.value.stock.symbol || ''
     } else if (normalizedPage === 'Stock Trade') {
       appMode.value = 'stock'
       symbolInput.value = activeSymbol.value
@@ -3826,10 +3845,7 @@ function switchTradingMode() {
   if (nextMode === 'crypto') {
     if (activePage.value === 'Stock Trade') {
       activePage.value = 'Crypto Trade'
-      symbolInput.value = cryptoResponse.value.stock.symbol
-      void ensureCryptoWorkspaceReady(symbolInput.value).catch((error) => {
-        console.warn('Default crypto workspace search failed.', error)
-      })
+      symbolInput.value = cryptoResponse.value.stock.symbol || ''
     }
     return
   }
@@ -4115,18 +4131,20 @@ function openAnalysis(symbol = activeSymbol.value) {
   }
 }
 
-function openCryptoAnalysis(symbol = cryptoResponse.value.stock.symbol) {
+function openCryptoAnalysis(symbol = '') {
   if (!isAuthenticated.value) {
     activePage.value = 'Sign In'
     authMessage.value = 'Please sign in first to access the crypto trade workspace.'
     return
   }
 
-  const cleanedSymbol = String(symbol || 'BTC').trim().toUpperCase() || 'BTC'
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   appMode.value = 'crypto'
   symbolInput.value = cleanedSymbol
   activePage.value = 'Crypto Trade'
-  void runSearch()
+  if (cleanedSymbol) {
+    void runSearch()
+  }
 }
 
 function openModeAnalysis(symbol) {
@@ -4584,16 +4602,6 @@ async function preloadDefaultLiveWorkspaces() {
     defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
       analysisMode: 'search'
     })
-      .then((data) => {
-        if (!isAuthenticated.value || String(cryptoResponse.value?.stock?.symbol || '').toUpperCase() !== DEFAULT_CRYPTO_SYMBOL) {
-          return
-        }
-
-        cryptoResponse.value = data
-        if (activePage.value === 'Crypto Trade') {
-          symbolInput.value = data.stock.symbol || DEFAULT_CRYPTO_SYMBOL
-        }
-      })
       .catch((error) => {
         console.warn('Default crypto workspace preload failed.', error)
         defaultLiveLoadPromises.crypto = null
@@ -4885,13 +4893,7 @@ async function runSearch(source = 'search') {
   if (isCryptoPage) {
     try {
       if (isGenerateAction) {
-        if (isCryptoWorkspaceReady(cleanedSymbol)) {
-          scrollAnalysisWorkspaceToTop()
-        } else {
-          void ensureCryptoWorkspaceReady(cleanedSymbol, { scrollToTop: true }).catch((error) => {
-            console.warn('Default crypto workspace search failed.', error)
-          })
-        }
+        scrollAnalysisWorkspaceToTop()
         void refreshFullGenerateInBackground(cleanedSymbol, true, requestVersion)
       } else {
         const data = await fetchCryptoAnalysis(cleanedSymbol, {
@@ -6279,6 +6281,7 @@ function signOut() {
   symbolInput.value = ''
   activeSymbol.value = ''
   stockResponse.value = createDefaultResponse()
+  cryptoResponse.value = createCryptoWorkspaceResponse()
   clearStockMatchDetailReveal()
   clearAdminUsersCache()
   signInForm.value = {
