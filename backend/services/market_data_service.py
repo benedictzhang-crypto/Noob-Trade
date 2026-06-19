@@ -831,11 +831,21 @@ class MarketDataService:
                 compact_response=True,
                 apply_match_preview=False,
             )
+            self._overlay_cached_live_compact_price(response, symbol, price_limit)
+        except ValueError as error:
+            logger.info(
+                "Compact cached stock signal is not available for %s; building live snapshot for fixed-library scoring.",
+                symbol,
+            )
+            logger.debug("Compact cached stock signal detail for %s: %s", symbol, error)
+            response = self._build_compact_live_snapshot_response(symbol, interval, lookback_window, indicators, price_limit)
         except Exception:
-            logger.warning("Compact cached stock signal is not available for %s.", symbol, exc_info=True)
-            response = self._build_empty_compact_signal_response(symbol, interval, lookback_window, indicators)
-
-        self._overlay_cached_live_compact_price(response, symbol, price_limit)
+            logger.warning(
+                "Compact cached stock signal failed for %s; building live snapshot for fixed-library scoring.",
+                symbol,
+                exc_info=True,
+            )
+            response = self._build_compact_live_snapshot_response(symbol, interval, lookback_window, indicators, price_limit)
 
         try:
             response = self.persistence_service.apply_cached_match_preview(
@@ -854,6 +864,23 @@ class MarketDataService:
         else:
             self._strip_compact_analysis_payload(response)
         return response
+
+    def _build_compact_live_snapshot_response(self, symbol, interval, lookback_window, indicators, price_limit):
+        try:
+            return self._build_live_current_vs_cached_response(
+                symbol=symbol,
+                interval=interval,
+                chart_interval=interval,
+                lookback_window=lookback_window,
+                indicators=indicators,
+                compact_response=True,
+                price_limit=price_limit,
+            )
+        except Exception:
+            logger.warning("Compact live snapshot signal is not available for %s.", symbol, exc_info=True)
+            response = self._build_empty_compact_signal_response(symbol, interval, lookback_window, indicators)
+            self._overlay_cached_live_compact_price(response, symbol, price_limit)
+            return response
 
     def _build_empty_compact_signal_response(self, symbol, interval, lookback_window, indicators):
         return {

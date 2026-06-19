@@ -16,6 +16,7 @@ const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const STOCK_MARKET_PAGE_SIZE = 30
+const STOCK_EXPLORE_LIVE_SEARCH_DELAY_MS = 350
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
 const publicNavPages = ['Home', 'Sign In', 'Register']
@@ -718,6 +719,7 @@ const replayInterval = ref('daily')
 const csrfToken = ref('')
 const analysisCache = ref({})
 const liveStockQuoteLookup = ref({})
+const exploreLiveSearchRows = ref([])
 const portfolioSparklineSeries = ref({})
 const watchlistScanThreshold = ref(60)
 const isWatchlistScanning = ref(false)
@@ -751,6 +753,8 @@ let chartIntervalRequestVersion = 0
 let voiceSpeechToken = 0
 let voiceLastSpeechSignature = ''
 let voiceLastSpeechAt = 0
+let exploreLiveSearchTimer = null
+let exploreLiveSearchRequestVersion = 0
 const stockChartRequestPromises = new Map()
 const cryptoWorkspaceLoadPromises = new Map()
 const defaultLiveLoadPromises = {
@@ -1322,6 +1326,17 @@ const stockMarketUniverseRows = [
   ['VLO', 'Valero Energy', 'Energy'],
   ['WMB', 'Williams Companies', 'Energy'],
   ['KMI', 'Kinder Morgan', 'Energy'],
+  ['CCJ', 'Cameco Corporation', 'Uranium'],
+  ['UEC', 'Uranium Energy Corp.', 'Uranium'],
+  ['NXE', 'NexGen Energy Ltd.', 'Uranium'],
+  ['DNN', 'Denison Mines Corp.', 'Uranium'],
+  ['UUUU', 'Energy Fuels Inc.', 'Uranium'],
+  ['LEU', 'Centrus Energy Corp.', 'Uranium'],
+  ['OKLO', 'Oklo Inc.', 'Nuclear'],
+  ['SMR', 'NuScale Power Corporation', 'Nuclear'],
+  ['NNE', 'Nano Nuclear Energy Inc.', 'Nuclear'],
+  ['BWXT', 'BWX Technologies, Inc.', 'Nuclear'],
+  ['CEG', 'Constellation Energy Corporation', 'Utilities'],
   ['LIN', 'Linde plc', 'Materials'],
   ['APD', 'Air Products and Chemicals', 'Materials'],
   ['SHW', 'Sherwin-Williams', 'Materials'],
@@ -1333,6 +1348,11 @@ const stockMarketUniverseRows = [
   ['NUE', 'Nucor Corporation', 'Materials'],
   ['MLM', 'Martin Marietta Materials', 'Materials'],
   ['VMC', 'Vulcan Materials', 'Materials'],
+  ['ALB', 'Albemarle Corporation', 'Materials'],
+  ['SCCO', 'Southern Copper Corporation', 'Materials'],
+  ['GOLD', 'Barrick Gold Corporation', 'Materials'],
+  ['AA', 'Alcoa Corporation', 'Materials'],
+  ['STLD', 'Steel Dynamics', 'Materials'],
   ['NEE', 'NextEra Energy', 'Utilities'],
   ['SO', 'Southern Company', 'Utilities'],
   ['DUK', 'Duke Energy', 'Utilities'],
@@ -1348,7 +1368,48 @@ const stockMarketUniverseRows = [
   ['O', 'Realty Income', 'Real Estate'],
   ['PSA', 'Public Storage', 'Real Estate'],
   ['WELL', 'Welltower Inc.', 'Real Estate'],
-  ['DLR', 'Digital Realty Trust', 'Real Estate']
+  ['DLR', 'Digital Realty Trust', 'Real Estate'],
+  ['TSM', 'Taiwan Semiconductor Manufacturing', 'Technology'],
+  ['ASML', 'ASML Holding', 'Technology'],
+  ['ARM', 'Arm Holdings', 'Technology'],
+  ['SMCI', 'Super Micro Computer', 'Technology'],
+  ['INTC', 'Intel Corporation', 'Technology'],
+  ['WDAY', 'Workday, Inc.', 'Technology'],
+  ['ZS', 'Zscaler, Inc.', 'Technology'],
+  ['OKTA', 'Okta, Inc.', 'Technology'],
+  ['HUBS', 'HubSpot, Inc.', 'Technology'],
+  ['PYPL', 'PayPal Holdings', 'Financials'],
+  ['SQ', 'Block, Inc.', 'Financials'],
+  ['COIN', 'Coinbase Global', 'Financials'],
+  ['KKR', 'KKR & Co.', 'Financials'],
+  ['BX', 'Blackstone Inc.', 'Financials'],
+  ['ELV', 'Elevance Health', 'Health Care'],
+  ['CI', 'Cigna Group', 'Health Care'],
+  ['HCA', 'HCA Healthcare', 'Health Care'],
+  ['EW', 'Edwards Lifesciences', 'Health Care'],
+  ['DXCM', 'DexCom, Inc.', 'Health Care'],
+  ['MRNA', 'Moderna, Inc.', 'Health Care'],
+  ['BIIB', 'Biogen Inc.', 'Health Care'],
+  ['URI', 'United Rentals', 'Industrials'],
+  ['ROK', 'Rockwell Automation', 'Industrials'],
+  ['CARR', 'Carrier Global', 'Industrials'],
+  ['JCI', 'Johnson Controls', 'Industrials'],
+  ['TT', 'Trane Technologies', 'Industrials'],
+  ['PH', 'Parker-Hannifin', 'Industrials'],
+  ['TDG', 'TransDigm Group', 'Industrials'],
+  ['GD', 'General Dynamics', 'Industrials'],
+  ['LULU', 'Lululemon Athletica', 'Consumer Discretionary'],
+  ['MELI', 'MercadoLibre, Inc.', 'Consumer Discretionary'],
+  ['RIVN', 'Rivian Automotive', 'Consumer Discretionary'],
+  ['DASH', 'DoorDash, Inc.', 'Consumer Discretionary'],
+  ['ABNB', 'Airbnb, Inc.', 'Consumer Discretionary'],
+  ['EBAY', 'eBay Inc.', 'Consumer Discretionary'],
+  ['EL', 'Estee Lauder Companies', 'Consumer Staples'],
+  ['MNST', 'Monster Beverage', 'Consumer Staples'],
+  ['PINS', 'Pinterest, Inc.', 'Communication Services'],
+  ['SNAP', 'Snap Inc.', 'Communication Services'],
+  ['RBLX', 'Roblox Corporation', 'Communication Services'],
+  ['ROKU', 'Roku, Inc.', 'Communication Services']
 ].map(([symbol, name, category]) => ({
   symbol,
   name,
@@ -1358,6 +1419,41 @@ const stockMarketUniverseRows = [
   change: '--',
   tone: 'neutral'
 }))
+
+function doesExploreRowMatchQuery(row, query) {
+  const normalizedQuery = String(query || '').trim().toUpperCase()
+  if (!normalizedQuery) {
+    return true
+  }
+
+  const symbol = String(row?.symbol || '').toUpperCase()
+  const name = String(row?.name || '').toUpperCase()
+  const category = String(row?.category || '').toUpperCase()
+  return symbol.includes(normalizedQuery) || name.includes(normalizedQuery) || category.includes(normalizedQuery)
+}
+
+function isStockExploreLiveSearchQuery(rawQuery) {
+  const cleanedSymbol = normalizeTradeSymbolInput(rawQuery)
+  return /^[A-Z][A-Z0-9.]{0,9}$/.test(cleanedSymbol)
+}
+
+function buildStockExploreLiveSearchRow(symbol, stockData = {}) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol || stockData.symbol)
+  const currentPrice = Number(stockData.currentPrice)
+  const previousClose = Number(stockData.previousClose || currentPrice)
+  const changePct = previousClose ? (((currentPrice - previousClose) / previousClose) * 100) : 0
+
+  return {
+    symbol: cleanedSymbol,
+    name: stockData.companyName || cleanedSymbol,
+    category: stockData.sector || stockData.industry || 'Live market',
+    price: Number.isFinite(currentPrice) ? formatMarketPrice(currentPrice) : '--',
+    notional: '--',
+    change: Number.isFinite(changePct) ? formatPercent(Number(changePct.toFixed(2))) : '--',
+    tone: changePct > 0 ? 'positive' : changePct < 0 ? 'negative' : 'neutral',
+    source: 'live-search'
+  }
+}
 
 const newsHeadlineTemplates = [
   'Institutional flows keep attention on {symbol} as rotation continues across large-cap leadership.',
@@ -1523,12 +1619,22 @@ const filteredExploreRows = computed(() => {
     return sourceRows
   }
 
-  return sourceRows.filter((row) => {
-    const symbol = String(row.symbol || '').toUpperCase()
-    const name = String(row.name || '').toUpperCase()
-    const category = String(row.category || '').toUpperCase()
-    return symbol.includes(query) || name.includes(query) || category.includes(query)
+  const filteredRows = sourceRows.filter((row) => doesExploreRowMatchQuery(row, query))
+  if (isCryptoMode.value) {
+    return filteredRows
+  }
+
+  const mergedRows = new Map()
+  filteredRows.forEach((row) => {
+    mergedRows.set(row.symbol, row)
   })
+  exploreLiveSearchRows.value
+    .filter((row) => doesExploreRowMatchQuery(row, query))
+    .forEach((row) => {
+      mergedRows.set(row.symbol, row)
+    })
+
+  return [...mergedRows.values()]
 })
 const filteredCryptoExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
@@ -1883,6 +1989,7 @@ onBeforeUnmount(() => {
 
   stopVoiceListening()
   clearVoiceRestartTimer()
+  clearExploreLiveSearchTimer()
   clearStockMatchDetailReveal()
 
   if (voiceVoicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
@@ -4371,6 +4478,57 @@ async function refreshStockWatchlistQuotes(symbols) {
   }, 3)
 }
 
+function clearExploreLiveSearchTimer() {
+  if (exploreLiveSearchTimer) {
+    window.clearTimeout(exploreLiveSearchTimer)
+    exploreLiveSearchTimer = null
+  }
+}
+
+function scheduleExploreLiveSearch() {
+  clearExploreLiveSearchTimer()
+  const cleanedSymbol = normalizeTradeSymbolInput(exploreSearchQuery.value)
+  exploreLiveSearchRequestVersion += 1
+  const requestVersion = exploreLiveSearchRequestVersion
+
+  if (
+    !isAuthenticated.value
+    || activePage.value !== 'Explore'
+    || isCryptoMode.value
+    || !isStockExploreLiveSearchQuery(exploreSearchQuery.value)
+  ) {
+    exploreLiveSearchRows.value = []
+    return
+  }
+
+  if (fullMarketBoardRows.value.some((row) => row.symbol === cleanedSymbol)) {
+    exploreLiveSearchRows.value = exploreLiveSearchRows.value.filter((row) => row.symbol === cleanedSymbol)
+    return
+  }
+
+  exploreLiveSearchRows.value = []
+  exploreLiveSearchTimer = window.setTimeout(async () => {
+    try {
+      const quoteData = await fetchStockLiveQuoteData(cleanedSymbol)
+      if (requestVersion !== exploreLiveSearchRequestVersion) {
+        return
+      }
+
+      const liveRow = buildStockExploreLiveSearchRow(cleanedSymbol, quoteData?.stock)
+      if (!liveRow.symbol) {
+        return
+      }
+
+      exploreLiveSearchRows.value = [liveRow]
+    } catch (error) {
+      if (requestVersion === exploreLiveSearchRequestVersion) {
+        exploreLiveSearchRows.value = []
+      }
+      console.warn(`Explore live search could not find ${cleanedSymbol}.`, error)
+    }
+  }, STOCK_EXPLORE_LIVE_SEARCH_DELAY_MS)
+}
+
 function mergeStockChartData(currentResponse, chartResponse) {
   const existingChartData = currentResponse?.chartData || {}
   const incomingChartData = chartResponse?.chartData || {}
@@ -5196,6 +5354,14 @@ watch(
     refreshStockWatchlistQuotes(activeStarredSymbols.value).catch((error) => {
       console.warn('Could not refresh dashboard stock quotes.', error)
     })
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [isAuthenticated.value, activePage.value, appMode.value, exploreSearchQuery.value],
+  () => {
+    scheduleExploreLiveSearch()
   },
   { immediate: true }
 )
@@ -6280,6 +6446,7 @@ function signOut() {
   defaultLiveLoadPromises.crypto = null
   symbolInput.value = ''
   activeSymbol.value = ''
+  exploreLiveSearchRows.value = []
   stockResponse.value = createDefaultResponse()
   cryptoResponse.value = createCryptoWorkspaceResponse()
   clearStockMatchDetailReveal()
