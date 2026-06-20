@@ -16,6 +16,7 @@ const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const STOCK_MARKET_PAGE_SIZE = 30
+const CRYPTO_EXPLORE_UNIVERSE_SIZE = 250
 const STOCK_EXPLORE_LIVE_SEARCH_DELAY_MS = 350
 const chartIntervals = ['1min', '5min', '15min', '30min', '1hour', 'daily', '5day', 'weekly', '2week', 'monthly']
 const publicPages = ['Home', 'Sign In', 'Register', 'Verify Email', 'Reset Password', 'Reset Password Confirm']
@@ -957,6 +958,9 @@ const cryptoExploreRows = [
   { symbol: 'SOL', name: 'Solana', category: 'Layer 1', price: '$224.15', notional: '$106.8B', change: '+4.31%', tone: 'positive' },
   { symbol: 'BNB', name: 'BNB', category: 'Exchange Token', price: '$734.60', notional: '$102.9B', change: '+1.44%', tone: 'positive' }
 ]
+const cryptoExploreLiveRows = ref([])
+const cryptoExploreUniverseLoaded = ref(false)
+let cryptoExploreUniverseLoadPromise = null
 
 const reportHighlights = [
   { title: 'Weekly Trade Review', value: '12 orders', detail: '4 wins · 3 losses · 5 open' },
@@ -5005,9 +5009,12 @@ const currentUserCode = computed(() => formatAdminUserCode(currentUser.value?.di
 const marketOverviewCards = computed(() => (isCryptoMode.value ? cryptoMarketOverviewCards : stockMarketOverviewCards))
 const dashboardAnnouncements = computed(() => (isCryptoMode.value ? cryptoDashboardAnnouncements : stockDashboardAnnouncements))
 const moreFeatures = computed(() => (isCryptoMode.value ? cryptoMoreFeatures : stockMoreFeatures))
+const cryptoExploreUniverseRows = computed(() => (
+  cryptoExploreLiveRows.value.length ? cryptoExploreLiveRows.value : cryptoExploreRows
+))
 const currentExploreRows = computed(() => {
   if (isCryptoMode.value) {
-    return cryptoExploreRows
+    return cryptoExploreUniverseRows.value
   }
 
   return exploreRankings[currentExploreTab.value] || exploreRankings.Watchlist
@@ -5034,7 +5041,7 @@ const stockMarketBoardStatus = computed(() => {
 })
 const visibleExploreRows = computed(() => {
   if (isCryptoMode.value) {
-    return cryptoExploreRows
+    return cryptoExploreUniverseRows.value
   }
 
   if (exploreViewMode.value === 'full') {
@@ -5045,7 +5052,7 @@ const visibleExploreRows = computed(() => {
 })
 const filteredExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
-  const sourceRows = isCryptoMode.value ? cryptoExploreRows : (query ? fullMarketBoardRows.value : visibleExploreRows.value)
+  const sourceRows = isCryptoMode.value ? cryptoExploreUniverseRows.value : (query ? fullMarketBoardRows.value : visibleExploreRows.value)
 
   if (!query) {
     return sourceRows
@@ -5072,10 +5079,10 @@ const filteredCryptoExploreRows = computed(() => {
   const query = exploreSearchQuery.value.trim().toUpperCase()
 
   if (!query) {
-    return cryptoExploreRows
+    return cryptoExploreUniverseRows.value
   }
 
-  return cryptoExploreRows.filter((row) => {
+  return cryptoExploreUniverseRows.value.filter((row) => {
     const symbol = String(row.symbol || '').toUpperCase()
     const name = String(row.name || '').toUpperCase()
     const category = String(row.category || '').toUpperCase()
@@ -5092,7 +5099,7 @@ const dashboardWatchlistRows = computed(() => {
     .map((symbol) => {
       const cleanedSymbol = String(symbol || '').trim().toUpperCase()
       if (isCryptoMode.value) {
-        const cryptoRow = cryptoExploreRows.find((row) => row.symbol === cleanedSymbol)
+        const cryptoRow = cryptoExploreUniverseRows.value.find((row) => row.symbol === cleanedSymbol)
         if (cryptoRow) {
           return {
             symbol: cryptoRow.symbol,
@@ -5407,6 +5414,10 @@ watch(uiLanguage, (language) => {
 watch(appMode, (mode) => {
   if (typeof window !== 'undefined') {
     window.localStorage?.setItem(APP_MODE_KEY, mode)
+  }
+
+  if (mode === 'crypto' && isAuthenticated.value) {
+    void loadCryptoExploreUniverse()
   }
 })
 
@@ -7373,6 +7384,89 @@ function revealMoreStockMarketRows() {
   )
 }
 
+function normalizeCryptoExploreAsset(asset) {
+  const symbol = normalizeTradeSymbolInput(asset?.symbol, { isCrypto: true })
+  if (!symbol) {
+    return null
+  }
+
+  const rawCategory = String(asset?.category || asset?.exchange || 'Crypto').trim()
+  const price = Number(asset?.current_price)
+
+  return {
+    symbol,
+    name: String(asset?.name || `${symbol} Crypto`).trim(),
+    category: rawCategory === 'Market Cap Top Crypto' ? 'Crypto' : rawCategory,
+    price: Number.isFinite(price) ? formatMarketPrice(price) : '--',
+    notional: '--',
+    change: '--',
+    tone: 'neutral'
+  }
+}
+
+function applyCryptoExploreUniverse(assets) {
+  if (!Array.isArray(assets)) {
+    return
+  }
+
+  const mergedRows = new Map()
+  assets
+    .map(normalizeCryptoExploreAsset)
+    .filter(Boolean)
+    .forEach((row) => {
+      if (!mergedRows.has(row.symbol)) {
+        mergedRows.set(row.symbol, row)
+      }
+    })
+
+  if (!mergedRows.size) {
+    return
+  }
+
+  cryptoExploreLiveRows.value = [...mergedRows.values()]
+  cryptoExploreUniverseLoaded.value = true
+  cryptoExploreLiveRows.value.forEach((row) => voiceCryptoSymbols.add(row.symbol))
+}
+
+async function loadCryptoExploreUniverse({ force = false } = {}) {
+  if (!isAuthenticated.value && !force) {
+    return
+  }
+
+  if (cryptoExploreUniverseLoaded.value && !force) {
+    return
+  }
+
+  if (cryptoExploreUniverseLoadPromise && !force) {
+    return cryptoExploreUniverseLoadPromise
+  }
+
+  cryptoExploreUniverseLoadPromise = (async () => {
+    try {
+      const query = new URLSearchParams({
+        source: 'okx',
+        limit: String(CRYPTO_EXPLORE_UNIVERSE_SIZE)
+      })
+      const response = await secureFetch(`${API_BASE_URL}/crypto/top50?${query.toString()}`, {
+        timeoutMs: 12000
+      })
+      const payload = await parseJsonResponse(response, 'Could not load crypto assets right now.')
+
+      if (!response.ok) {
+        throw new Error(payload.message || 'Could not load crypto assets right now.')
+      }
+
+      applyCryptoExploreUniverse(payload.assets || [])
+    } catch (error) {
+      console.warn('Could not load crypto explore universe.', error)
+    } finally {
+      cryptoExploreUniverseLoadPromise = null
+    }
+  })()
+
+  return cryptoExploreUniverseLoadPromise
+}
+
 function switchTradingMode() {
   const nextMode = isCryptoMode.value ? 'stock' : 'crypto'
   appMode.value = nextMode
@@ -8642,7 +8736,7 @@ function buildHourlyNewsFeed(symbol, refreshKey) {
 }
 
 function buildCryptoFocusUniverse(symbol, refreshKey) {
-  const symbols = cryptoExploreRows.map((row) => row.symbol)
+  const symbols = cryptoExploreUniverseRows.value.map((row) => row.symbol)
   const normalizedSymbol = String(symbol || '').toUpperCase()
   const baseIndex = hashSeed(`${normalizedSymbol || 'crypto'}-${refreshKey}`) % symbols.length
   const pool = normalizedSymbol && symbols.includes(normalizedSymbol) ? [normalizedSymbol] : []
@@ -9366,6 +9460,7 @@ function applyAuthenticatedState(user, message = '') {
   isAuthenticated.value = true
   activePage.value = 'Dashboard'
   authMessage.value = message
+  void loadCryptoExploreUniverse()
   void preloadDefaultLiveWorkspaces()
 }
 
@@ -10545,7 +10640,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             from the configured live stock data feed when users want a single-symbol review.
           </p>
           <p>
-            Crypto Explore shows up to 100 live crypto assets from the crypto market feed, while Crypto Trade reads supported OKX public spot markets for
+            Crypto Explore shows up to 250 OKX USDT spot crypto assets from the live market feed, while Crypto Trade reads supported OKX public spot markets for
             single-symbol review. Crypto data remains separate from stock history throughout the workflow.
           </p>
           <p>

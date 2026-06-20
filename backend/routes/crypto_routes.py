@@ -283,13 +283,20 @@ def get_crypto_chart(symbol):
 @crypto_blueprint.route("/crypto/top50", methods=["GET"])
 def get_crypto_top50():
     limit = request.args.get("limit", default=50, type=int)
+    source = request.args.get("source", default="", type=str).strip().lower()
     market_data_service = _crypto_market_data_service()
-    assets = market_data_service.get_top_crypto_assets(limit=max(1, min(limit, 100)))
+    normalized_limit = max(1, min(limit, 250))
+    if source == "okx":
+        assets = market_data_service.get_okx_crypto_assets(limit=normalized_limit)
+    else:
+        assets = market_data_service.get_top_crypto_assets(limit=normalized_limit)
     return jsonify(
         {
             "status": "ok",
             "dataSource": "live",
             "marketDataProvider": market_data_service._market_provider_label(),
+            "source": "okx" if source == "okx" else "market-cap",
+            "count": len(assets),
             "assets": assets,
         }
     )

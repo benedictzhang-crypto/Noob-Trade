@@ -16,6 +16,8 @@ class CryptoMarketApiService:
     _top_assets_expires_at = None
     _okx_spot_inst_ids_cache = None
     _okx_spot_inst_ids_expires_at = None
+    _okx_usdt_assets_cache = None
+    _okx_usdt_assets_expires_at = None
 
     STABLECOIN_SYMBOLS = {
         "USDT",
@@ -177,6 +179,71 @@ class CryptoMarketApiService:
 
         fallback_assets = self._fallback_top_assets()
         return fallback_assets[:requested_limit]
+
+    def get_okx_usdt_market_assets(self, limit=250):
+        requested_limit = max(1, min(int(limit or 250), 300))
+        now = datetime.utcnow()
+        if (
+            self.__class__._okx_usdt_assets_cache is not None
+            and self.__class__._okx_usdt_assets_expires_at is not None
+            and self.__class__._okx_usdt_assets_expires_at > now
+            and len(self.__class__._okx_usdt_assets_cache) >= requested_limit
+        ):
+            return self.__class__._okx_usdt_assets_cache[:requested_limit]
+
+        try:
+            inst_ids = self.get_okx_spot_inst_ids()
+            okx_usdt_symbols = {
+                inst_id.rsplit("-", 1)[0]
+                for inst_id in inst_ids
+                if inst_id.endswith("-USDT") and "-" in inst_id
+            }
+            okx_usdt_symbols = {
+                symbol
+                for symbol in okx_usdt_symbols
+                if symbol and (not self.exclude_stablecoins or symbol not in self.STABLECOIN_SYMBOLS)
+            }
+            ranked_assets = []
+            seen_symbols = set()
+
+            for asset in self.get_top_market_assets(limit=250):
+                symbol = asset.get("symbol")
+                if not symbol or symbol not in okx_usdt_symbols or symbol in seen_symbols:
+                    continue
+                ranked_assets.append(
+                    {
+                        **asset,
+                        "category": asset.get("category") or "OKX Spot",
+                        "exchange": "OKX",
+                        "okx_inst_id": f"{symbol}-USDT",
+                    }
+                )
+                seen_symbols.add(symbol)
+
+            for symbol in sorted(okx_usdt_symbols):
+                if symbol in seen_symbols:
+                    continue
+                ranked_assets.append(
+                    {
+                        "symbol": symbol,
+                        "name": f"{symbol} Crypto",
+                        "category": "OKX Spot",
+                        "exchange": "OKX",
+                        "okx_inst_id": f"{symbol}-USDT",
+                    }
+                )
+                seen_symbols.add(symbol)
+
+            if ranked_assets:
+                self.__class__._okx_usdt_assets_cache = ranked_assets
+                self.__class__._okx_usdt_assets_expires_at = now + timedelta(hours=6)
+                return ranked_assets[:requested_limit]
+        except requests.exceptions.RequestException:
+            self._track_soft_failure()
+        except Exception:
+            self._track_soft_failure()
+
+        return self.get_top_market_assets(limit=requested_limit)
 
     def get_okx_spot_inst_ids(self):
         now = datetime.utcnow()

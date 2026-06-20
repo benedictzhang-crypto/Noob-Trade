@@ -257,6 +257,9 @@ class CryptoMarketDataService(MarketDataService):
     def get_top_crypto_assets(self, limit=50):
         return self.market_api.get_top_market_assets(limit=limit)
 
+    def get_okx_crypto_assets(self, limit=250):
+        return self.market_api.get_okx_usdt_market_assets(limit=limit)
+
     def _build_demo_fallback_response(self, symbol, interval, lookback_window, indicators):
         response = build_mock_stock_pattern_analysis(symbol, interval, lookback_window, indicators)
         response["dataSource"] = "crypto-demo"
