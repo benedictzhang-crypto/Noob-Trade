@@ -14,6 +14,7 @@ const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
+const CRYPTO_GENERATE_INTERVAL = 'daily'
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const STOCK_MARKET_PAGE_SIZE = 30
 const CRYPTO_EXPLORE_UNIVERSE_SIZE = 250
@@ -7796,11 +7797,17 @@ function openUserGuide() {
   })
 }
 
-function buildAnalysisCacheKey(symbol, analysisMode = 'full', assetType = 'stock', indicatorNames = getSelectedIndicators()) {
+function buildAnalysisCacheKey(
+  symbol,
+  analysisMode = 'full',
+  assetType = 'stock',
+  indicatorNames = getSelectedIndicators(),
+  interval = selectedChartInterval.value
+) {
   return [
     assetType,
     String(symbol || '').trim().toUpperCase(),
-    selectedChartInterval.value,
+    interval,
     indicatorNames.join(','),
     analysisMode
   ].join('|')
@@ -8131,11 +8138,12 @@ function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterv
 async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto', analysisIndicators)
+  const requestInterval = analysisMode === 'full' ? CRYPTO_GENERATE_INTERVAL : selectedChartInterval.value
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'crypto', analysisIndicators, requestInterval)
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
-    if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+    if (cachedAnalysis && hasChartSeries(cachedAnalysis, requestInterval)) {
       return cachedAnalysis
     }
 
@@ -8149,7 +8157,7 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
     indicators: analysisIndicators.join(','),
     analysis: analysisMode
   })
-  query.set('interval', selectedChartInterval.value)
+  query.set('interval', requestInterval)
   if (compact) {
     query.set('compact', '1')
   }
@@ -8351,8 +8359,9 @@ async function warmDashboardGenerateCaches() {
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
   const analysisIndicatorNames = isCryptoPage ? null : getSelectedIndicators()
+  const chartIntervalAtRequest = selectedChartInterval.value
   try {
-    const data = isCryptoPage
+    let data = isCryptoPage
       ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
       : await fetchStockAnalysis(symbol, {
         analysisMode: 'full',
@@ -8360,6 +8369,21 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
         cacheResult: false,
         indicatorNames: analysisIndicatorNames,
       })
+
+    if (isCryptoPage && chartIntervalAtRequest !== CRYPTO_GENERATE_INTERVAL) {
+      try {
+        const scoringRequest = data?.request || {}
+        const chartData = await fetchCryptoChartData(symbol, chartIntervalAtRequest)
+        data = mergeStockChartData(data, chartData)
+        data.request = {
+          ...(data.request || {}),
+          ...scoringRequest,
+          interval: CRYPTO_GENERATE_INTERVAL,
+        }
+      } catch (error) {
+        console.warn(`Crypto ${chartIntervalAtRequest} chart refresh could not finish after Generate.`, error)
+      }
+    }
 
     if (requestVersion !== analysisRequestVersion) {
       return

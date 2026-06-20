@@ -119,6 +119,7 @@ const matchedPatternCount = computed(() => {
 const headlineProbabilityValue = computed(() => (
   getNumericProbability(props.analysisData.probabilityOfIncrease)
     ?? getLadderProbability('up', 1)
+    ?? calculateDynamicProbabilityValue('up', 1)
 ))
 const hasHeadlineProbability = computed(() => {
   return headlineProbabilityValue.value !== null
@@ -153,7 +154,7 @@ function formatThreshold(value) {
   return Number(value || 0).toFixed(1)
 }
 
-function calculateDynamicProbability(side, threshold) {
+function calculateDynamicProbabilityValue(side, threshold) {
   const safeThreshold = Math.max(1, Number(threshold) || 1)
   const totalWeight = matchedPatterns.value.reduce((sum, match) => {
     const weight = Number(match.quantSelectedPercent || match.matchScore || 0)
@@ -161,7 +162,7 @@ function calculateDynamicProbability(side, threshold) {
   }, 0)
 
   if (!totalWeight) {
-    return '--'
+    return null
   }
 
   const hitWeight = matchedPatterns.value.reduce((sum, match) => {
@@ -175,7 +176,17 @@ function calculateDynamicProbability(side, threshold) {
     return sum + (Number(stats.maxDownPct || 0) <= -safeThreshold ? weight : 0)
   }, 0)
 
-  return ((hitWeight / totalWeight) * 100).toFixed(1) + '%'
+  return (hitWeight / totalWeight) * 100
+}
+
+function calculateDynamicProbability(side, threshold) {
+  const probability = calculateDynamicProbabilityValue(side, threshold)
+
+  if (probability === null) {
+    return '--'
+  }
+
+  return probability.toFixed(1) + '%'
 }
 
 function normalizeThreshold(value) {
