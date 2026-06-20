@@ -10636,8 +10636,9 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             This avoids mixing equity history with digital asset history.
           </p>
           <p>
-            Stock Explore covers the S&P 500, Nasdaq-listed common stocks, Dow Jones 30, plus selected live-search names for starring and Dashboard Scan. Stock Trade can also request supported symbols
-            from the configured live stock data feed when users want a single-symbol review.
+            Stock Explore currently includes 3,663 U.S. stock symbols drawn from the S&P 500, Nasdaq-listed common stocks and ADRs,
+            Dow Jones 30 names, and selected research names for starring and Dashboard Scan. Stock Trade can also request supported
+            symbols from the live stock data feed when users want a single-symbol review.
           </p>
           <p>
             Crypto Explore shows up to 250 OKX USDT spot crypto assets from the live market feed, while Crypto Trade reads supported OKX public spot markets for

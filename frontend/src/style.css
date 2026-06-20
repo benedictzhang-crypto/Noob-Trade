@@ -3646,6 +3646,20 @@ select {
   align-items: stretch;
 }
 
+.guide-story-grid .feature-story-card > p:not(.eyebrow) {
+  margin-top: 18px;
+  color: var(--text-soft);
+  color: color-mix(in srgb, var(--text-main) 72%, var(--text-soft));
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+  line-height: 1.85;
+  text-indent: 2.2em;
+}
+
+.guide-story-grid .feature-story-card > h2 + p:not(.eyebrow) {
+  margin-top: 16px;
+}
+
 .guide-task-list {
   margin-top: 10px;
 }
