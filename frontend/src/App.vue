@@ -12,6 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
+const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const CRYPTO_GENERATE_INTERVAL = 'daily'
@@ -7821,11 +7822,13 @@ function hasChartSeries(response, interval) {
 async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
-  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock', analysisIndicators)
+  const requestInterval = analysisMode === 'full' ? STOCK_GENERATE_INTERVAL : selectedChartInterval.value
+  const requiredChartInterval = compact ? STOCK_GENERATE_INTERVAL : selectedChartInterval.value
+  const cacheKey = buildAnalysisCacheKey(cleanedSymbol, analysisMode, 'stock', analysisIndicators, requestInterval)
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
-    if (cachedAnalysis && hasChartSeries(cachedAnalysis, selectedChartInterval.value)) {
+    if (cachedAnalysis && hasChartSeries(cachedAnalysis, requiredChartInterval)) {
       return cachedAnalysis
     }
 
@@ -8290,6 +8293,19 @@ async function preloadDefaultLiveWorkspaces() {
     return
   }
 
+  if (!defaultLiveLoadPromises.stock) {
+    defaultLiveLoadPromises.stock = fetchStockAnalysis(DEFAULT_STOCK_SYMBOL, {
+      analysisMode: 'full',
+      compact: true,
+      cacheResult: true,
+      indicatorNames: getSelectedIndicators(),
+    })
+      .catch((error) => {
+        console.warn('Default stock Generate warmup failed.', error)
+        defaultLiveLoadPromises.stock = null
+      })
+  }
+
   if (!defaultLiveLoadPromises.crypto) {
     defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
       analysisMode: 'search'
@@ -8300,7 +8316,8 @@ async function preloadDefaultLiveWorkspaces() {
       })
   }
 
-  await Promise.allSettled([
+  void Promise.allSettled([
+    defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
   scheduleDashboardGenerateWarmup()
@@ -8327,8 +8344,8 @@ async function warmDashboardGenerateCaches() {
   }
 
   const scanIndicators = getAllIndicatorNames()
-  // Stock Generate should stay user-triggered; warming several full stock scans can block the
-  // single Render worker and make the next manual Generate feel stuck.
+  // A single default stock Generate is warmed at login. Keep this batch warmup crypto-only so
+  // several stock requests do not crowd the first manual Generate on the single Render worker.
   const warmItems = cryptoStarredSymbols.value.map((symbol) => ({ assetType: 'crypto', symbol }))
     .map((item) => ({
       ...item,
