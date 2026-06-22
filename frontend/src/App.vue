@@ -16,6 +16,7 @@ const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const CRYPTO_GENERATE_INTERVAL = 'daily'
+const GENERATE_WARM_RETRY_ATTEMPTS = 8
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const STOCK_MARKET_PAGE_SIZE = 30
 const CRYPTO_EXPLORE_UNIVERSE_SIZE = 250
@@ -6236,6 +6237,13 @@ function getReadableMarketDataError(message, symbol = '') {
   return rawMessage || 'This data is not accessible right now.'
 }
 
+function isDatabaseWarmingMessage(message) {
+  const normalizedMessage = String(message || '').toLowerCase()
+  return normalizedMessage.includes('database is warming up')
+    || normalizedMessage.includes('http 503')
+    || normalizedMessage.includes('please try again in a few seconds')
+}
+
 function hasTechnicalMarketDataDetails(message) {
   const normalizedMessage = String(message || '').toLowerCase()
   return voiceTechnicalErrorPatterns.some((pattern) => normalizedMessage.includes(pattern))
@@ -7852,17 +7860,12 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   }
 
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
-  const response = await secureFetch(requestUrl, {
-    timeoutMs: analysisMode === 'search' ? 12000 : 35000
-  })
-
-  if (!response.ok) {
-    const payload = await parseErrorResponse(
-      response,
-      `${cleanedSymbol} data is not accessible right now.`
-    )
-    throw new Error(payload.message || `${cleanedSymbol} data is not accessible right now.`)
-  }
+  const response = await fetchWithDatabaseWarmRetry(
+    requestUrl,
+    { timeoutMs: analysisMode === 'search' ? 12000 : 35000 },
+    `${cleanedSymbol} data is not accessible right now.`,
+    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 1
+  )
 
   const data = await response.json()
   if (cacheResult) {
@@ -8166,17 +8169,12 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
   }
 
   const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
-  const response = await secureFetch(requestUrl, {
-    timeoutMs: analysisMode === 'search' ? 12000 : 35000
-  })
-
-  if (!response.ok) {
-    const payload = await parseErrorResponse(
-      response,
-      `${cleanedSymbol} crypto data is not accessible right now.`
-    )
-    throw new Error(payload.message || `${cleanedSymbol} crypto data is not accessible right now.`)
-  }
+  const response = await fetchWithDatabaseWarmRetry(
+    requestUrl,
+    { timeoutMs: analysisMode === 'search' ? 12000 : 35000 },
+    `${cleanedSymbol} crypto data is not accessible right now.`,
+    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 1
+  )
 
   const data = await response.json()
   if (cacheResult) {
@@ -9079,6 +9077,40 @@ async function parseErrorResponse(response, fallbackMessage) {
       message: textPreview ? `${statusMessage}: ${textPreview}` : statusMessage
     }
   }
+}
+
+function waitForRetry(delayMs) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs)
+  })
+}
+
+async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAttempts = 1) {
+  const attempts = Math.max(1, Number(maxAttempts) || 1)
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = await secureFetch(url, options)
+
+    if (response.ok) {
+      return response
+    }
+
+    const payload = await parseErrorResponse(response, fallbackMessage)
+    const message = payload.message || fallbackMessage
+    const canRetry = response.status === 503
+      && isDatabaseWarmingMessage(message)
+      && attempt < attempts - 1
+
+    if (!canRetry) {
+      const error = new Error(message)
+      error.status = response.status
+      throw error
+    }
+
+    await waitForRetry(550 + (attempt * 450))
+  }
+
+  throw new Error(fallbackMessage)
 }
 
 async function ensureCsrfToken() {
