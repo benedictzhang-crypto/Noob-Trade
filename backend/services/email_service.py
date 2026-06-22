@@ -85,8 +85,14 @@ class EmailService:
                     "acceptedRecipients": to_addrs,
                     "messageId": message.get("Message-ID"),
                 }
-            except (smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused) as error:
-                raise ValueError(self._format_refusal_error(error)) from error
+            except smtplib.SMTPRecipientsRefused as error:
+                last_error = error
+                if not self._should_retry_recipient_refusal(error, attempt, smtp_settings["send_attempts"]):
+                    raise ValueError(self._format_refusal_error(error)) from error
+            except smtplib.SMTPSenderRefused as error:
+                last_error = error
+                if not self._should_retry_smtp_error(error, attempt, smtp_settings["send_attempts"]):
+                    raise ValueError(self._format_refusal_error(error)) from error
             except smtplib.SMTPAuthenticationError as error:
                 raise RuntimeError("Email server authentication failed. Please check SMTP credentials.") from error
             except smtplib.SMTPDataError as error:
@@ -111,7 +117,7 @@ class EmailService:
                 attempt,
                 smtp_settings["send_attempts"],
                 ", ".join(to_addrs),
-                exc_info=True,
+                exc_info=(type(last_error), last_error, last_error.__traceback__) if last_error else False,
             )
             time.sleep(smtp_settings["retry_delay_seconds"] * attempt)
 
@@ -136,6 +142,25 @@ class EmailService:
         if smtp_code is None:
             return True
         return 400 <= int(smtp_code) < 500
+
+    def _should_retry_recipient_refusal(self, error, attempt, max_attempts):
+        if attempt >= max_attempts:
+            return False
+
+        recipients = getattr(error, "recipients", None) or {}
+        if not recipients:
+            return True
+
+        for refusal in recipients.values():
+            try:
+                smtp_code = int(refusal[0])
+            except (TypeError, ValueError, IndexError):
+                return True
+
+            if smtp_code < 400 or smtp_code >= 500:
+                return False
+
+        return True
 
     def _format_refusal_error(self, error):
         if isinstance(error, smtplib.SMTPRecipientsRefused):
