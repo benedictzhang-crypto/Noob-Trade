@@ -816,7 +816,7 @@ const predictionLoadingMessage = computed(() => (
     : 'The historical database cache is warming up. The first Generate after opening the app may take a little longer, please wait.'
 ))
 const tradePopularSymbols = computed(() => (
-  activePage.value === 'Crypto Trade' ? ['BTC', 'ETH', 'OKB', 'SOL'] : ['AAPL', 'TSLA', 'NVDA', 'SPY']
+  activePage.value === 'Crypto Trade' ? ['BTC', 'ETH', 'OKB', 'SOL'] : ['AAPL', 'TSLA', 'NVDA', 'MSFT']
 ))
 const activeCopy = computed(() => uiCopy[uiLanguage.value] || uiCopy.en)
 const adminUserCountLabel = computed(() => {
@@ -855,17 +855,17 @@ const holdings = ref(createInitialHoldings())
 const transactionHistory = ref(createInitialTransactions())
 
 const stockMarketOverviewCards = [
-  { name: 'S&P 500', level: '5,214.08', change: '+0.42%', tone: 'positive' },
-  { name: 'NASDAQ 100', level: '18,102.44', change: '+0.78%', tone: 'positive' },
-  { name: 'Dow Jones', level: '39,842.12', change: '+0.19%', tone: 'positive' },
-  { name: 'VIX', level: '14.82', change: '-1.14%', tone: 'negative' }
+  { name: 'Market Feed', level: 'Live', change: 'Connected', tone: 'positive' },
+  { name: 'Chart Data', level: 'Live', change: 'Search Ready', tone: 'positive' },
+  { name: 'Indicators', level: 'Ready', change: 'Selectable', tone: 'neutral' },
+  { name: 'History', level: 'Ready', change: 'Generate', tone: 'neutral' }
 ]
 
 const cryptoMarketOverviewCards = [
-  { name: 'Bitcoin', level: '$103,420', change: '+2.84%', tone: 'positive' },
-  { name: 'Ethereum', level: '$4,920', change: '+2.18%', tone: 'positive' },
-  { name: 'Solana', level: '$224.15', change: '+4.31%', tone: 'positive' },
-  { name: 'Crypto Vol', level: '61.8', change: '-0.74%', tone: 'negative' }
+  { name: 'OKX Feed', level: 'Live', change: 'Connected', tone: 'positive' },
+  { name: 'Chart Data', level: 'Live', change: 'Search Ready', tone: 'positive' },
+  { name: 'Indicators', level: 'Ready', change: 'Selectable', tone: 'neutral' },
+  { name: 'History', level: 'Ready', change: 'Generate', tone: 'neutral' }
 ]
 
 const lastSixMonths = [
@@ -946,8 +946,8 @@ const exploreRankings = {
     { symbol: 'SHOP', name: 'Shopify', category: 'Commerce', price: '$87.90', notional: '$113.4B', change: '+1.95%', tone: 'positive' }
   ],
   'Volume Leaders': [
-    { symbol: 'SPY', name: 'SPDR S&P 500 ETF', category: 'ETF', price: '$520.44', notional: '$478.2M', change: '+0.38%', tone: 'positive' },
-    { symbol: 'QQQ', name: 'Invesco QQQ', category: 'ETF', price: '$447.22', notional: '$219.4M', change: '+0.72%', tone: 'positive' },
+    { symbol: 'BAC', name: 'Bank of America', category: 'Financials', price: '--', notional: '--', change: '--', tone: 'neutral' },
+    { symbol: 'F', name: 'Ford Motor Company', category: 'Auto', price: '--', notional: '--', change: '--', tone: 'neutral' },
     { symbol: 'TSLA', name: 'Tesla Inc.', category: 'Auto', price: '$380.30', notional: '$176.5M', change: '-1.07%', tone: 'negative' },
     { symbol: 'AAPL', name: 'Apple Inc.', category: 'Large Cap', price: '$184.25', notional: '$142.8M', change: '+1.28%', tone: 'positive' },
     { symbol: 'AMD', name: 'AMD', category: 'Semis', price: '$197.43', notional: '$118.7M', change: '+1.09%', tone: 'positive' }
@@ -1164,7 +1164,7 @@ const top50Symbols = [
   'V', 'XOM', 'UNH', 'MA', 'COST', 'JNJ', 'HD', 'ORCL', 'PG', 'MRK',
   'NFLX', 'ABBV', 'BAC', 'KO', 'AMD', 'CVX', 'PEP', 'CRM', 'WMT', 'TMO',
   'ACN', 'CSCO', 'MCD', 'ABT', 'IBM', 'GE', 'LIN', 'DIS', 'ADBE', 'NOW',
-  'INTU', 'QCOM', 'CAT', 'TXN', 'AXP', 'AMAT', 'BKNG', 'UBER', 'GS', 'SPY'
+  'INTU', 'QCOM', 'CAT', 'TXN', 'AXP', 'AMAT', 'BKNG', 'UBER', 'GS', 'CL'
 ]
 
 const fullBoardSeedMeta = {
@@ -1182,7 +1182,7 @@ const fullBoardSeedMeta = {
   TSLA: { name: 'Tesla Inc.', category: 'Momentum', price: '$380.30', notional: '$1.21T', change: '-1.07%', tone: 'negative' },
   NFLX: { name: 'Netflix', category: 'Streaming', price: '$643.15', notional: '$279.6B', change: '+2.24%', tone: 'positive' },
   AMD: { name: 'AMD', category: 'Semis', price: '$197.43', notional: '$118.7M', change: '+1.09%', tone: 'positive' },
-  SPY: { name: 'SPDR S&P 500 ETF', category: 'ETF', price: '$520.44', notional: '$478.2M', change: '+0.38%', tone: 'positive' },
+  CL: { name: 'Colgate-Palmolive Company', category: 'Consumer Staples', price: '--', notional: '--', change: '--', tone: 'neutral' },
 }
 
 const stockMarketUniverseRows = [
@@ -5787,7 +5787,7 @@ function createInitialTransactions() {
     { id: 1, date: '2026-03-21', symbol: 'AAPL', side: 'Buy', quantity: 20, price: 181.4, total: 3628, status: 'Filled' },
     { id: 2, date: '2026-03-20', symbol: 'NVDA', side: 'Sell', quantity: 5, price: 905.1, total: 4525.5, status: 'Filled' },
     { id: 3, date: '2026-03-19', symbol: 'TSLA', side: 'Buy', quantity: 10, price: 384.7, total: 3847, status: 'Filled' },
-    { id: 4, date: '2026-03-18', symbol: 'SPY', side: 'Buy', quantity: 12, price: 518.6, total: 6223.2, status: 'Filled' }
+    { id: 4, date: '2026-03-18', symbol: 'JPM', side: 'Buy', quantity: 12, price: 198.6, total: 2383.2, status: 'Filled' }
   ]
 }
 

@@ -41,12 +41,12 @@ function getSignalLabel(signal) {
 
 function formatProbabilityLabel(value) {
   if (value === null || value === undefined || value === '') {
-    return '--'
+    return 'Not scored yet'
   }
 
   const numericValue = Number(value)
   if (!Number.isFinite(numericValue)) {
-    return '--'
+    return 'Not scored yet'
   }
 
   return `${numericValue.toFixed(0)}%`
@@ -183,7 +183,7 @@ function calculateDynamicProbability(side, threshold) {
   const probability = calculateDynamicProbabilityValue(side, threshold)
 
   if (probability === null) {
-    return '--'
+    return 'Not scored'
   }
 
   return probability.toFixed(1) + '%'
@@ -356,7 +356,7 @@ defineExpose({
       </div>
       <div class="suggestion-row">
         <span>Matched Patterns</span>
-        <strong>{{ analysisData.matchedPatternsCount }}</strong>
+        <strong>{{ matchedPatternCount }}</strong>
       </div>
       <div class="suggestion-row">
         <span>Timeframe</span>

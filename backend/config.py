@@ -8,7 +8,7 @@ DEFAULT_MATCH_SCORING_SYMBOLS = [
     "V", "XOM", "UNH", "MA", "COST", "JNJ", "HD", "ORCL", "PG", "MRK",
     "NFLX", "ABBV", "BAC", "KO", "AMD", "CVX", "PEP", "CRM", "WMT", "TMO",
     "ACN", "CSCO", "MCD", "ABT", "IBM", "GE", "LIN", "DIS", "ADBE", "NOW",
-    "INTU", "QCOM", "CAT", "TXN", "AXP", "AMAT", "BKNG", "UBER", "GS", "SPY",
+    "INTU", "QCOM", "CAT", "TXN", "AXP", "AMAT", "BKNG", "UBER", "GS", "CL",
 ]
 
 
@@ -177,7 +177,7 @@ class Config:
     DEFAULT_LOOKBACK = 30
     DEFAULT_INTERVAL = "daily"
     DEFAULT_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
-    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B", "SPY", "QQQ"]
+    PRECOMPUTE_DEMO_SYMBOLS = ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "GOOG", "META", "AVGO", "TSLA", "BRK.B", "JPM", "CL"]
     MATCH_SCORING_SYMBOLS = _parse_symbol_list(
         os.getenv("MATCH_SCORING_SYMBOLS"),
         DEFAULT_MATCH_SCORING_SYMBOLS,
@@ -199,7 +199,7 @@ class Config:
     STOCK_ANALYSIS_CACHE_WARM_ON_START = os.getenv("STOCK_ANALYSIS_CACHE_WARM_ON_START", "true").lower() == "true"
     STOCK_ANALYSIS_CACHE_WARM_SYMBOLS = _parse_symbol_list(
         os.getenv("STOCK_ANALYSIS_CACHE_WARM_SYMBOLS"),
-        ["AAPL", "NVDA", "TSLA", "SPY", "MSFT", "AMZN"],
+        ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "JPM"],
     )
     PERIODIC_CACHE_WARM_ENABLED = os.getenv("PERIODIC_CACHE_WARM_ENABLED", "true").lower() == "true"
     PERIODIC_CACHE_WARM_INITIAL_DELAY_SECONDS = int(os.getenv("PERIODIC_CACHE_WARM_INITIAL_DELAY_SECONDS", "60"))
@@ -231,13 +231,13 @@ class Config:
     ALPACA_API_KEY = os.getenv("ALPACA_API_KEY", os.getenv("APCA_API_KEY_ID", ""))
     ALPACA_API_SECRET = os.getenv("ALPACA_API_SECRET", os.getenv("APCA_API_SECRET_KEY", ""))
     ALPACA_DATA_FEED = os.getenv("ALPACA_DATA_FEED", "iex")
-    ENABLE_DEMO_FALLBACK = os.getenv("ENABLE_DEMO_FALLBACK", "true").lower() == "true"
-    ENABLE_DEMO_FALLBACK_ALL_SYMBOLS = os.getenv("ENABLE_DEMO_FALLBACK_ALL_SYMBOLS", "true").lower() == "true"
+    ENABLE_DEMO_FALLBACK = os.getenv("ENABLE_DEMO_FALLBACK", "false").lower() == "true"
+    ENABLE_DEMO_FALLBACK_ALL_SYMBOLS = os.getenv("ENABLE_DEMO_FALLBACK_ALL_SYMBOLS", "false").lower() == "true"
     DEMO_FALLBACK_SYMBOLS = _parse_symbol_list(
         os.getenv("DEMO_FALLBACK_SYMBOLS"),
         PRECOMPUTE_DEMO_SYMBOLS,
     )
-    USE_MOCK_FALLBACK = os.getenv("USE_MOCK_FALLBACK", "true").lower() == "true"
+    USE_MOCK_FALLBACK = os.getenv("USE_MOCK_FALLBACK", "false").lower() == "true"
     PERSIST_ANALYSIS_RUNS = os.getenv("PERSIST_ANALYSIS_RUNS", "false").lower() == "true"
     ADMIN_ACCOUNTS = _parse_admin_accounts.__func__()
     ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "zzzzhly@126.com")

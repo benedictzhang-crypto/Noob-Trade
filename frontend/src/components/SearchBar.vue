@@ -14,7 +14,7 @@ const props = defineProps({
   },
   popularSymbols: {
     type: Array,
-    default: () => ['AAPL', 'TSLA', 'NVDA', 'SPY']
+    default: () => ['AAPL', 'TSLA', 'NVDA', 'MSFT']
   },
   isLoading: {
     type: Boolean,
