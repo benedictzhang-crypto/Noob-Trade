@@ -452,16 +452,11 @@ def _start_background_database_init(app):
     def _runner():
         try:
             initialize_database_with_retries(app)
-            with app.app_context():
-                _run_stock_pattern_snapshot_warmup(app)
             with lock:
                 app.config["_DB_INIT_STARTED"] = False
                 app.config["_DB_INIT_READY"] = True
                 app.config["_DB_INIT_ERROR"] = None
                 app.config["_DB_INIT_LAST_ERROR_AT"] = None
-            _warm_crypto_pattern_store(app)
-            _warm_stock_analysis_cache(app)
-            _start_periodic_cache_warmer(app)
         except Exception as error:
             app.logger.exception("Background database initialization failed.")
             with lock:
@@ -469,6 +464,16 @@ def _start_background_database_init(app):
                 app.config["_DB_INIT_READY"] = False
                 app.config["_DB_INIT_ERROR"] = str(error)
                 app.config["_DB_INIT_LAST_ERROR_AT"] = time.monotonic()
+            return
+
+        try:
+            with app.app_context():
+                _run_stock_pattern_snapshot_warmup(app)
+            _warm_crypto_pattern_store(app)
+            _warm_stock_analysis_cache(app)
+            _start_periodic_cache_warmer(app)
+        except Exception:
+            app.logger.exception("Background cache warmup failed after database initialization.")
 
     threading.Thread(target=_runner, daemon=True).start()
 
