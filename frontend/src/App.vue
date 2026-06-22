@@ -955,11 +955,11 @@ const exploreRankings = {
 }
 
 const cryptoExploreRows = [
-  { symbol: 'BTC', name: 'Bitcoin', category: 'Store of Value', price: '$103,420.50', notional: '$2.04T', change: '+2.84%', tone: 'positive' },
-  { symbol: 'ETH', name: 'Ethereum', category: 'Smart Contracts', price: '$4,920.40', notional: '$592.1B', change: '+2.18%', tone: 'positive' },
-  { symbol: 'OKB', name: 'OKB', category: 'Exchange Token', price: '$68.42', notional: '$4.1B', change: '+3.07%', tone: 'positive' },
-  { symbol: 'SOL', name: 'Solana', category: 'Layer 1', price: '$224.15', notional: '$106.8B', change: '+4.31%', tone: 'positive' },
-  { symbol: 'BNB', name: 'BNB', category: 'Exchange Token', price: '$734.60', notional: '$102.9B', change: '+1.44%', tone: 'positive' }
+  { symbol: 'BTC', name: 'Bitcoin', category: 'Store of Value', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  { symbol: 'ETH', name: 'Ethereum', category: 'Smart Contracts', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  { symbol: 'OKB', name: 'OKB', category: 'Exchange Token', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  { symbol: 'SOL', name: 'Solana', category: 'Layer 1', price: '--', notional: '--', change: '--', tone: 'neutral' },
+  { symbol: 'BNB', name: 'BNB', category: 'Exchange Token', price: '--', notional: '--', change: '--', tone: 'neutral' }
 ]
 const cryptoExploreLiveRows = ref([])
 const cryptoExploreUniverseLoaded = ref(false)
@@ -5177,22 +5177,6 @@ const dataSourceMeta = computed(() => {
     }
   }
 
-  if (activeTradeResponse.value.dataSource === 'crypto-mock') {
-    return {
-      label: 'Market Data',
-      description: 'Loading crypto market feed',
-      tone: 'live'
-    }
-  }
-
-  if (activeTradeResponse.value.dataSource === 'crypto-demo') {
-    return {
-      label: 'Market Data',
-      description: 'Loading crypto market feed',
-      tone: 'live'
-    }
-  }
-
   if (activeTradeResponse.value.dataSource === 'live') {
     return {
       label: 'Market Data',
@@ -5615,161 +5599,45 @@ function createCryptoWorkspaceResponse(symbol = '') {
     }
   }
 
-  const cryptoLookup = {
-    BTC: {
-      companyName: 'Bitcoin',
-      sector: 'Crypto',
-      industry: 'Store of Value',
-      currentPrice: 103420.5,
-      previousClose: 101980.2,
-      open: 102215.8,
-      volume: 928450,
-      week52High: 109880.0,
-      week52Low: 58740.0
-    },
-    ETH: {
-      companyName: 'Ethereum',
-      sector: 'Crypto',
-      industry: 'Smart Contracts',
-      currentPrice: 4920.4,
-      previousClose: 4848.8,
-      open: 4866.1,
-      volume: 1456200,
-      week52High: 5362.0,
-      week52Low: 2214.5
-    },
-    OKB: {
-      companyName: 'OKB',
-      sector: 'Crypto',
-      industry: 'Exchange Token',
-      currentPrice: 68.42,
-      previousClose: 66.91,
-      open: 67.15,
-      volume: 382100,
-      week52High: 74.8,
-      week52Low: 38.2
-    },
-    SOL: {
-      companyName: 'Solana',
-      sector: 'Crypto',
-      industry: 'Layer 1',
-      currentPrice: 224.15,
-      previousClose: 217.03,
-      open: 218.7,
-      volume: 1183600,
-      week52High: 259.4,
-      week52Low: 97.85
-    }
-  }
-  const selected = cryptoLookup[normalizedSymbol] || {
-    companyName: `${normalizedSymbol} Crypto`,
-    sector: 'Crypto',
-    industry: 'Digital Asset',
-    currentPrice: 100.0,
-    previousClose: 98.4,
-    open: 99.1,
-    volume: 250000,
-    week52High: 132.0,
-    week52Low: 42.0
-  }
-
   return {
-    dataSource: 'crypto-mock',
+    dataSource: 'idle',
     request: {
       symbol: normalizedSymbol,
       interval: 'daily',
-      indicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol']
+      indicators: []
     },
     stock: {
       symbol: normalizedSymbol,
-      ...selected
+      companyName: `${normalizedSymbol} Crypto`,
+      sector: 'Crypto',
+      industry: 'Search first',
+      currentPrice: null,
+      previousClose: null,
+      open: null,
+      volume: 0,
+      week52High: null,
+      week52Low: null
     },
     patternAnalysis: {
-      selectedIndicators: ['MA', 'EMA', 'MACD', 'BOLL', 'Vol'],
-      probabilityOfIncrease: 88,
-      probabilityOfDecrease: 46,
-      avgReturn: 8.4,
-      maxDrawdown: -6.2,
-      matchedPatternsCount: 18,
-      signalClassification: 'Crypto Momentum Bias',
+      selectedIndicators: [],
+      probabilityOfIncrease: null,
+      probabilityOfDecrease: null,
+      avgReturn: null,
+      maxDrawdown: null,
+      matchedPatternsCount: 0,
+      signalClassification: 'Search first',
       futureFiveDayProbabilities: {
-        up: [
-          { threshold: 1, probability: 88 },
-          { threshold: 5, probability: 71 },
-          { threshold: 10, probability: 38 }
-        ],
-        down: [
-          { threshold: 1, probability: 46 },
-          { threshold: 5, probability: 24 },
-          { threshold: 10, probability: 9 }
-        ]
+        up: [],
+        down: []
       },
-      recommendedSellPrice: Number((selected.currentPrice * 1.061).toFixed(2)),
-      recommendedSellDate: 'Within 5 trading days',
-      stopLossPrice: Number((selected.currentPrice * 0.958).toFixed(2)),
-      matchedHistoricalPatterns: [
-        {
-          patternName: 'Historical setup #1',
-          matchScore: 90,
-          date: '2026-04-18',
-          symbol: normalizedSymbol,
-          timeframe: 'daily',
-          returnPct: 9.12,
-          maxDrawdown: -5.4
-        },
-        {
-          patternName: 'Historical setup #2',
-          matchScore: 84,
-          date: '2026-03-27',
-          symbol: 'ETH',
-          timeframe: 'daily',
-          returnPct: 7.31,
-          maxDrawdown: -6.1
-        },
-        {
-          patternName: 'Historical setup #3',
-          matchScore: 79,
-          date: '2026-02-14',
-          symbol: 'OKB',
-          timeframe: 'daily',
-          returnPct: 5.88,
-          maxDrawdown: -4.7
-        }
-      ],
-      highFitHistoricalPaths: [
-        { label: `${normalizedSymbol} continuation path`, fitScore: 90, status: `${normalizedSymbol} ended on 2026-04-18` },
-        { label: 'ETH breakout path', fitScore: 84, status: 'ETH ended on 2026-03-27' },
-        { label: 'OKB exchange path', fitScore: 79, status: 'OKB ended on 2026-02-14' }
-      ]
+      recommendedSellPrice: null,
+      recommendedSellDate: null,
+      stopLossPrice: null,
+      matchedHistoricalPatterns: [],
+      highFitHistoricalPaths: []
     },
     chartData: {
-      series: {
-        daily: [
-          { date: '2026-04-28', open: selected.currentPrice * 0.95, high: selected.currentPrice * 0.98, low: selected.currentPrice * 0.93, close: selected.currentPrice * 0.97, volume: selected.volume * 0.92 },
-          { date: '2026-04-29', open: selected.currentPrice * 0.97, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.95, close: selected.currentPrice * 0.98, volume: selected.volume * 0.95 },
-          { date: '2026-04-30', open: selected.currentPrice * 0.98, high: selected.currentPrice * 1.0, low: selected.currentPrice * 0.96, close: selected.currentPrice * 0.99, volume: selected.volume * 0.97 },
-          { date: '2026-05-01', open: selected.currentPrice * 0.99, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.98, close: selected.currentPrice, volume: selected.volume }
-        ],
-        '5day': [
-          { date: '2026-04-25', open: selected.currentPrice * 0.92, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.9, close: selected.currentPrice * 0.97, volume: selected.volume * 4.2 },
-          { date: '2026-05-01', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 4.5 }
-        ],
-        weekly: [
-          { date: '2026-W17', open: selected.currentPrice * 0.9, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.88, close: selected.currentPrice * 0.97, volume: selected.volume * 7.1 },
-          { date: '2026-W18', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 7.4 }
-        ],
-        '2week': [
-          { date: '2026-H1', open: selected.currentPrice * 0.88, high: selected.currentPrice * 0.99, low: selected.currentPrice * 0.84, close: selected.currentPrice * 0.96, volume: selected.volume * 12.8 },
-          { date: '2026-H2', open: selected.currentPrice * 0.96, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.93, close: selected.currentPrice, volume: selected.volume * 13.1 }
-        ],
-        monthly: [
-          { date: '2026-01', open: selected.currentPrice * 0.74, high: selected.currentPrice * 0.81, low: selected.currentPrice * 0.7, close: selected.currentPrice * 0.78, volume: selected.volume * 22 },
-          { date: '2026-02', open: selected.currentPrice * 0.78, high: selected.currentPrice * 0.89, low: selected.currentPrice * 0.75, close: selected.currentPrice * 0.86, volume: selected.volume * 24 },
-          { date: '2026-03', open: selected.currentPrice * 0.86, high: selected.currentPrice * 0.95, low: selected.currentPrice * 0.82, close: selected.currentPrice * 0.91, volume: selected.volume * 26 },
-          { date: '2026-04', open: selected.currentPrice * 0.91, high: selected.currentPrice, low: selected.currentPrice * 0.88, close: selected.currentPrice * 0.97, volume: selected.volume * 28 },
-          { date: '2026-05', open: selected.currentPrice * 0.97, high: selected.currentPrice * 1.01, low: selected.currentPrice * 0.95, close: selected.currentPrice, volume: selected.volume * 19 }
-        ]
-      }
+      series: {}
     }
   }
 }
