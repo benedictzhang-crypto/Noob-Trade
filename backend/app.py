@@ -428,29 +428,84 @@ def initialize_database_with_retries(app, attempts=5, delay_seconds=2):
 
 
 def _start_background_database_init(app):
-    if app.config.get("_DB_INIT_STARTED"):
+    if app.config.get("_DB_INIT_READY"):
         return
 
-    app.config["_DB_INIT_STARTED"] = True
-    app.config["_DB_INIT_READY"] = False
-    app.config["_DB_INIT_ERROR"] = None
+    lock = app.config.setdefault("_DB_INIT_LOCK", threading.Lock())
+
+    with lock:
+        if app.config.get("_DB_INIT_READY") or app.config.get("_DB_INIT_STARTED"):
+            return
+
+        retry_cooldown = max(
+            1,
+            float(app.config.get("DB_INIT_RETRY_COOLDOWN_SECONDS", 10) or 10),
+        )
+        last_error_at = app.config.get("_DB_INIT_LAST_ERROR_AT")
+        if last_error_at and time.monotonic() - last_error_at < retry_cooldown:
+            return
+
+        app.config["_DB_INIT_STARTED"] = True
+        app.config["_DB_INIT_READY"] = False
+        app.config["_DB_INIT_ERROR"] = None
 
     def _runner():
         try:
             initialize_database_with_retries(app)
             with app.app_context():
                 _run_stock_pattern_snapshot_warmup(app)
-            app.config["_DB_INIT_READY"] = True
-            app.config["_DB_INIT_ERROR"] = None
+            with lock:
+                app.config["_DB_INIT_STARTED"] = False
+                app.config["_DB_INIT_READY"] = True
+                app.config["_DB_INIT_ERROR"] = None
+                app.config["_DB_INIT_LAST_ERROR_AT"] = None
             _warm_crypto_pattern_store(app)
             _warm_stock_analysis_cache(app)
             _start_periodic_cache_warmer(app)
         except Exception as error:
             app.logger.exception("Background database initialization failed.")
-            app.config["_DB_INIT_READY"] = False
-            app.config["_DB_INIT_ERROR"] = str(error)
+            with lock:
+                app.config["_DB_INIT_STARTED"] = False
+                app.config["_DB_INIT_READY"] = False
+                app.config["_DB_INIT_ERROR"] = str(error)
+                app.config["_DB_INIT_LAST_ERROR_AT"] = time.monotonic()
 
     threading.Thread(target=_runner, daemon=True).start()
+
+
+def _wait_for_database_ready(app):
+    if app.config.get("_DB_INIT_READY", False):
+        return True
+
+    timeout_seconds = max(
+        0,
+        float(app.config.get("DB_READY_WAIT_TIMEOUT_SECONDS", 4) or 0),
+    )
+    poll_seconds = max(
+        0.05,
+        float(app.config.get("DB_READY_WAIT_POLL_SECONDS", 0.15) or 0.15),
+    )
+    deadline = time.monotonic() + timeout_seconds
+
+    while time.monotonic() < deadline:
+        if app.config.get("_DB_INIT_READY", False):
+            return True
+        if app.config.get("_DB_INIT_ERROR") and not app.config.get("_DB_INIT_STARTED"):
+            return False
+        time.sleep(min(poll_seconds, max(0, deadline - time.monotonic())))
+
+    return app.config.get("_DB_INIT_READY", False)
+
+
+def _database_warming_response(app):
+    error_message = (
+        app.config.get("_DB_INIT_ERROR")
+        or "Database is warming up. Please try again in a few seconds."
+    )
+    response = jsonify({"message": error_message, "retryAfterSeconds": 2})
+    response.status_code = 503
+    response.headers["Retry-After"] = "2"
+    return response
 
 
 def _warm_crypto_pattern_store(app):
@@ -654,6 +709,8 @@ def create_app():
     app.config["_DB_INIT_STARTED"] = False
     app.config["_DB_INIT_READY"] = False
     app.config["_DB_INIT_ERROR"] = None
+    app.config["_DB_INIT_LAST_ERROR_AT"] = None
+    app.config["_DB_INIT_LOCK"] = threading.Lock()
 
     def _is_ampli_lab_host():
         host = request.host.split(":", 1)[0].lower()
@@ -692,9 +749,8 @@ def create_app():
 
         if not is_public_ready_endpoint and str(app.config.get("ENVIRONMENT", "")).lower() == "production":
             _start_background_database_init(app)
-            if not app.config.get("_DB_INIT_READY", False):
-                error_message = app.config.get("_DB_INIT_ERROR") or "Database is warming up. Please try again in a few seconds."
-                return jsonify({"message": error_message}), 503
+            if not _wait_for_database_ready(app):
+                return _database_warming_response(app)
 
         client_ip = (
             str(request.headers.get("X-Forwarded-For", "")).split(",")[0].strip()

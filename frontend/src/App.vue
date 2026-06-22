@@ -8965,9 +8965,12 @@ async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAtte
 
     const payload = await parseErrorResponse(response, fallbackMessage)
     const message = payload.message || fallbackMessage
-    const canRetry = response.status === 503
-      && isDatabaseWarmingMessage(message)
-      && attempt < attempts - 1
+    const canRetry = attempt < attempts - 1
+      && (
+        (response.status === 503 && isDatabaseWarmingMessage(message))
+        || response.status === 502
+        || response.status === 504
+      )
 
     if (!canRetry) {
       const error = new Error(message)
