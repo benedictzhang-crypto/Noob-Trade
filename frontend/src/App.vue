@@ -8978,7 +8978,11 @@ async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAtte
       throw error
     }
 
-    await waitForRetry(550 + (attempt * 450))
+    const retryAfterSeconds = Number(response.headers.get('Retry-After'))
+    const retryAfterMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+      ? retryAfterSeconds * 1000
+      : 550 + (attempt * 450)
+    await waitForRetry(retryAfterMs)
   }
 
   throw new Error(fallbackMessage)

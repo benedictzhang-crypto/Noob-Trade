@@ -227,7 +227,7 @@ class Config:
         os.getenv("CRYPTO_PATTERN_STORE_WARM_SYMBOLS"),
         ["BTC", "ETH", "SOL", "OKB", "DOGE", "ADA", "LINK", "AVAX"],
     )
-    DB_READY_WAIT_TIMEOUT_SECONDS = float(os.getenv("DB_READY_WAIT_TIMEOUT_SECONDS", "4"))
+    DB_READY_WAIT_TIMEOUT_SECONDS = float(os.getenv("DB_READY_WAIT_TIMEOUT_SECONDS", "12"))
     DB_READY_WAIT_POLL_SECONDS = float(os.getenv("DB_READY_WAIT_POLL_SECONDS", "0.15"))
     DB_INIT_RETRY_COOLDOWN_SECONDS = float(os.getenv("DB_INIT_RETRY_COOLDOWN_SECONDS", "10"))
     CRYPTO_EXCLUDE_STABLECOINS = os.getenv("CRYPTO_EXCLUDE_STABLECOINS", "true").lower() == "true"
