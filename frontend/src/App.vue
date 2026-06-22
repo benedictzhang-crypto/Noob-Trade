@@ -5292,7 +5292,7 @@ const dashboardStats = computed(() => {
     { label: 'Saved Symbols', value: String(savedCount), note: `${isCryptoMode.value ? 'Crypto assets' : 'Stocks'} pinned for batch scanning` },
     { label: 'Scan Threshold', value: watchlistScanThresholdLabel.value, note: 'Minimum upside probability required to pass' },
     { label: 'Qualified Matches', value: String(qualifiedCount), note: qualifiedCount ? 'Sorted from highest probability to lowest' : 'Run Scan to generate ranked probabilities' },
-    { label: 'Best Probability', value: bestMatch ? `${bestMatch.probability.toFixed(2)}%` : '--', note: bestMatch ? `${bestMatch.symbol} is currently the strongest match` : 'Waiting for the next scan result' }
+    { label: 'Best Probability', value: bestMatch ? `${bestMatch.probability.toFixed(2)}%` : 'Pending', note: bestMatch ? `${bestMatch.symbol} is currently the strongest match` : 'Waiting for the next scan result' }
   ]
 })
 
