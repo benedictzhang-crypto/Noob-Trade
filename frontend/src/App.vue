@@ -7697,6 +7697,23 @@ function hasChartSeries(response, interval) {
   return Array.isArray(candles) && candles.length > 0
 }
 
+function hasProbabilitySummary(response) {
+  const patternAnalysis = response?.patternAnalysis || {}
+  const directProbability = Number(patternAnalysis.probabilityOfIncrease)
+  if (Number.isFinite(directProbability)) {
+    return true
+  }
+
+  const ladderProbability = Number(
+    patternAnalysis.futureFiveDayProbabilities?.up?.find((item) => Number(item.threshold) === 1)?.probability
+  )
+  return Number.isFinite(ladderProbability) || Number(patternAnalysis.matchedPatternsCount) > 0
+}
+
+function isCachedAnalysisUsable(response, { compact = false, interval = selectedChartInterval.value } = {}) {
+  return compact ? hasProbabilitySummary(response) : hasChartSeries(response, interval)
+}
+
 async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
@@ -7706,7 +7723,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
-    if (cachedAnalysis && hasChartSeries(cachedAnalysis, requiredChartInterval)) {
+    if (cachedAnalysis && isCachedAnalysisUsable(cachedAnalysis, { compact, interval: requiredChartInterval })) {
       return cachedAnalysis
     }
 
@@ -8019,7 +8036,7 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
 
   if (cacheResult) {
     const cachedAnalysis = analysisCache.value[cacheKey]
-    if (cachedAnalysis && hasChartSeries(cachedAnalysis, requestInterval)) {
+    if (cachedAnalysis && isCachedAnalysisUsable(cachedAnalysis, { compact, interval: requestInterval })) {
       return cachedAnalysis
     }
 
@@ -8333,7 +8350,7 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
       : await fetchStockAnalysis(symbol, {
         analysisMode: 'full',
         compact: true,
-        cacheResult: false,
+        cacheResult: true,
         indicatorNames: analysisIndicatorNames,
       })
 
