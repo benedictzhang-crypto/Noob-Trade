@@ -765,6 +765,8 @@ const defaultLiveLoadPromises = {
   stock: null,
   crypto: null
 }
+const loginGenerateWarmKeys = new Set()
+let loginGenerateWarmPromise = null
 const dashboardGenerateWarmKeys = new Set()
 let dashboardGenerateWarmTimer = null
 let stockMatchDetailRevealTimer = null
@@ -8159,25 +8161,36 @@ async function preloadDefaultLiveWorkspaces() {
     return
   }
 
+  const selectedIndicators = getSelectedIndicators()
+  const defaultStockWarmKey = buildLoginGenerateWarmKey('stock', DEFAULT_STOCK_SYMBOL, selectedIndicators)
+  const defaultCryptoWarmKey = buildLoginGenerateWarmKey('crypto', DEFAULT_CRYPTO_SYMBOL, selectedIndicators)
+
   if (!defaultLiveLoadPromises.stock) {
+    loginGenerateWarmKeys.add(defaultStockWarmKey)
     defaultLiveLoadPromises.stock = fetchStockAnalysis(DEFAULT_STOCK_SYMBOL, {
       analysisMode: 'full',
       compact: true,
       cacheResult: true,
-      indicatorNames: getSelectedIndicators(),
+      indicatorNames: selectedIndicators,
     })
       .catch((error) => {
+        loginGenerateWarmKeys.delete(defaultStockWarmKey)
         console.warn('Default stock Generate warmup failed.', error)
         defaultLiveLoadPromises.stock = null
       })
   }
 
   if (!defaultLiveLoadPromises.crypto) {
+    loginGenerateWarmKeys.add(defaultCryptoWarmKey)
     defaultLiveLoadPromises.crypto = fetchCryptoAnalysis(DEFAULT_CRYPTO_SYMBOL, {
-      analysisMode: 'search'
+      analysisMode: 'full',
+      compact: true,
+      cacheResult: true,
+      indicatorNames: selectedIndicators,
     })
       .catch((error) => {
-        console.warn('Default crypto workspace preload failed.', error)
+        loginGenerateWarmKeys.delete(defaultCryptoWarmKey)
+        console.warn('Default crypto Generate warmup failed.', error)
         defaultLiveLoadPromises.crypto = null
       })
   }
@@ -8186,7 +8199,78 @@ async function preloadDefaultLiveWorkspaces() {
     defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
-  scheduleDashboardGenerateWarmup()
+  scheduleLoginGenerateWarmup()
+  scheduleDashboardGenerateWarmup(500)
+}
+
+function buildWarmSymbolList(primarySymbol, symbols, limit = 6) {
+  const symbolList = Array.isArray(symbols) ? symbols : Array.from(symbols || [])
+  return [
+    primarySymbol,
+    ...symbolList
+  ]
+    .map((symbol) => String(symbol || '').trim().toUpperCase())
+    .filter(Boolean)
+    .filter((symbol, index, allSymbols) => allSymbols.indexOf(symbol) === index)
+    .slice(0, limit)
+}
+
+function scheduleLoginGenerateWarmup() {
+  if (!isAuthenticated.value || loginGenerateWarmPromise) {
+    return
+  }
+
+  loginGenerateWarmPromise = warmLoginGenerateCaches()
+    .finally(() => {
+      loginGenerateWarmPromise = null
+    })
+}
+
+function buildLoginGenerateWarmKey(assetType, symbol, indicatorNames) {
+  return `${assetType}|${String(symbol || '').trim().toUpperCase()}|${indicatorNames.join(',')}`
+}
+
+async function warmLoginGenerateCaches() {
+  if (!isAuthenticated.value) {
+    return
+  }
+
+  const selectedIndicators = getSelectedIndicators()
+  const warmItems = [
+    ...buildWarmSymbolList(DEFAULT_STOCK_SYMBOL, starredSymbols.value)
+      .map((symbol) => ({ assetType: 'stock', symbol })),
+    ...buildWarmSymbolList(DEFAULT_CRYPTO_SYMBOL, cryptoStarredSymbols.value)
+      .map((symbol) => ({ assetType: 'crypto', symbol })),
+  ]
+
+  await runLimitedTasks(warmItems, async ({ assetType, symbol }) => {
+    const warmKey = buildLoginGenerateWarmKey(assetType, symbol, selectedIndicators)
+    if (loginGenerateWarmKeys.has(warmKey)) {
+      return
+    }
+
+    loginGenerateWarmKeys.add(warmKey)
+    try {
+      if (assetType === 'crypto') {
+        await fetchCryptoAnalysis(symbol, {
+          analysisMode: 'full',
+          compact: true,
+          cacheResult: true,
+          indicatorNames: selectedIndicators,
+        })
+      } else {
+        await fetchStockAnalysis(symbol, {
+          analysisMode: 'full',
+          compact: true,
+          cacheResult: true,
+          indicatorNames: selectedIndicators,
+        })
+      }
+    } catch (error) {
+      loginGenerateWarmKeys.delete(warmKey)
+      console.warn(`Could not warm ${assetType} Generate cache for ${symbol}.`, error)
+    }
+  }, 2)
 }
 
 function scheduleDashboardGenerateWarmup(delayMs = 900) {
@@ -9919,6 +10003,13 @@ function signOut() {
   csrfToken.value = ''
   defaultLiveLoadPromises.stock = null
   defaultLiveLoadPromises.crypto = null
+  loginGenerateWarmKeys.clear()
+  loginGenerateWarmPromise = null
+  dashboardGenerateWarmKeys.clear()
+  if (dashboardGenerateWarmTimer) {
+    window.clearTimeout(dashboardGenerateWarmTimer)
+    dashboardGenerateWarmTimer = null
+  }
   symbolInput.value = ''
   activeSymbol.value = ''
   exploreLiveSearchRows.value = []
