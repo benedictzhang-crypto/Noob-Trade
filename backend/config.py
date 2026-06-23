@@ -263,7 +263,7 @@ class Config:
     ALLOW_LOCAL_EMAIL_BYPASS = os.getenv("ALLOW_LOCAL_EMAIL_BYPASS", "false").lower() == "true"
     APP_NAME = os.getenv("APP_NAME", "Noob Trade")
     APP_BASE_URL = os.getenv("APP_BASE_URL", "https://noobtrade.onrender.com")
-    SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", os.getenv("EMAIL_FROM", "support@noobtrade.com"))
+    SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "benedictzhang01@gmail.com")
     SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "+1 (800) 555-0149")
     X_URL = os.getenv("X_URL", "https://x.com/noobtrade")
     INSTAGRAM_URL = os.getenv("INSTAGRAM_URL", "https://noobtrade.onrender.com")
