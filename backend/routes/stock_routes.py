@@ -3,6 +3,7 @@ from flask import Blueprint, current_app, jsonify, request
 from models.market_data import DailyPrice, PatternWindow, Symbol
 
 stock_blueprint = Blueprint("stock", __name__, url_prefix="/api")
+WEB_GENERATE_SCORING_PROFILE = "public_equal9"
 
 PRIVATE_RESPONSE_KEYS = {
     "_currentWindow",
@@ -315,13 +316,17 @@ def get_stock(symbol):
             compact_response=compact_response,
             analysis_mode=analysis_mode,
             include_match_details=match_details,
+            scoring_profile=WEB_GENERATE_SCORING_PROFILE,
         )
         response_data = _trim_trade_response_payload(response_data)
 
         if not is_production and response_data.get("dataSource") == "live" and response_data.get("_currentWindow"):
             persistence_service = persistence_service or _persistence_service()
             try:
-                response_data = persistence_service.apply_cached_match_preview(response_data)
+                response_data = persistence_service.apply_cached_match_preview(
+                    response_data,
+                    scoring_profile=WEB_GENERATE_SCORING_PROFILE,
+                )
             except Exception as error:
                 current_app.logger.warning("Could not apply indicator-aware cached preview: %s", error)
 

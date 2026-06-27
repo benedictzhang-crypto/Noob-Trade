@@ -13,12 +13,12 @@ class CryptoMarketDataService(MarketDataService):
     """Crypto flavor of the stock market data service with the same response shape."""
 
     DAILY_GENERATE_STRATEGY = {
-        "id": "crypto9-1d-moderate-smooth13",
-        "name": "Crypto Daily Moderate",
+        "id": "crypto9-1d-public-equal9",
+        "name": "Crypto Daily Baseline",
         "timeframe": "daily",
-        "sourceVariantId": "crypto9_1d_smooth13_ma011_ema010_macd011_boll011_rsi011_vol011_kdj011_oi011_obv303__indicator75_path25_thr88",
-        "indicatorFitWeight": 0.75,
-        "pathWeight": 0.25,
+        "sourceVariantId": "crypto9_1d_public_equal9",
+        "indicatorFitWeight": 1.0,
+        "pathWeight": 0.0,
         "buyThreshold": 88.0,
         "evidence": {
             "totalReturnPct": 34.1334,
@@ -28,15 +28,15 @@ class CryptoMarketDataService(MarketDataService):
         },
         "indicators": ("MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"),
         "weights": {
-            "BOLL": 1.1,
+            "BOLL": 1.0,
             "EMA": 1.0,
-            "KDJ": 1.1,
-            "MA": 1.1,
-            "MACD": 1.1,
-            "OBV": 30.3,
-            "OI": 1.1,
-            "RSI": 1.1,
-            "VOL": 1.1,
+            "KDJ": 1.0,
+            "MA": 1.0,
+            "MACD": 1.0,
+            "OBV": 1.0,
+            "OI": 1.0,
+            "RSI": 1.0,
+            "VOL": 1.0,
         },
     }
 
@@ -206,7 +206,7 @@ class CryptoMarketDataService(MarketDataService):
     def _uses_daily_generate_strategy(self, interval):
         return self._normalize_strategy_interval(interval) == self.DAILY_GENERATE_STRATEGY["timeframe"]
 
-    def _score_live_candidate_match(self, current_window, candidate_record, indicators, interval, lookback_window):
+    def _score_live_candidate_match(self, current_window, candidate_record, indicators, interval, lookback_window, scoring_profile=None):
         if self._uses_daily_generate_strategy(interval):
             return self.persistence_service.quant_scoring_service.score_match(
                 current_window,
@@ -223,6 +223,7 @@ class CryptoMarketDataService(MarketDataService):
             indicators,
             interval=interval,
             lookback_window=lookback_window,
+            scoring_profile=scoring_profile,
         )
 
     def _apply_daily_generate_strategy(self, response):

@@ -119,7 +119,7 @@ class PersistenceService:
             db.session.rollback()
             raise
 
-    def apply_cached_match_preview(self, response_data, include_historical_candles=True):
+    def apply_cached_match_preview(self, response_data, include_historical_candles=True, scoring_profile=None):
         """Apply indicator-aware historical matches without persisting a new analysis run."""
         current_window = self._hydrate_current_window(response_data.get("_currentWindow"))
 
@@ -132,10 +132,11 @@ class PersistenceService:
             selected_indicators=response_data.get("request", {}).get("indicators", []),
             persist_matches=False,
             include_historical_candles=include_historical_candles,
+            scoring_profile=scoring_profile,
         )
 
         if matched_patterns:
-            self._apply_match_results_to_response(response_data, matched_patterns)
+            self._apply_match_results_to_response(response_data, matched_patterns, scoring_profile=scoring_profile)
 
         return response_data
 
@@ -403,13 +404,13 @@ class PersistenceService:
             window_size=lookback_window,
         ).order_by(PatternWindow.end_date.desc()).first()
     
-    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True, include_historical_candles=True):
+    def _create_pattern_matches(self, analysis_run_id, current_window, selected_indicators, persist_matches=True, include_historical_candles=True, scoring_profile=None):
         if current_window is None:
             return []
 
         preview_cache_key = None
         if not persist_matches:
-            preview_cache_key = self._match_preview_cache_key(current_window, selected_indicators)
+            preview_cache_key = self._match_preview_cache_key(current_window, selected_indicators, scoring_profile=scoring_profile)
             cached_preview = self._get_cached_match_preview(preview_cache_key)
             if cached_preview is not None:
                 return self._hydrate_cached_match_preview(cached_preview, include_historical_candles)
@@ -435,6 +436,7 @@ class PersistenceService:
                 candidate,
                 selected_indicators,
                 include_breakdown=False,
+                scoring_profile=scoring_profile,
             )
             future_stats_5d = self._cached_forward_extremes(candidate, trading_days=5)
             score["future_stats_5d"] = future_stats_5d
@@ -661,7 +663,7 @@ class PersistenceService:
 
         return distance
 
-    def _match_preview_cache_key(self, current_window, selected_indicators):
+    def _match_preview_cache_key(self, current_window, selected_indicators, scoring_profile=None):
         feature_vector = getattr(current_window, "feature_vector", {}) or {}
         normalized_indicators = tuple(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
 
@@ -689,6 +691,7 @@ class PersistenceService:
                 end_date,
                 normalize_number(getattr(current_window, "return_pct", None)),
                 normalized_indicators,
+                str(scoring_profile or "default"),
                 feature_items,
             )
         )
@@ -853,12 +856,16 @@ class PersistenceService:
 
         return rough_distance
     
-    def _apply_match_results_to_response(self, response_data, matched_patterns):
+    def _apply_match_results_to_response(self, response_data, matched_patterns, scoring_profile=None):
         pattern_analysis = response_data["patternAnalysis"]
         pattern_analysis["matchedHistoricalPatterns"] = matched_patterns
         pattern_analysis["matchedPatternsCount"] = len(matched_patterns)
         selected_indicators = response_data.get("request", {}).get("indicators", [])
-        probability_summary = self._build_future_probability_summary(matched_patterns, selected_indicators)
+        probability_summary = self._build_future_probability_summary(
+            matched_patterns,
+            selected_indicators,
+            scoring_profile=scoring_profile,
+        )
     
         pattern_analysis["probabilityOfIncrease"] = probability_summary["probability_percent"]
         pattern_analysis["probabilityOfDecrease"] = probability_summary["probability_of_decrease"]
@@ -886,7 +893,7 @@ class PersistenceService:
             for match in matched_patterns
         ]
     
-    def _build_future_probability_summary(self, matched_patterns, selected_indicators):
+    def _build_future_probability_summary(self, matched_patterns, selected_indicators, scoring_profile=None):
         usable_matches = [
             match for match in matched_patterns
             if isinstance(match.get("futureStats5d"), dict)
@@ -972,11 +979,12 @@ class PersistenceService:
             mean(match.get("quantSelectedPercent", 0) or 0 for match in usable_matches) / 100,
             4,
         )
-        total_weight = sum(
-            self.quant_scoring_service.get_weight(indicator)
-            for indicator in self.quant_scoring_service.normalize_indicator_names(selected_indicators)
+        total_weight = self.quant_scoring_service.selection_weight_for_profile(
+            selected_indicators,
+            scoring_profile=scoring_profile,
         )
-        weight_ratio = (total_weight / self.quant_scoring_service.FULL_WEIGHT_SUM) if self.quant_scoring_service.FULL_WEIGHT_SUM else 0.0
+        full_weight_sum = self.quant_scoring_service.full_weight_sum_for_profile(scoring_profile=scoring_profile)
+        weight_ratio = (total_weight / full_weight_sum) if full_weight_sum else 0.0
         weight_penalty = self._light_probability_penalty(weight_ratio)
         up_probabilities = [
             {

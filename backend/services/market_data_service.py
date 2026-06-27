@@ -262,6 +262,7 @@ class MarketDataService:
         analysis_mode="full",
         chart_interval=None,
         include_match_details=False,
+        scoring_profile=None,
     ):
         indicators = parse_indicators(raw_indicators, default_indicators)
         symbol_code = self._normalize_symbol_code(symbol)
@@ -279,6 +280,7 @@ class MarketDataService:
                 analysis_mode=analysis_mode,
                 chart_interval=chart_interval,
                 include_match_details=include_match_details,
+                scoring_profile=scoring_profile,
             )
             cached_response = self._get_cached_analysis_response(cache_key)
             if cached_response is not None:
@@ -310,6 +312,7 @@ class MarketDataService:
                             lookback_window=lookback_window,
                             indicators=indicators,
                             include_match_details=include_match_details,
+                            scoring_profile=scoring_profile,
                         ))
                     except Exception:
                         logger.warning(
@@ -327,13 +330,17 @@ class MarketDataService:
                             lookback_window=lookback_window,
                             indicators=indicators,
                             compact_response=compact_response,
+                            scoring_profile=scoring_profile,
                         )
 
                         if summary_only:
                             return cache_response(response)
 
                         try:
-                            return cache_response(self.persistence_service.apply_cached_match_preview(response))
+                            return cache_response(self.persistence_service.apply_cached_match_preview(
+                                response,
+                                scoring_profile=scoring_profile,
+                            ))
                         except Exception:
                             logger.warning(
                                 "Production cached match preview failed for %s; returning live response.",
@@ -364,6 +371,7 @@ class MarketDataService:
                             indicators=indicators,
                             compact_response=compact_response,
                             apply_match_preview=not summary_only,
+                            scoring_profile=scoring_profile,
                         ))
                     except Exception:
                         logger.warning(
@@ -392,6 +400,7 @@ class MarketDataService:
                     lookback_window=lookback_window,
                     indicators=indicators,
                     compact_response=compact_response,
+                    scoring_profile=scoring_profile,
                 )
             except DukeMarketApiUnavailable:
                 logger.warning(
@@ -415,6 +424,7 @@ class MarketDataService:
                     indicators,
                     chart_interval=chart_interval,
                     compact_response=compact_response,
+                    scoring_profile=scoring_profile,
                 )
             except DukeMarketApiUnavailable:
                 logger.warning(
@@ -735,6 +745,7 @@ class MarketDataService:
         chart_interval=None,
         compact_response=False,
         apply_match_preview=True,
+        scoring_profile=None,
     ):
         symbol_record = Symbol.query.filter_by(symbol=symbol).first()
 
@@ -815,11 +826,12 @@ class MarketDataService:
             return self.persistence_service.apply_cached_match_preview(
                 response,
                 include_historical_candles=not compact_response,
+                scoring_profile=scoring_profile,
             )
 
         return response
 
-    def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False):
+    def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False, scoring_profile=None):
         price_limit = max(lookback_window + 10, 45)
         try:
             response = self._build_cached_db_response(
@@ -830,6 +842,7 @@ class MarketDataService:
                 chart_interval=interval,
                 compact_response=True,
                 apply_match_preview=False,
+                scoring_profile=scoring_profile,
             )
             self._overlay_cached_live_compact_price(response, symbol, price_limit)
         except ValueError as error:
@@ -838,19 +851,34 @@ class MarketDataService:
                 symbol,
             )
             logger.debug("Compact cached stock signal detail for %s: %s", symbol, error)
-            response = self._build_compact_live_snapshot_response(symbol, interval, lookback_window, indicators, price_limit)
+            response = self._build_compact_live_snapshot_response(
+                symbol,
+                interval,
+                lookback_window,
+                indicators,
+                price_limit,
+                scoring_profile=scoring_profile,
+            )
         except Exception:
             logger.warning(
                 "Compact cached stock signal failed for %s; building live snapshot for fixed-library scoring.",
                 symbol,
                 exc_info=True,
             )
-            response = self._build_compact_live_snapshot_response(symbol, interval, lookback_window, indicators, price_limit)
+            response = self._build_compact_live_snapshot_response(
+                symbol,
+                interval,
+                lookback_window,
+                indicators,
+                price_limit,
+                scoring_profile=scoring_profile,
+            )
 
         try:
             response = self.persistence_service.apply_cached_match_preview(
                 response,
                 include_historical_candles=include_match_details,
+                scoring_profile=scoring_profile,
             )
         except Exception:
             logger.warning(
@@ -865,7 +893,7 @@ class MarketDataService:
             self._strip_compact_analysis_payload(response)
         return response
 
-    def _build_compact_live_snapshot_response(self, symbol, interval, lookback_window, indicators, price_limit):
+    def _build_compact_live_snapshot_response(self, symbol, interval, lookback_window, indicators, price_limit, scoring_profile=None):
         try:
             return self._build_live_current_vs_cached_response(
                 symbol=symbol,
@@ -875,6 +903,7 @@ class MarketDataService:
                 indicators=indicators,
                 compact_response=True,
                 price_limit=price_limit,
+                scoring_profile=scoring_profile,
             )
         except Exception:
             logger.warning("Compact live snapshot signal is not available for %s.", symbol, exc_info=True)
@@ -971,7 +1000,7 @@ class MarketDataService:
             analysis.pop("highFitHistoricalPaths", None)
         return response
 
-    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None, chart_interval=None):
+    def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None, chart_interval=None, scoring_profile=None):
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
@@ -1010,6 +1039,7 @@ class MarketDataService:
             last_date=full_recent_candles[-1]["date"] if full_recent_candles else None,
             indicators=indicators,
             compact_response=compact_response,
+            scoring_profile=scoring_profile,
         )
         response = {
             "dataSource": "live",
@@ -1065,7 +1095,7 @@ class MarketDataService:
             }
         return response
 
-    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False, chart_interval=None):
+    def _build_live_response(self, symbol, interval, lookback_window, indicators, price_limit=None, compact_response=False, chart_interval=None, scoring_profile=None):
         overview, prices = self._fetch_live_overview_and_prices(
             symbol,
             price_limit=price_limit or max(lookback_window, 3200),
@@ -1093,6 +1123,7 @@ class MarketDataService:
             last_date=full_daily_candles[-1]["date"] if full_daily_candles else None,
             indicators=indicators,
             compact_response=compact_response,
+            scoring_profile=scoring_profile,
         )
         probability_of_increase = live_match_summary["probabilityOfIncrease"] or self._estimate_probability(returns)
         average_return = live_match_summary["avgReturn"]
@@ -1331,6 +1362,7 @@ class MarketDataService:
         analysis_mode,
         chart_interval=None,
         include_match_details=False,
+        scoring_profile=None,
     ):
         normalized_indicators = ",".join(parse_indicators(",".join(indicators or []), ""))
         return "|".join(
@@ -1345,6 +1377,7 @@ class MarketDataService:
                 str(analysis_mode or "full").lower(),
                 "compact" if compact_response else "full",
                 "match-details" if include_match_details else "summary",
+                str(scoring_profile or "default"),
             ]
         )
 
@@ -1424,7 +1457,7 @@ class MarketDataService:
 
         return f"{max(minutes, 1)} min ago"
 
-    def _build_live_match_summary(self, symbol, interval, lookback_window, daily_candles, current_price, last_date, indicators, compact_response=False):
+    def _build_live_match_summary(self, symbol, interval, lookback_window, daily_candles, current_price, last_date, indicators, compact_response=False, scoring_profile=None):
         prepared_candles = self.persistence_service._prepare_candles(daily_candles)
         candles = self.persistence_service._group_prepared_candles(
             prepared_candles,
@@ -1458,6 +1491,7 @@ class MarketDataService:
                 indicators,
                 interval=interval,
                 lookback_window=lookback_window,
+                scoring_profile=scoring_profile,
             )
 
             candidates.append(
@@ -1546,13 +1580,14 @@ class MarketDataService:
             ]
         return response
 
-    def _score_live_candidate_match(self, current_window, candidate_record, indicators, interval, lookback_window):
+    def _score_live_candidate_match(self, current_window, candidate_record, indicators, interval, lookback_window, scoring_profile=None):
         del interval, lookback_window
         return self.persistence_service.quant_scoring_service.score_match(
             current_window,
             candidate_record,
             indicators,
             include_breakdown=False,
+            scoring_profile=scoring_profile,
         )
 
     def _build_deep_pro_signal_summary(

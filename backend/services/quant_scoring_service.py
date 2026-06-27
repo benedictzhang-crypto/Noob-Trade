@@ -4,6 +4,8 @@ from statistics import mean
 class QuantScoringService:
     """Quant weighting and penalty model used by the Trade page."""
 
+    PUBLIC_EQUAL9_PROFILE = "public_equal9"
+
     INDICATOR_ALIASES = {
         "PBV": "OBV",
     }
@@ -30,6 +32,18 @@ class QuantScoringService:
         "KDJ": 3,
         "OI": 3,
         "OBV": 3,
+    }
+
+    PUBLIC_EQUAL9_INDICATOR_WEIGHTS = {
+        "MA": 1.0,
+        "EMA": 1.0,
+        "MACD": 1.0,
+        "BOLL": 1.0,
+        "RSI": 1.0,
+        "VOL": 1.0,
+        "KDJ": 1.0,
+        "OI": 1.0,
+        "OBV": 1.0,
     }
 
     FULL_WEIGHT_SUM = sum(WEIGHT_BY_INDICATOR.values())
@@ -109,6 +123,36 @@ class QuantScoringService:
     def get_weight(self, indicator_name):
         return self.WEIGHT_BY_INDICATOR.get(self.normalize_indicator_name(indicator_name), 0)
 
+    def is_public_equal9_profile(self, scoring_profile):
+        return str(scoring_profile or "").strip().lower() == self.PUBLIC_EQUAL9_PROFILE
+
+    def weights_for_profile(self, scoring_profile=None):
+        if self.is_public_equal9_profile(scoring_profile):
+            return dict(self.PUBLIC_EQUAL9_INDICATOR_WEIGHTS)
+        return None
+
+    def full_weight_sum_for_profile(self, scoring_profile=None, indicator_weights=None):
+        profile_weights = self.weights_for_profile(scoring_profile)
+        if profile_weights is not None:
+            return sum(profile_weights.values())
+        normalized_weights = self._normalize_indicator_weights(indicator_weights)
+        if normalized_weights is not None:
+            return sum(normalized_weights.values())
+        return self.FULL_WEIGHT_SUM
+
+    def selection_weight_for_profile(self, selected_indicators, scoring_profile=None, indicator_weights=None):
+        profile_weights = self.weights_for_profile(scoring_profile)
+        normalized_weights = profile_weights if profile_weights is not None else self._normalize_indicator_weights(indicator_weights)
+        if normalized_weights is not None:
+            return sum(
+                normalized_weights.get(indicator_name, 0.0)
+                for indicator_name in self.normalize_indicator_names(selected_indicators)
+            )
+        return sum(
+            self.get_weight(indicator_name)
+            for indicator_name in self.normalize_indicator_names(selected_indicators)
+        )
+
     def score_match(
         self,
         current_window,
@@ -118,8 +162,13 @@ class QuantScoringService:
         indicator_weights=None,
         indicator_fit_weight=None,
         path_weight=None,
+        scoring_profile=None,
     ):
         selected_indicators = self.normalize_indicator_names(indicators)
+        if self.is_public_equal9_profile(scoring_profile):
+            indicator_weights = self.PUBLIC_EQUAL9_INDICATOR_WEIGHTS
+            indicator_fit_weight = 1.0
+            path_weight = 0.0
         custom_weights = self._normalize_indicator_weights(indicator_weights)
         current_snapshot = self._indicator_snapshot(current_window)
         candidate_snapshot = self._indicator_snapshot(candidate_window)
