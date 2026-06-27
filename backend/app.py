@@ -740,6 +740,163 @@ def create_app():
 
         return False
 
+    USAGE_LIMITS = {
+        "search_chart": (
+            {"name": "minute", "limit": 120, "windowSeconds": 60, "label": "120 requests per minute"},
+        ),
+        "explore": (
+            {"name": "minute", "limit": 60, "windowSeconds": 60, "label": "60 explore requests per minute"},
+        ),
+        "single_generate": (
+            {"name": "minute", "limit": 20, "windowSeconds": 60, "label": "20 Generate requests per minute"},
+            {"name": "day", "limit": 200, "windowSeconds": 86400, "label": "200 Generate requests per day"},
+        ),
+        "dashboard_scan": (
+            {"name": "minute", "limit": 5, "windowSeconds": 60, "label": "5 Dashboard Scan runs per minute"},
+            {"name": "day", "limit": 80, "windowSeconds": 86400, "label": "80 Dashboard Scan runs per day"},
+        ),
+        "matched_detail": (
+            {"name": "hour", "limit": 120, "windowSeconds": 3600, "label": "120 matched-history detail requests per hour"},
+            {"name": "day", "limit": 300, "windowSeconds": 86400, "label": "300 matched-history detail requests per day"},
+        ),
+    }
+
+    USAGE_LIMIT_LABELS = {
+        "search_chart": "live search and chart loading",
+        "explore": "Explore loading",
+        "single_generate": "single-symbol Generate",
+        "dashboard_scan": "Dashboard Scan",
+        "matched_detail": "matched-history detail",
+    }
+
+    def _normalized_usage_email():
+        return str(session.get("user_email", "")).strip().lower()
+
+    def _split_configured_emails(value):
+        if isinstance(value, (list, tuple, set)):
+            raw_values = value
+        else:
+            raw_values = str(value or "").replace(";", ",").split(",")
+        return {str(item or "").strip().lower() for item in raw_values if str(item or "").strip()}
+
+    def _usage_actor_key(client_ip):
+        email = _normalized_usage_email()
+        if email:
+            return f"user:{email}"
+        return f"ip:{client_ip or 'unknown'}"
+
+    def _is_usage_unlimited_user(app):
+        email = _normalized_usage_email()
+        role = str(session.get("user_role", "")).strip().lower()
+        session_snapshot = session.get("user_snapshot")
+
+        if isinstance(session_snapshot, dict):
+            role = role or str(session_snapshot.get("role", "")).strip().lower()
+            if bool(session_snapshot.get("isAdmin")):
+                return True
+            membership = str(session_snapshot.get("membership", "")).strip().lower()
+            if any(token in membership for token in ("pro", "premium", "unlimited")):
+                return True
+
+        if role == "admin":
+            return True
+
+        configured_pro_emails = _split_configured_emails(app.config.get("NOOBTRADE_PRO_EMAILS", ""))
+        if email and email in configured_pro_emails:
+            return True
+
+        return False
+
+    def _usage_limit_category():
+        if request.method != "GET":
+            return None
+
+        endpoint = request.endpoint or ""
+
+        if endpoint in {"stock.get_stock", "crypto.get_crypto"}:
+            analysis_mode = str(request.args.get("analysis", "full")).strip().lower()
+            if analysis_mode in {"search", "summary"}:
+                return "search_chart"
+            if request.args.get("matchDetails", default=0, type=int) == 1:
+                return "matched_detail"
+            usage_context = str(request.args.get("usage", "")).strip().lower()
+            if usage_context == "dashboard-scan" or request.args.get("scan", default=0, type=int) == 1:
+                return "dashboard_scan"
+            return "single_generate"
+
+        if endpoint in {"stock.get_stock_chart", "crypto.get_crypto_chart", "stock.get_market_news"}:
+            return "search_chart"
+
+        if endpoint == "crypto.get_crypto_top50":
+            return "explore"
+
+        return None
+
+    def _should_count_usage_event(actor_key, category):
+        if category != "dashboard_scan":
+            return True
+
+        batch_id = str(request.args.get("scanBatchId", "")).strip()[:96]
+        if not batch_id:
+            return True
+
+        marker_key = f"usage-seen:{actor_key}:{category}:{batch_id}"
+        return rate_limit_service.mark_once(marker_key, ttl_seconds=86400)
+
+    def _usage_limit_response(category, decision, limit_label):
+        retry_after = max(1, int(decision.get("retryAfterSeconds") or 60))
+        response = jsonify(
+            {
+                "status": "limit_exceeded",
+                "code": "usage_limit_exceeded",
+                "message": "You have reached the free request limit for this feature. Upgrade for unlimited requests.",
+                "usageCategory": category,
+                "usageLabel": USAGE_LIMIT_LABELS.get(category, "NoobTrade requests"),
+                "limitLabel": limit_label,
+                "retryAfterSeconds": retry_after,
+                "upgrade": {
+                    "required": True,
+                    "planName": "NoobTrade Pro",
+                    "displayPrice": "$29.99/month",
+                    "priceMonthly": 29.99,
+                    "currency": "USD",
+                    "benefit": "Unlimited Generate, Dashboard Scan, live chart, and matched-history requests.",
+                },
+            }
+        )
+        response.status_code = 429
+        response.headers["Retry-After"] = str(retry_after)
+        return response
+
+    def _apply_usage_limits(app, client_ip):
+        category = _usage_limit_category()
+        if category is None:
+            return None
+
+        if _is_usage_unlimited_user(app):
+            return None
+
+        actor_key = _usage_actor_key(client_ip)
+        if not _should_count_usage_event(actor_key, category):
+            return None
+
+        checks = []
+        limit_labels = {}
+        for spec in USAGE_LIMITS.get(category, ()):  # pragma: no branch - categories are fixed above.
+            check_key = f"usage:{actor_key}:{category}:{spec['name']}"
+            checks.append((check_key, spec["limit"], spec["windowSeconds"]))
+            limit_labels[check_key] = spec["label"]
+
+        decision = rate_limit_service.consume(checks)
+        if decision.get("allowed"):
+            return None
+
+        return _usage_limit_response(
+            category,
+            decision,
+            limit_labels.get(decision.get("key"), USAGE_LIMIT_LABELS.get(category, "free request limit")),
+        )
+
     @app.before_request
     def apply_basic_security():
         is_public_ready_endpoint = request.endpoint in {
@@ -763,15 +920,20 @@ def create_app():
             or request.remote_addr
             or "unknown"
         )
-        rate_limit_key = f"{client_ip}:{request.endpoint or request.path}:{request.method}"
-        if request.endpoint == "stock.get_pro_signal":
-            limit = 240
-        else:
-            limit = 20 if request.method in {"POST", "PUT", "PATCH", "DELETE"} else 120
-        window_seconds = 60
+        usage_limit_response = _apply_usage_limits(app, client_ip)
+        if usage_limit_response is not None:
+            return usage_limit_response
 
-        if not rate_limit_service.allow(rate_limit_key, limit=limit, window_seconds=window_seconds):
-            return jsonify({"message": "Too many requests. Please slow down and try again."}), 429
+        if _usage_limit_category() is None:
+            rate_limit_key = f"{client_ip}:{request.endpoint or request.path}:{request.method}"
+            if request.endpoint == "stock.get_pro_signal":
+                limit = 240
+            else:
+                limit = 20 if request.method in {"POST", "PUT", "PATCH", "DELETE"} else 120
+            window_seconds = 60
+
+            if not rate_limit_service.allow(rate_limit_key, limit=limit, window_seconds=window_seconds):
+                return jsonify({"message": "Too many requests. Please slow down and try again."}), 429
 
         if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
             csrf_exempt_endpoints = {"auth.csrf_token", "auth.login", "stock.get_pro_signal"}

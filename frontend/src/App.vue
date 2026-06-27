@@ -747,6 +747,22 @@ const voiceLastAssistantPrediction = ref(null)
 const voiceMisunderstandingCount = ref(0)
 const predictionSummaryRef = ref(null)
 const matchedPatternsRef = ref(null)
+const usagePaywall = ref({
+  open: false,
+  title: 'Request limit reached',
+  message: 'You have reached the free request limit for this feature. Upgrade for unlimited requests.',
+  usageLabel: 'NoobTrade requests',
+  limitLabel: '',
+  retryAfterSeconds: 0,
+  planName: 'NoobTrade Pro',
+  displayPrice: '$29.99/month',
+  benefit: 'Unlimited Generate, Dashboard Scan, live chart, and matched-history requests.'
+})
+const usagePaywallUpgradeHref = computed(() => {
+  const subject = encodeURIComponent('NoobTrade Pro unlimited requests')
+  const body = encodeURIComponent('Hi, I want to upgrade to NoobTrade Pro at $29.99/month for unlimited requests.')
+  return `mailto:benedictzhang01@gmail.com?subject=${subject}&body=${body}`
+})
 
 let feedRefreshTimer = null
 let beforeInstallHandler = null
@@ -7458,6 +7474,7 @@ async function scanStarredWatchlist() {
   watchlistScanMessage.value = `Scanning ${symbols.length} saved ${isCryptoMode.value ? 'crypto assets' : 'stocks'} with full-indicator Generate...`
   const passedResults = []
   const failedSymbols = []
+  const scanBatchId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   let completedSymbols = 0
 
   const applyScanResult = (result, symbol) => {
@@ -7476,8 +7493,22 @@ async function scanStarredWatchlist() {
   try {
     await runLimitedTasks(symbols, async (symbol) => {
       const data = isCryptoMode.value
-        ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
-        : await fetchStockAnalysis(symbol, { analysisMode: 'full', compact: true, cacheResult: false, indicatorNames: scanIndicators })
+        ? await fetchCryptoAnalysis(symbol, {
+          analysisMode: 'full',
+          compact: true,
+          cacheResult: false,
+          indicatorNames: scanIndicators,
+          usageContext: 'dashboard-scan',
+          usageBatchId: scanBatchId,
+        })
+        : await fetchStockAnalysis(symbol, {
+          analysisMode: 'full',
+          compact: true,
+          cacheResult: false,
+          indicatorNames: scanIndicators,
+          usageContext: 'dashboard-scan',
+          usageBatchId: scanBatchId,
+        })
       const probability = getAnalysisUpsideProbability(data)
       const currentPrice = Number(data?.stock?.currentPrice)
 
@@ -7714,7 +7745,7 @@ function isCachedAnalysisUsable(response, { compact = false, interval = selected
   return compact ? hasProbabilitySummary(response) : hasChartSeries(response, interval)
 }
 
-async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false } = {}) {
+async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false, usageContext = '', usageBatchId = '' } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
   const requestInterval = analysisMode === 'full' ? STOCK_GENERATE_INTERVAL : selectedChartInterval.value
@@ -7744,6 +7775,12 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   }
   if (matchDetails) {
     query.set('matchDetails', '1')
+  }
+  if (usageContext) {
+    query.set('usage', usageContext)
+  }
+  if (usageBatchId) {
+    query.set('scanBatchId', usageBatchId)
   }
 
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
@@ -8028,7 +8065,7 @@ function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterv
   }, 2)
 }
 
-async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null } = {}) {
+async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, usageContext = '', usageBatchId = '' } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
   const requestInterval = analysisMode === 'full' ? CRYPTO_GENERATE_INTERVAL : selectedChartInterval.value
@@ -8053,6 +8090,12 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
   query.set('interval', requestInterval)
   if (compact) {
     query.set('compact', '1')
+  }
+  if (usageContext) {
+    query.set('usage', usageContext)
+  }
+  if (usageBatchId) {
+    query.set('scanBatchId', usageBatchId)
   }
 
   const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}?${query.toString()}`
@@ -9009,6 +9052,36 @@ function buildXSearchLink(symbol, postText) {
   return `https://x.com/search?q=${encodeURIComponent(query)}&src=typed_query&f=live`
 }
 
+function openUsagePaywall(payload = {}) {
+  const upgrade = payload.upgrade || {}
+  usagePaywall.value = {
+    open: true,
+    title: 'Request limit reached',
+    message: payload.message || 'You have reached the free request limit for this feature. Upgrade for unlimited requests.',
+    usageLabel: payload.usageLabel || 'NoobTrade requests',
+    limitLabel: payload.limitLabel || '',
+    retryAfterSeconds: Number(payload.retryAfterSeconds || 0),
+    planName: upgrade.planName || 'NoobTrade Pro',
+    displayPrice: upgrade.displayPrice || '$29.99/month',
+    benefit: upgrade.benefit || 'Unlimited Generate, Dashboard Scan, live chart, and matched-history requests.'
+  }
+}
+
+function closeUsagePaywall() {
+  usagePaywall.value = {
+    ...usagePaywall.value,
+    open: false
+  }
+}
+
+function maybeOpenUsagePaywall(response, payload) {
+  if (response?.status === 429 && payload?.upgrade?.required) {
+    openUsagePaywall(payload)
+    return true
+  }
+  return false
+}
+
 async function parseJsonResponse(response, fallbackMessage) {
   const rawText = await response.text()
 
@@ -9034,7 +9107,9 @@ async function parseErrorResponse(response, fallbackMessage) {
   }
 
   try {
-    return JSON.parse(rawText)
+    const payload = JSON.parse(rawText)
+    maybeOpenUsagePaywall(response, payload)
+    return payload
   } catch {
     const textPreview = String(rawText)
       .replace(/<[^>]*>/g, ' ')
@@ -9076,6 +9151,10 @@ async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAtte
     if (!canRetry) {
       const error = new Error(message)
       error.status = response.status
+      if (response.status === 429 && payload?.upgrade?.required) {
+        error.isUsageLimit = true
+        error.usagePayload = payload
+      }
       throw error
     }
 
@@ -11555,6 +11634,39 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </article>
       </section>
     </main>
+
+    <div
+      v-if="usagePaywall.open"
+      class="paywall-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="usage-paywall-title"
+    >
+      <div class="paywall-modal">
+        <div class="paywall-topline">
+          <span class="section-chip">NoobTrade Pro</span>
+          <button class="topbar-button secondary" type="button" @click="closeUsagePaywall">Close</button>
+        </div>
+        <div class="paywall-price-row">
+          <div>
+            <p class="eyebrow">{{ usagePaywall.usageLabel }}</p>
+            <h2 id="usage-paywall-title">{{ usagePaywall.title }}</h2>
+          </div>
+          <strong>{{ usagePaywall.displayPrice }}</strong>
+        </div>
+        <p>{{ usagePaywall.message }}</p>
+        <p v-if="usagePaywall.limitLabel" class="paywall-limit-copy">Free limit: {{ usagePaywall.limitLabel }}.</p>
+        <div class="paywall-benefit-list">
+          <span>Unlimited Generate</span>
+          <span>Unlimited Dashboard Scan</span>
+          <span>Unlimited matched history</span>
+        </div>
+        <div class="paywall-actions">
+          <a class="topbar-button" :href="usagePaywallUpgradeHref">Upgrade for $29.99/month</a>
+          <button class="topbar-button secondary" type="button" @click="closeUsagePaywall">Maybe later</button>
+        </div>
+      </div>
+    </div>
 
     <div
       v-if="replayPattern"

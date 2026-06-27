@@ -5066,3 +5066,122 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+.paywall-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4, 17, 12, 0.48);
+  backdrop-filter: blur(8px);
+}
+
+.paywall-modal {
+  width: min(560px, 100%);
+  border: 1px solid rgba(28, 68, 48, 0.2);
+  border-radius: 8px;
+  padding: 24px;
+  background: #fffdf8;
+  box-shadow: 0 26px 70px rgba(4, 17, 12, 0.22);
+  color: #10281c;
+}
+
+.paywall-topline,
+.paywall-price-row,
+.paywall-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.paywall-price-row {
+  margin-top: 18px;
+  align-items: flex-start;
+}
+
+.paywall-price-row h2 {
+  margin: 4px 0 0;
+  font-size: 1.75rem;
+  line-height: 1.12;
+}
+
+.paywall-price-row strong {
+  white-space: nowrap;
+  font-size: 1.4rem;
+  color: #0f5132;
+}
+
+.paywall-modal p {
+  margin: 16px 0 0;
+  color: #4b6256;
+  line-height: 1.55;
+}
+
+.paywall-limit-copy {
+  font-weight: 700;
+}
+
+.paywall-benefit-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.paywall-benefit-list span {
+  border: 1px solid rgba(28, 68, 48, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(239, 248, 241, 0.88);
+  color: #183f2b;
+  font-weight: 800;
+  text-align: center;
+}
+
+.app-shell.crypto-mode .paywall-overlay {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.app-shell.crypto-mode .paywall-modal {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: #0f1014;
+  color: #f7f7f7;
+}
+
+.app-shell.crypto-mode .paywall-modal p {
+  color: #cfd3dc;
+}
+
+.app-shell.crypto-mode .paywall-price-row strong {
+  color: #ffffff;
+}
+
+.app-shell.crypto-mode .paywall-benefit-list span {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+@media (max-width: 640px) {
+  .paywall-modal {
+    padding: 18px;
+  }
+
+  .paywall-topline,
+  .paywall-price-row,
+  .paywall-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .paywall-price-row strong {
+    white-space: normal;
+  }
+
+  .paywall-benefit-list {
+    grid-template-columns: 1fr;
+  }
+}

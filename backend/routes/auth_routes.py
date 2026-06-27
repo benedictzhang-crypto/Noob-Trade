@@ -769,9 +769,11 @@ def _login_impl():
             }
         ), 403
 
+    serialized_user = _serialize_user(user)
+
     session.clear()
     session.update(_session_user_payload(user))
-    session.pop("user_snapshot", None)
+    session["user_snapshot"] = serialized_user
 
     message = f"Welcome back, {user.full_name}."
     notice_sent = False
@@ -790,7 +792,7 @@ def _login_impl():
             "message": message,
             "emailNoticeSent": notice_sent,
             "emailNoticeMessage": notice_error,
-            "user": _serialize_user(user),
+            "user": serialized_user,
             "adminUsers": None,
             "csrfToken": _issue_csrf_token(),
         }
