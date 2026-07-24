@@ -1,3 +1,4 @@
+
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Fuse from 'fuse.js'
@@ -11708,6 +11709,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :chart-data="replayChartData"
           :chart-intervals="[replayPattern.timeframe]"
           :company-name="`${replayPattern.symbol} historical replay`"
+          :comparison-anchor-index="Math.max((replayPattern.historicalCandles?.length || 1) - 1, 0)"
+          comparison-anchor-label="Current-like moment"
           :industry="'Historical match'"
           :is-crypto-mode="isCryptoMode"
           :selected-interval="replayInterval"
