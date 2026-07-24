@@ -1,3 +1,4 @@
+
 from statistics import mean
 
 
@@ -5,6 +6,7 @@ class QuantScoringService:
     """Quant weighting and penalty model used by the Trade page."""
 
     PUBLIC_EQUAL9_PROFILE = "public_equal9"
+    PAPER_WEIGHTED_PROFILE = "paper_weighted"
 
     INDICATOR_ALIASES = {
         "PBV": "OBV",
@@ -45,6 +47,7 @@ class QuantScoringService:
         "OI": 1.0,
         "OBV": 1.0,
     }
+    PAPER_WEIGHTED_INDICATOR_WEIGHTS = dict(WEIGHT_BY_INDICATOR)
 
     FULL_WEIGHT_SUM = sum(WEIGHT_BY_INDICATOR.values())
     MIN_ADAPTIVE_PENALTY = 0.72
@@ -126,9 +129,14 @@ class QuantScoringService:
     def is_public_equal9_profile(self, scoring_profile):
         return str(scoring_profile or "").strip().lower() == self.PUBLIC_EQUAL9_PROFILE
 
+    def is_paper_weighted_profile(self, scoring_profile):
+        return str(scoring_profile or "").strip().lower() == self.PAPER_WEIGHTED_PROFILE
+
     def weights_for_profile(self, scoring_profile=None):
         if self.is_public_equal9_profile(scoring_profile):
             return dict(self.PUBLIC_EQUAL9_INDICATOR_WEIGHTS)
+        if self.is_paper_weighted_profile(scoring_profile):
+            return dict(self.PAPER_WEIGHTED_INDICATOR_WEIGHTS)
         return None
 
     def full_weight_sum_for_profile(self, scoring_profile=None, indicator_weights=None):
@@ -169,6 +177,10 @@ class QuantScoringService:
             indicator_weights = self.PUBLIC_EQUAL9_INDICATOR_WEIGHTS
             indicator_fit_weight = 1.0
             path_weight = 0.0
+        elif self.is_paper_weighted_profile(scoring_profile):
+            indicator_weights = self.PAPER_WEIGHTED_INDICATOR_WEIGHTS
+            indicator_fit_weight = 0.75
+            path_weight = 0.25
         custom_weights = self._normalize_indicator_weights(indicator_weights)
         current_snapshot = self._indicator_snapshot(current_window)
         candidate_snapshot = self._indicator_snapshot(candidate_window)
