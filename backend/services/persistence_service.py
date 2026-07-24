@@ -451,11 +451,24 @@ class PersistenceService:
         ranked_matches.sort(key=lambda item: item[1]["selected_score_percent"], reverse=True)
         top_matches = self._select_match_bundles(ranked_matches)
         matched_window_ids = [matched_window.id for matched_window, _ in top_matches]
-        matched_symbol_ids = [matched_window.symbol_id for matched_window, _ in top_matches]
         symbol_lookup = {
-            symbol.id: symbol.symbol
-            for symbol in Symbol.query.filter(Symbol.id.in_(matched_symbol_ids)).all()
-        } if matched_symbol_ids else {}
+            matched_window.symbol_id: matched_window.symbol_code
+            for matched_window, _ in top_matches
+            if getattr(matched_window, "symbol_code", None)
+        }
+        missing_symbol_ids = {
+            matched_window.symbol_id
+            for matched_window, _ in top_matches
+            if (
+                matched_window.symbol_id is not None
+                and matched_window.symbol_id not in symbol_lookup
+            )
+        }
+        if missing_symbol_ids:
+            symbol_lookup.update({
+                symbol.id: symbol.symbol
+                for symbol in Symbol.query.filter(Symbol.id.in_(missing_symbol_ids)).all()
+            })
         historical_candle_lookup = {}
         if include_historical_candles:
             historical_candle_lookup = self._build_match_candles_map(
@@ -584,16 +597,17 @@ class PersistenceService:
                 PatternWindow.rsi_max,
                 PatternWindow.volume_change_ratio,
                 PatternWindow.feature_vector,
+                Symbol.symbol.label("symbol_code"),
+            ).join(
+                Symbol,
+                Symbol.id == PatternWindow.symbol_id,
             ).filter(
                 PatternWindow.timeframe == timeframe,
                 PatternWindow.window_size == int(window_size),
             )
 
             if self.MATCH_SCORING_SYMBOLS:
-                query = query.join(
-                    Symbol,
-                    Symbol.id == PatternWindow.symbol_id,
-                ).filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
+                query = query.filter(Symbol.symbol.in_(self.MATCH_SCORING_SYMBOLS))
 
             rows = query.order_by(
                 PatternWindow.end_date.desc(),
@@ -621,6 +635,7 @@ class PersistenceService:
                     rsi_max=row.rsi_max,
                     volume_change_ratio=row.volume_change_ratio,
                     feature_vector=row.feature_vector or {},
+                    symbol_code=row.symbol_code,
                 )
                 for row in rows
             ]
