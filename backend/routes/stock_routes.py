@@ -3,7 +3,7 @@ from flask import Blueprint, current_app, jsonify, request
 from models.market_data import DailyPrice, PatternWindow, Symbol
 
 stock_blueprint = Blueprint("stock", __name__, url_prefix="/api")
-WEB_GENERATE_SCORING_PROFILE = "paperweighted"
+WEB_GENERATE_SCORING_PROFILE = "paper_weighted"
 
 PRIVATE_RESPONSE_KEYS = {
     "_currentWindow",
