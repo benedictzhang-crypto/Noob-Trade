@@ -1,4 +1,5 @@
 import time
+import threading
 from datetime import datetime, timedelta, timezone
 
 import requests
@@ -18,6 +19,8 @@ class CryptoMarketApiService:
     _okx_spot_inst_ids_expires_at = None
     _okx_usdt_assets_cache = None
     _okx_usdt_assets_expires_at = None
+    _sessions = {}
+    _sessions_lock = threading.Lock()
 
     STABLECOIN_SYMBOLS = {
         "USDT",
@@ -57,17 +60,29 @@ class CryptoMarketApiService:
         self.timeout = timeout
         self.cooldown_seconds = cooldown_seconds
         self.exclude_stablecoins = bool(exclude_stablecoins)
-        self.session = requests.Session()
-        adapter = HTTPAdapter(pool_connections=12, pool_maxsize=12)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
-        self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 NoobTrade/1.0",
-                "Accept": "application/json,text/plain,*/*",
-                "Connection": "keep-alive",
-            }
-        )
+        self.session = self._shared_session(self.okx_base_url, self.coingecko_base_url)
+
+    @classmethod
+    def _shared_session(cls, okx_base_url, coingecko_base_url):
+        session_key = (okx_base_url, coingecko_base_url)
+        with cls._sessions_lock:
+            session = cls._sessions.get(session_key)
+            if session is not None:
+                return session
+
+            session = requests.Session()
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+            session.headers.update(
+                {
+                    "User-Agent": "Mozilla/5.0 NoobTrade/1.0",
+                    "Accept": "application/json,text/plain,*/*",
+                    "Connection": "keep-alive",
+                }
+            )
+            cls._sessions[session_key] = session
+            return session
 
     def is_configured(self):
         return True
@@ -243,7 +258,10 @@ class CryptoMarketApiService:
         except Exception:
             self._track_soft_failure()
 
-        return self.get_top_market_assets(limit=requested_limit)
+        if self.__class__._okx_usdt_assets_cache:
+            return self.__class__._okx_usdt_assets_cache[:requested_limit]
+
+        return []
 
     def get_okx_spot_inst_ids(self):
         now = datetime.utcnow()

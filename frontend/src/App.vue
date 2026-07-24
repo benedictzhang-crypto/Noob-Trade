@@ -783,7 +783,6 @@ const defaultLiveLoadPromises = {
   crypto: null
 }
 const loginGenerateWarmKeys = new Set()
-let loginGenerateWarmPromise = null
 const dashboardGenerateWarmKeys = new Set()
 let dashboardGenerateWarmTimer = null
 let stockMatchDetailRevealTimer = null
@@ -6124,13 +6123,6 @@ function getReadableMarketDataError(message, symbol = '') {
   return rawMessage || 'This data is not accessible right now.'
 }
 
-function isDatabaseWarmingMessage(message) {
-  const normalizedMessage = String(message || '').toLowerCase()
-  return normalizedMessage.includes('database is warming up')
-    || normalizedMessage.includes('http 503')
-    || normalizedMessage.includes('please try again in a few seconds')
-}
-
 function hasTechnicalMarketDataDetails(message) {
   const normalizedMessage = String(message || '').toLowerCase()
   return voiceTechnicalErrorPatterns.some((pattern) => normalizedMessage.includes(pattern))
@@ -7789,7 +7781,7 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
     requestUrl,
     { timeoutMs: analysisMode === 'search' ? 12000 : 35000 },
     `${cleanedSymbol} data is not accessible right now.`,
-    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 1
+    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 2
   )
 
   const data = await response.json()
@@ -7815,17 +7807,12 @@ async function fetchStockChartData(symbol, interval) {
   })
   const requestUrl = `${API_BASE_URL}/stock/${encodeURIComponent(cleanedSymbol)}/chart?${query.toString()}`
   const requestPromise = (async () => {
-    const response = await secureFetch(requestUrl, {
-      timeoutMs: 15000
-    })
-
-    if (!response.ok) {
-      const payload = await parseErrorResponse(
-        response,
-        `${cleanedSymbol} chart data is not accessible right now.`
-      )
-      throw new Error(payload.message || `${cleanedSymbol} chart data is not accessible right now.`)
-    }
+    const response = await fetchWithDatabaseWarmRetry(
+      requestUrl,
+      { timeoutMs: 15000 },
+      `${cleanedSymbol} chart data is not accessible right now.`,
+      2
+    )
 
     return response.json()
   })()
@@ -7850,17 +7837,12 @@ async function fetchCryptoChartData(symbol, interval) {
   })
   const requestUrl = `${API_BASE_URL}/crypto/${encodeURIComponent(cleanedSymbol)}/chart?${query.toString()}`
   const requestPromise = (async () => {
-    const response = await secureFetch(requestUrl, {
-      timeoutMs: 15000
-    })
-
-    if (!response.ok) {
-      const payload = await parseErrorResponse(
-        response,
-        `${cleanedSymbol} crypto chart data is not accessible right now.`
-      )
-      throw new Error(payload.message || `${cleanedSymbol} crypto chart data is not accessible right now.`)
-    }
+    const response = await fetchWithDatabaseWarmRetry(
+      requestUrl,
+      { timeoutMs: 15000 },
+      `${cleanedSymbol} crypto chart data is not accessible right now.`,
+      2
+    )
 
     return response.json()
   })()
@@ -8066,7 +8048,7 @@ function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterv
   }, 2)
 }
 
-async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, usageContext = '', usageBatchId = '' } = {}) {
+async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false, usageContext = '', usageBatchId = '' } = {}) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: true })
   const analysisIndicators = Array.isArray(indicatorNames) && indicatorNames.length ? indicatorNames : getSelectedIndicators()
   const requestInterval = analysisMode === 'full' ? CRYPTO_GENERATE_INTERVAL : selectedChartInterval.value
@@ -8092,6 +8074,9 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
   if (compact) {
     query.set('compact', '1')
   }
+  if (matchDetails) {
+    query.set('matchDetails', '1')
+  }
   if (usageContext) {
     query.set('usage', usageContext)
   }
@@ -8104,7 +8089,7 @@ async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = fa
     requestUrl,
     { timeoutMs: analysisMode === 'search' ? 12000 : 35000 },
     `${cleanedSymbol} crypto data is not accessible right now.`,
-    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 1
+    analysisMode === 'full' ? GENERATE_WARM_RETRY_ATTEMPTS : 2
   )
 
   const data = await response.json()
@@ -8144,7 +8129,11 @@ function normalizeAnalysisResponseCollections(data) {
 function applyAnalysisResponse(data, isCryptoPage) {
   const normalizedData = normalizeAnalysisResponseCollections(data)
   if (isCryptoPage) {
-    cryptoResponse.value = normalizedData
+    const incomingSymbol = String(normalizedData?.stock?.symbol || '').toUpperCase()
+    const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
+    cryptoResponse.value = incomingSymbol && incomingSymbol === currentSymbol
+      ? normalizeAnalysisResponseCollections(mergeStockChartData(cryptoResponse.value, normalizedData))
+      : normalizedData
     symbolInput.value = normalizedData.stock.symbol
     return
   }
@@ -8260,78 +8249,11 @@ async function preloadDefaultLiveWorkspaces() {
     defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
-  scheduleLoginGenerateWarmup()
-  scheduleDashboardGenerateWarmup(500)
-}
-
-function buildWarmSymbolList(primarySymbol, symbols, limit = 6) {
-  const symbolList = Array.isArray(symbols) ? symbols : Array.from(symbols || [])
-  return [
-    primarySymbol,
-    ...symbolList
-  ]
-    .map((symbol) => String(symbol || '').trim().toUpperCase())
-    .filter(Boolean)
-    .filter((symbol, index, allSymbols) => allSymbols.indexOf(symbol) === index)
-    .slice(0, limit)
-}
-
-function scheduleLoginGenerateWarmup() {
-  if (!isAuthenticated.value || loginGenerateWarmPromise) {
-    return
-  }
-
-  loginGenerateWarmPromise = warmLoginGenerateCaches()
-    .finally(() => {
-      loginGenerateWarmPromise = null
-    })
+  scheduleDashboardGenerateWarmup(8000)
 }
 
 function buildLoginGenerateWarmKey(assetType, symbol, indicatorNames) {
   return `${assetType}|${String(symbol || '').trim().toUpperCase()}|${indicatorNames.join(',')}`
-}
-
-async function warmLoginGenerateCaches() {
-  if (!isAuthenticated.value) {
-    return
-  }
-
-  const selectedIndicators = getSelectedIndicators()
-  const warmItems = [
-    ...buildWarmSymbolList(DEFAULT_STOCK_SYMBOL, starredSymbols.value)
-      .map((symbol) => ({ assetType: 'stock', symbol })),
-    ...buildWarmSymbolList(DEFAULT_CRYPTO_SYMBOL, cryptoStarredSymbols.value)
-      .map((symbol) => ({ assetType: 'crypto', symbol })),
-  ]
-
-  await runLimitedTasks(warmItems, async ({ assetType, symbol }) => {
-    const warmKey = buildLoginGenerateWarmKey(assetType, symbol, selectedIndicators)
-    if (loginGenerateWarmKeys.has(warmKey)) {
-      return
-    }
-
-    loginGenerateWarmKeys.add(warmKey)
-    try {
-      if (assetType === 'crypto') {
-        await fetchCryptoAnalysis(symbol, {
-          analysisMode: 'full',
-          compact: true,
-          cacheResult: true,
-          indicatorNames: selectedIndicators,
-        })
-      } else {
-        await fetchStockAnalysis(symbol, {
-          analysisMode: 'full',
-          compact: true,
-          cacheResult: true,
-          indicatorNames: selectedIndicators,
-        })
-      }
-    } catch (error) {
-      loginGenerateWarmKeys.delete(warmKey)
-      console.warn(`Could not warm ${assetType} Generate cache for ${symbol}.`, error)
-    }
-  }, 2)
 }
 
 function scheduleDashboardGenerateWarmup(delayMs = 900) {
@@ -8350,7 +8272,13 @@ function scheduleDashboardGenerateWarmup(delayMs = 900) {
 }
 
 async function warmDashboardGenerateCaches() {
-  if (!isAuthenticated.value) {
+  if (
+    !isAuthenticated.value
+    || activePage.value !== 'Dashboard'
+    || isSearching.value
+    || isGenerating.value
+    || isWatchlistScanning.value
+  ) {
     return
   }
 
@@ -8382,7 +8310,7 @@ async function warmDashboardGenerateCaches() {
       dashboardGenerateWarmKeys.delete(warmKey)
       console.warn(`Could not warm ${assetType} Generate cache for ${symbol}.`, error)
     }
-  }, 2)
+  }, 1)
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
@@ -8390,7 +8318,11 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
   const chartIntervalAtRequest = selectedChartInterval.value
   try {
     let data = isCryptoPage
-      ? await fetchCryptoAnalysis(symbol, { analysisMode: 'full' })
+      ? await fetchCryptoAnalysis(symbol, {
+        analysisMode: 'full',
+        compact: true,
+        cacheResult: true,
+      })
       : await fetchStockAnalysis(symbol, {
         analysisMode: 'full',
         compact: true,
@@ -8431,7 +8363,9 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
     }
 
     applyAnalysisResponse(data, isCryptoPage)
-    if (!isCryptoPage) {
+    if (isCryptoPage) {
+      void refreshCryptoMatchDetailsInBackground(symbol, requestVersion)
+    } else {
       void refreshStockMatchDetailsInBackground(symbol, requestVersion, analysisIndicatorNames)
     }
   } catch (error) {
@@ -8440,6 +8374,52 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
     if (requestVersion === analysisRequestVersion) {
       isPredictionLoading.value = false
       isGenerating.value = false
+    }
+  }
+}
+
+function isActiveCryptoGenerateRequest(symbol, requestVersion) {
+  const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
+  return (
+    requestVersion === analysisRequestVersion
+    && activePage.value === 'Crypto Trade'
+    && currentSymbol === String(symbol || '').toUpperCase()
+  )
+}
+
+async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion) {
+  if (!isActiveCryptoGenerateRequest(symbol, requestVersion)) {
+    return
+  }
+
+  isMatchDetailsLoading.value = true
+  try {
+    const data = await fetchCryptoAnalysis(symbol, {
+      analysisMode: 'full',
+      compact: false,
+      matchDetails: true,
+      cacheResult: false,
+    })
+
+    if (!isActiveCryptoGenerateRequest(symbol, requestVersion)) {
+      return
+    }
+
+    const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
+    if (responseSymbol !== String(symbol || '').toUpperCase()) {
+      return
+    }
+
+    cryptoResponse.value = normalizeAnalysisResponseCollections(
+      mergeStockChartData(cryptoResponse.value, data)
+    )
+  } catch (error) {
+    if (isActiveCryptoGenerateRequest(symbol, requestVersion)) {
+      console.warn('Crypto matched history details could not finish.', error)
+    }
+  } finally {
+    if (isActiveCryptoGenerateRequest(symbol, requestVersion)) {
+      isMatchDetailsLoading.value = false
     }
   }
 }
@@ -8924,7 +8904,7 @@ watch(
       return
     }
 
-    scheduleDashboardGenerateWarmup(1200)
+    scheduleDashboardGenerateWarmup(8000)
   },
   { immediate: true }
 )
@@ -9102,7 +9082,17 @@ async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAtte
   const attempts = Math.max(1, Number(maxAttempts) || 1)
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const response = await secureFetch(url, options)
+    let response
+    try {
+      response = await secureFetch(url, options)
+    } catch (error) {
+      if (attempt >= attempts - 1) {
+        throw error
+      }
+
+      await waitForRetry(350 + (attempt * 300))
+      continue
+    }
 
     if (response.ok) {
       return response
@@ -9112,7 +9102,7 @@ async function fetchWithDatabaseWarmRetry(url, options, fallbackMessage, maxAtte
     const message = payload.message || fallbackMessage
     const canRetry = attempt < attempts - 1
       && (
-        (response.status === 503 && isDatabaseWarmingMessage(message))
+        response.status === 503
         || response.status === 502
         || response.status === 504
       )
@@ -10069,7 +10059,6 @@ function signOut() {
   defaultLiveLoadPromises.stock = null
   defaultLiveLoadPromises.crypto = null
   loginGenerateWarmKeys.clear()
-  loginGenerateWarmPromise = null
   dashboardGenerateWarmKeys.clear()
   if (dashboardGenerateWarmTimer) {
     window.clearTimeout(dashboardGenerateWarmTimer)

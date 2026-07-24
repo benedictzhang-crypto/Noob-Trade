@@ -91,7 +91,10 @@ def _trim_trade_response_payload(payload):
 
 def _public_crypto_error_message(error, symbol):
     raw_message = str(error or "")
+    normalized_message = raw_message.lower()
     symbol_code = str(symbol or "This crypto").upper()
+    if _is_missing_crypto_market_error(normalized_message):
+        return f"{symbol_code} is not available as an OKX USDT spot market."
     technical_tokens = (
         "HTTPSConnectionPool",
         "ConnectTimeoutError",
@@ -106,6 +109,36 @@ def _public_crypto_error_message(error, symbol):
     if raw_message:
         return raw_message[:240]
     return f"{symbol_code} crypto data is not accessible right now."
+
+
+def _is_missing_crypto_market_error(message):
+    normalized_message = str(message or "").lower()
+    return (
+        ("no okx" in normalized_message and "candles returned" in normalized_message)
+        or "instrument does not exist" in normalized_message
+        or "not in the crypto pattern store" in normalized_message
+    )
+
+
+def _crypto_error_status(error):
+    raw_message = str(error or "")
+    if _is_missing_crypto_market_error(raw_message):
+        return 404
+
+    normalized_message = raw_message.lower()
+    transient_tokens = (
+        "timeout",
+        "temporarily",
+        "connection",
+        "max retries exceeded",
+        "502",
+        "503",
+        "504",
+    )
+    if any(token in normalized_message for token in transient_tokens):
+        return 503
+
+    return 500
 
 
 def _empty_crypto_search_analysis(indicators, current_price):
@@ -205,7 +238,7 @@ def get_crypto(symbol):
                     "interval": interval,
                     "lookback": lookback,
                 }
-            ), 500
+            ), _crypto_error_status(error)
 
     try:
         response_data = market_data_service.get_crypto_pattern_analysis(
@@ -246,7 +279,7 @@ def get_crypto(symbol):
                 "interval": interval,
                 "lookback": lookback,
             }
-        ), 500
+        ), _crypto_error_status(error)
 
 
 @crypto_blueprint.route("/crypto/<symbol>/chart", methods=["GET"])
@@ -277,7 +310,7 @@ def get_crypto_chart(symbol):
                 "symbol": symbol.upper(),
                 "chartInterval": chart_interval,
             }
-        ), 500
+        ), _crypto_error_status(error)
 
 
 @crypto_blueprint.route("/crypto/top50", methods=["GET"])

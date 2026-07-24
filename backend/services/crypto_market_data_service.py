@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 class CryptoMarketDataService(MarketDataService):
     """Crypto flavor of the stock market data service with the same response shape."""
 
+    CHART_ONLY_DAILY_LIMITS = {
+        **MarketDataService.CHART_ONLY_DAILY_LIMITS,
+        "daily": 300,
+    }
+
     DAILY_GENERATE_STRATEGY = {
         "id": "crypto9-1d-moderate-smooth13",
         "name": "Crypto Daily Moderate",

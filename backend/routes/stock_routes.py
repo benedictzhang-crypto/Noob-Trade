@@ -50,12 +50,47 @@ def _normalize_symbol_code(symbol):
 
 def _public_market_error_message(error, symbol):
     raw_message = str(error or "")
+    normalized_message = raw_message.lower()
     symbol_code = _normalize_symbol_code(symbol) or "This symbol"
+    if _is_missing_stock_market_error(normalized_message):
+        return f"{symbol_code} is not available from the current U.S. stock market feed."
     if any(token.lower() in raw_message.lower() for token in TECHNICAL_MARKET_ERROR_TOKENS):
         return f"{symbol_code} market data connection timed out. Please try again in a moment."
     if raw_message:
         return raw_message[:240]
     return f"{symbol_code} data is not accessible right now."
+
+
+def _is_missing_stock_market_error(message):
+    normalized_message = str(message or "").lower()
+    return (
+        "no chart data returned" in normalized_message
+        or "no price data returned" in normalized_message
+        or "symbol may be delisted" in normalized_message
+        or "not found" in normalized_message
+        or "404 client error" in normalized_message
+    )
+
+
+def _stock_error_status(error):
+    raw_message = str(error or "")
+    if _is_missing_stock_market_error(raw_message):
+        return 404
+
+    normalized_message = raw_message.lower()
+    transient_tokens = (
+        "timeout",
+        "temporarily",
+        "connection",
+        "max retries exceeded",
+        "502",
+        "503",
+        "504",
+    )
+    if any(token in normalized_message for token in transient_tokens):
+        return 503
+
+    return 500
 
 
 def _trim_trade_response_payload(payload):
@@ -285,7 +320,7 @@ def get_stock(symbol):
                         "chartInterval": chart_interval,
                         "lookback": lookback,
                     }
-                ), 500
+                ), _stock_error_status(error)
 
     market_data_service = _market_data_service()
 
@@ -352,7 +387,7 @@ def get_stock(symbol):
                 "chartInterval": chart_interval,
                 "lookback": lookback,
             }
-        ), 500
+        ), _stock_error_status(error)
 
 
 @stock_blueprint.route("/stock/<symbol>/chart", methods=["GET"])
@@ -381,7 +416,7 @@ def get_stock_chart(symbol):
                 "symbol": symbol.upper(),
                 "chartInterval": chart_interval,
             }
-        ), 500
+        ), _stock_error_status(error)
 
 
 @stock_blueprint.route("/market-news", methods=["GET"])
