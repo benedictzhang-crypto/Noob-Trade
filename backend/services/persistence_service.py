@@ -429,16 +429,16 @@ class PersistenceService:
         elif not candidate_windows:
             return []
     
+        candidate_scores = self.quant_scoring_service.score_matches(
+            current_window,
+            candidate_windows,
+            selected_indicators,
+            include_breakdown=False,
+            scoring_profile=scoring_profile,
+        )
         ranked_matches = []
-    
-        for candidate in candidate_windows:
-            score = self.quant_scoring_service.score_match(
-                current_window,
-                candidate,
-                selected_indicators,
-                include_breakdown=False,
-                scoring_profile=scoring_profile,
-            )
+
+        for candidate, score in zip(candidate_windows, candidate_scores):
             future_stats_5d = self._cached_forward_extremes(candidate, trading_days=5)
             score["future_stats_5d"] = future_stats_5d
             score["future_return_5d"] = future_stats_5d.get("maxUpPct")

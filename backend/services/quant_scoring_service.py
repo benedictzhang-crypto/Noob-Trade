@@ -1,6 +1,8 @@
 
 from statistics import mean
 
+import numpy as np
+
 
 class QuantScoringService:
     """Quant weighting and penalty model used by the Trade page."""
@@ -251,6 +253,209 @@ class QuantScoringService:
             "breakdown": breakdown or [],
             "is_bullish": bool(candidate_window.return_pct is not None and float(candidate_window.return_pct) > 0),
         }
+
+    def score_matches(
+        self,
+        current_window,
+        candidate_windows,
+        indicators,
+        include_breakdown=True,
+        indicator_weights=None,
+        indicator_fit_weight=None,
+        path_weight=None,
+        scoring_profile=None,
+    ):
+        """Score a candidate collection with the same formula as score_match."""
+        candidates = list(candidate_windows or [])
+        if not candidates:
+            return []
+
+        selected_indicators = self.normalize_indicator_names(indicators)
+        if self.is_public_equal9_profile(scoring_profile):
+            indicator_weights = self.PUBLIC_EQUAL9_INDICATOR_WEIGHTS
+            indicator_fit_weight = 1.0
+            path_weight = 0.0
+        elif self.is_paper_weighted_profile(scoring_profile):
+            indicator_weights = self.PAPER_WEIGHTED_INDICATOR_WEIGHTS
+            indicator_fit_weight = 0.75
+            path_weight = 0.25
+
+        custom_weights = self._normalize_indicator_weights(indicator_weights)
+        current_snapshot = self._indicator_snapshot(current_window)
+        candidate_snapshots = [self._indicator_snapshot(candidate) for candidate in candidates]
+        indicator_count = len(selected_indicators)
+        candidate_count = len(candidates)
+
+        current_values = np.array(
+            [self._numeric_or_nan(current_snapshot.get(name)) for name in selected_indicators],
+            dtype=float,
+        )
+        candidate_values = np.array(
+            [
+                [self._numeric_or_nan(snapshot.get(name)) for name in selected_indicators]
+                for snapshot in candidate_snapshots
+            ],
+            dtype=float,
+        ).reshape(candidate_count, indicator_count)
+        similarities = np.full((candidate_count, indicator_count), 999.0, dtype=float)
+
+        for index, indicator_name in enumerate(selected_indicators):
+            current_value = current_values[index]
+            historical_values = candidate_values[:, index]
+            valid = np.isfinite(current_value) & np.isfinite(historical_values)
+            if not np.any(valid):
+                continue
+
+            if indicator_name in ("RSI", "KDJ"):
+                similarities[valid, index] = np.abs(current_value - historical_values[valid])
+                continue
+
+            floor = self.RELATIVE_BASELINE_FLOORS.get(indicator_name, 1e-9)
+            baseline = np.maximum(
+                np.maximum(abs(current_value), np.abs(historical_values[valid])),
+                floor,
+            )
+            similarities[valid, index] = np.abs(current_value - historical_values[valid]) / baseline * 100
+
+        full_scores = np.array([self.get_full_score(name) for name in selected_indicators], dtype=float)
+        weights = np.array(
+            [self._resolve_indicator_weight(name, custom_weights) for name in selected_indicators],
+            dtype=float,
+        )
+        soft_windows = np.array(
+            [self.SOFT_SIMILARITY_WINDOWS.get(name, 15) for name in selected_indicators],
+            dtype=float,
+        )
+
+        hard_scores = np.zeros_like(similarities)
+        hard_scores = np.where(similarities <= 5, full_scores / 3, hard_scores)
+        hard_scores = np.where(similarities <= 3, full_scores * 2 / 3, hard_scores)
+        hard_scores = np.where(similarities <= 1, full_scores, hard_scores)
+        total_scores = hard_scores.sum(axis=1)
+        total_full = float(full_scores.sum())
+        total_weight = float(weights.sum())
+        soft_similarities = 1 / (1 + (np.maximum(similarities, 0) / soft_windows)) if indicator_count else similarities
+        weighted_soft_totals = (soft_similarities * weights).sum(axis=1) if indicator_count else np.zeros(candidate_count)
+        indicator_fit_ratios = (
+            weighted_soft_totals / total_weight
+            if total_weight
+            else np.zeros(candidate_count)
+        )
+        path_similarities = self._batch_price_path_similarities(
+            current_window.feature_vector if current_window else {},
+            candidates,
+        )
+
+        indicator_share, path_share = self._display_fit_shares(indicator_fit_weight, path_weight)
+        display_fit_ratios = np.clip(
+            (indicator_fit_ratios * indicator_share) + (path_similarities * path_share),
+            0.0,
+            1.0,
+        )
+        fit_ratios = total_scores / total_full if total_full else np.zeros(candidate_count)
+        full_weight_sum = self._full_weight_sum(custom_weights)
+        weight_ratio = (total_weight / full_weight_sum) if full_weight_sum else 0.0
+        weight_penalty = self._adaptive_weight_penalty(weight_ratio)
+        full_scale_max_score = sum(self.FULL_SCORE_BY_INDICATOR.values())
+        results = []
+
+        for row_index, candidate in enumerate(candidates):
+            breakdown = []
+            if include_breakdown:
+                for indicator_index, indicator_name in enumerate(selected_indicators):
+                    current_value = current_values[indicator_index]
+                    historical_value = candidate_values[row_index, indicator_index]
+                    similarity = similarities[row_index, indicator_index]
+                    soft_similarity = soft_similarities[row_index, indicator_index]
+                    breakdown.append(
+                        {
+                            "indicator": indicator_name,
+                            "currentValue": None if not np.isfinite(current_value) else round(float(current_value), 6),
+                            "historicalValue": None if not np.isfinite(historical_value) else round(float(historical_value), 6),
+                            "gapPercent": round(float(similarity), 4),
+                            "score": int(round(float(hard_scores[row_index, indicator_index]))),
+                            "maxScore": int(round(float(full_scores[indicator_index]))),
+                            "weight": float(weights[indicator_index]),
+                            "softSimilarity": round(float(soft_similarity) * 100, 2),
+                        }
+                    )
+
+            total_score = int(round(float(total_scores[row_index])))
+            display_fit_ratio = float(display_fit_ratios[row_index])
+            results.append(
+                {
+                    "total_score": total_score,
+                    "max_score": int(round(total_full)),
+                    "fit_ratio": round(float(fit_ratios[row_index]), 6),
+                    "hard_score_percent": round(float(fit_ratios[row_index]) * 100, 4),
+                    "indicator_fit_ratio": round(float(indicator_fit_ratios[row_index]), 6),
+                    "path_similarity": round(float(path_similarities[row_index]), 6),
+                    "display_fit_ratio": round(display_fit_ratio, 6),
+                    "score_percent": round(display_fit_ratio * 100, 4),
+                    "selected_score_percent": round(display_fit_ratio * 100, 4),
+                    "full_scale_max_score": full_scale_max_score,
+                    "weight_ratio": round(weight_ratio, 6),
+                    "weight_penalty": round(weight_penalty, 6),
+                    "breakdown": breakdown,
+                    "is_bullish": bool(candidate.return_pct is not None and float(candidate.return_pct) > 0),
+                }
+            )
+
+        return results
+
+    def _numeric_or_nan(self, value):
+        if value is None:
+            return np.nan
+        return float(value)
+
+    def _display_fit_shares(self, indicator_fit_weight, path_weight):
+        try:
+            indicator_weight = float(indicator_fit_weight)
+        except Exception:
+            indicator_weight = 0.75
+        try:
+            path_component_weight = float(path_weight)
+        except Exception:
+            path_component_weight = 0.25
+
+        indicator_weight = max(0.0, indicator_weight)
+        path_component_weight = max(0.0, path_component_weight)
+        total_weight = indicator_weight + path_component_weight
+        if total_weight <= 0:
+            return 0.75, 0.25
+        return indicator_weight / total_weight, path_component_weight / total_weight
+
+    def _batch_price_path_similarities(self, current_feature_vector, candidate_windows):
+        current_path = (current_feature_vector or {}).get("normalized_close_path") or []
+        similarities = np.zeros(len(candidate_windows), dtype=float)
+        if not current_path:
+            return similarities
+
+        current_values = np.asarray([float(value) for value in current_path], dtype=float)
+        grouped_paths = {}
+        for index, candidate in enumerate(candidate_windows):
+            candidate_path = (candidate.feature_vector or {}).get("normalized_close_path") or []
+            compare_length = min(len(current_values), len(candidate_path))
+            if compare_length <= 0:
+                continue
+            grouped_paths.setdefault(compare_length, []).append(
+                (index, [float(value) for value in candidate_path[:compare_length]])
+            )
+
+        for compare_length, rows in grouped_paths.items():
+            row_indices = [index for index, _path in rows]
+            path_values = np.asarray([path for _index, path in rows], dtype=float)
+            mean_abs_diffs = np.mean(
+                np.abs(path_values - current_values[:compare_length]),
+                axis=1,
+            )
+            similarities[row_indices] = np.clip(
+                1 / (1 + (mean_abs_diffs / 6)),
+                0.0,
+                1.0,
+            )
+
+        return similarities
 
     def _normalize_indicator_weights(self, indicator_weights):
         if not isinstance(indicator_weights, dict):
