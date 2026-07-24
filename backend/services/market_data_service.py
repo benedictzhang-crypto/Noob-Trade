@@ -860,23 +860,6 @@ class MarketDataService:
     def _build_production_compact_response(self, symbol, interval, lookback_window, indicators, include_match_details=False, scoring_profile=None):
         price_limit = max(lookback_window + 10, 45)
         try:
-            response = self._build_cached_db_response(
-                symbol=symbol,
-                interval=interval,
-                lookback_window=lookback_window,
-                indicators=indicators,
-                chart_interval=interval,
-                compact_response=True,
-                apply_match_preview=False,
-                scoring_profile=scoring_profile,
-            )
-            self._overlay_cached_live_compact_price(response, symbol, price_limit)
-        except ValueError as error:
-            logger.info(
-                "Compact cached stock signal is not available for %s; building live snapshot for fixed-library scoring.",
-                symbol,
-            )
-            logger.debug("Compact cached stock signal detail for %s: %s", symbol, error)
             response = self._build_compact_live_snapshot_response(
                 symbol,
                 interval,
@@ -887,18 +870,24 @@ class MarketDataService:
             )
         except Exception:
             logger.warning(
-                "Compact cached stock signal failed for %s; building live snapshot for fixed-library scoring.",
+                "Compact live stock signal failed for %s; falling back to cached history.",
                 symbol,
                 exc_info=True,
             )
-            response = self._build_compact_live_snapshot_response(
-                symbol,
-                interval,
-                lookback_window,
-                indicators,
-                price_limit,
-                scoring_profile=scoring_profile,
-            )
+            try:
+                response = self._build_cached_db_response(
+                    symbol=symbol,
+                    interval=interval,
+                    lookback_window=lookback_window,
+                    indicators=indicators,
+                    chart_interval=interval,
+                    compact_response=True,
+                    apply_match_preview=False,
+                    scoring_profile=scoring_profile,
+                )
+            except Exception:
+                logger.warning("Cached compact stock signal is not available for %s.", symbol, exc_info=True)
+                response = self._build_empty_compact_signal_response(symbol, interval, lookback_window, indicators)
 
         try:
             response = self.persistence_service.apply_cached_match_preview(
@@ -920,22 +909,16 @@ class MarketDataService:
         return response
 
     def _build_compact_live_snapshot_response(self, symbol, interval, lookback_window, indicators, price_limit, scoring_profile=None):
-        try:
-            return self._build_live_current_vs_cached_response(
-                symbol=symbol,
-                interval=interval,
-                chart_interval=interval,
-                lookback_window=lookback_window,
-                indicators=indicators,
-                compact_response=True,
-                price_limit=price_limit,
-                scoring_profile=scoring_profile,
-            )
-        except Exception:
-            logger.warning("Compact live snapshot signal is not available for %s.", symbol, exc_info=True)
-            response = self._build_empty_compact_signal_response(symbol, interval, lookback_window, indicators)
-            self._overlay_cached_live_compact_price(response, symbol, price_limit)
-            return response
+        return self._build_live_current_vs_cached_response(
+            symbol=symbol,
+            interval=interval,
+            chart_interval=interval,
+            lookback_window=lookback_window,
+            indicators=indicators,
+            compact_response=True,
+            price_limit=price_limit,
+            scoring_profile=scoring_profile,
+        )
 
     def _build_empty_compact_signal_response(self, symbol, interval, lookback_window, indicators):
         return {
@@ -1027,10 +1010,25 @@ class MarketDataService:
         return response
 
     def _build_live_current_vs_cached_response(self, symbol, interval, lookback_window, indicators, compact_response=False, price_limit=None, chart_interval=None, scoring_profile=None):
-        overview, prices = self._fetch_live_overview_and_prices(
-            symbol,
-            price_limit=price_limit or VISIBLE_INTERVAL_BARS["daily"],
-        )
+        resolved_price_limit = price_limit or VISIBLE_INTERVAL_BARS["daily"]
+        if compact_response:
+            prices_payload = self._get_cached_market_payload(
+                f"daily:{symbol}:{resolved_price_limit}",
+                self.config.get("MARKET_DATA_CACHE_TTL_SECONDS", 90),
+                lambda: self.market_api.get_daily_prices(symbol, limit=resolved_price_limit),
+            )
+            prices = prices_payload.get("data", []) if isinstance(prices_payload, dict) else []
+            prices = self._normalize_price_rows_latest_first(prices)
+            overview = {
+                "companyName": symbol,
+                "sector": "Market Data",
+                "industry": "Signal Workspace",
+            }
+        else:
+            overview, prices = self._fetch_live_overview_and_prices(
+                symbol,
+                price_limit=resolved_price_limit,
+            )
 
         if not prices:
             raise ValueError("No price data returned from market API.")
