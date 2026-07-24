@@ -1,3 +1,4 @@
+
 :root {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: #121212;
@@ -2254,6 +2255,101 @@ select {
 .price-candle {
   fill-opacity: 0.92;
   stroke-width: 0.18;
+}
+
+.comparison-anchor-marker {
+  pointer-events: none;
+}
+
+.comparison-anchor-band {
+  fill: rgba(37, 99, 235, 0.1);
+  stroke: rgba(37, 99, 235, 0.28);
+  stroke-width: 0.22;
+  animation: comparison-anchor-pulse 2.4s ease-in-out infinite;
+}
+
+.comparison-anchor-line {
+  stroke: rgba(29, 78, 216, 0.7);
+  stroke-width: 0.56;
+  stroke-dasharray: 2.2 1.6;
+}
+
+.comparison-anchor-label-layer {
+  position: absolute;
+  z-index: 3;
+  inset: 12px 48px 12px 12px;
+  pointer-events: none;
+}
+
+.comparison-anchor-label {
+  position: absolute;
+  top: 8px;
+  display: grid;
+  gap: 2px;
+  min-width: 148px;
+  max-width: 190px;
+  padding: 8px 10px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #172554;
+  box-shadow: 0 8px 22px rgba(30, 64, 175, 0.14);
+  transform: translateX(-50%);
+}
+
+.comparison-anchor-label.is-left {
+  transform: translateX(calc(-100% - 8px));
+}
+
+.comparison-anchor-label strong {
+  font-size: 0.76rem;
+  line-height: 1.15;
+}
+
+.comparison-anchor-label small {
+  color: #475569;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
+.app-shell.crypto-mode .replay-modal .comparison-anchor-band {
+  fill: rgba(34, 211, 238, 0.16);
+  stroke: rgba(103, 232, 249, 0.48);
+}
+
+.app-shell.crypto-mode .replay-modal .comparison-anchor-line {
+  stroke: rgba(165, 243, 252, 0.82);
+}
+
+.app-shell.crypto-mode .replay-modal .comparison-anchor-label {
+  border-color: rgba(103, 232, 249, 0.36);
+  background: rgba(8, 47, 73, 0.94);
+  color: #ecfeff;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell.crypto-mode .replay-modal .comparison-anchor-label small {
+  color: #bae6fd;
+}
+
+@keyframes comparison-anchor-pulse {
+  0%,
+  100% {
+    fill-opacity: 0.5;
+    stroke-opacity: 0.66;
+  }
+
+  50% {
+    fill-opacity: 1;
+    stroke-opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comparison-anchor-band {
+    animation: none;
+    fill-opacity: 0.82;
+  }
 }
 
 .chart-hover-line {
