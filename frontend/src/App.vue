@@ -19,6 +19,18 @@ const STOCK_GENERATE_INTERVAL = 'daily'
 const CRYPTO_GENERATE_INTERVAL = 'daily'
 const GENERATE_WARM_RETRY_ATTEMPTS = 8
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
+const CHART_SERIES_MINIMUM_BARS = {
+  '1min': 30,
+  '5min': 30,
+  '15min': 24,
+  '30min': 20,
+  '1hour': 16,
+  daily: 30,
+  '5day': 20,
+  weekly: 20,
+  '2week': 12,
+  monthly: 12
+}
 const STOCK_MARKET_PAGE_SIZE = 30
 const CRYPTO_EXPLORE_UNIVERSE_SIZE = 250
 const STOCK_EXPLORE_LIVE_SEARCH_DELAY_MS = 350
@@ -777,6 +789,7 @@ let voiceLastSpeechAt = 0
 let exploreLiveSearchTimer = null
 let exploreLiveSearchRequestVersion = 0
 const stockChartRequestPromises = new Map()
+const loadedChartSeriesKeys = new Set()
 const cryptoWorkspaceLoadPromises = new Map()
 const defaultLiveLoadPromises = {
   stock: null,
@@ -785,6 +798,7 @@ const defaultLiveLoadPromises = {
 const loginGenerateWarmKeys = new Set()
 const dashboardGenerateWarmKeys = new Set()
 let dashboardGenerateWarmTimer = null
+let stockChartWarmTimer = null
 let stockMatchDetailRevealTimer = null
 
 const indicators = ref([
@@ -5439,6 +5453,10 @@ onBeforeUnmount(() => {
   clearVoiceRestartTimer()
   clearExploreLiveSearchTimer()
   clearStockMatchDetailReveal()
+  if (stockChartWarmTimer) {
+    window.clearTimeout(stockChartWarmTimer)
+    stockChartWarmTimer = null
+  }
 
   if (voiceVoicesChangedHandler && typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.removeEventListener?.('voiceschanged', voiceVoicesChangedHandler)
@@ -7814,7 +7832,11 @@ async function fetchStockChartData(symbol, interval) {
       2
     )
 
-    return response.json()
+    const data = await response.json()
+    if (hasChartSeries(data, interval)) {
+      loadedChartSeriesKeys.add(cacheKey)
+    }
+    return data
   })()
 
   stockChartRequestPromises.set(cacheKey, requestPromise)
@@ -7844,7 +7866,11 @@ async function fetchCryptoChartData(symbol, interval) {
       2
     )
 
-    return response.json()
+    const data = await response.json()
+    if (hasChartSeries(data, interval)) {
+      loadedChartSeriesKeys.add(cacheKey)
+    }
+    return data
   })()
 
   stockChartRequestPromises.set(cacheKey, requestPromise)
@@ -8027,25 +8053,44 @@ function warmStockChartIntervals(symbol, preferredInterval = selectedChartInterv
     return
   }
 
-  const orderedIntervals = [
-    preferredInterval,
-    ...STOCK_CHART_PREFETCH_INTERVALS
-  ].filter((interval, index, intervals) => interval && intervals.indexOf(interval) === index)
-  const existingSeries = stockResponse.value?.chartData?.series || {}
-  const missingIntervals = orderedIntervals.filter((interval) => !existingSeries[interval]?.length)
+  if (stockChartWarmTimer) {
+    window.clearTimeout(stockChartWarmTimer)
+  }
 
-  void runLimitedTasks(missingIntervals, async (interval) => {
-    try {
-      const chartData = await fetchStockChartData(cleanedSymbol, interval)
-      const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
-      if (currentSymbol !== cleanedSymbol) {
-        return
-      }
-      stockResponse.value = mergeStockChartData(stockResponse.value, chartData)
-    } catch (error) {
-      console.warn(`Could not warm ${cleanedSymbol} ${interval} chart data.`, error)
+  stockChartWarmTimer = window.setTimeout(() => {
+    stockChartWarmTimer = null
+    const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+    if (
+      currentSymbol !== cleanedSymbol
+      || activePage.value !== 'Stock Trade'
+      || isSearching.value
+      || isGenerating.value
+    ) {
+      return
     }
-  }, 2)
+
+    const orderedIntervals = [
+      preferredInterval,
+      ...STOCK_CHART_PREFETCH_INTERVALS
+    ].filter((interval, index, intervals) => interval && intervals.indexOf(interval) === index)
+    const existingSeries = stockResponse.value?.chartData?.series || {}
+    const missingIntervals = orderedIntervals.filter(
+      (interval) => !isChartSeriesReady(cleanedSymbol, interval, existingSeries)
+    )
+
+    void runLimitedTasks(missingIntervals, async (interval) => {
+      try {
+        const chartData = await fetchStockChartData(cleanedSymbol, interval)
+        const activeSymbolCode = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
+        if (activeSymbolCode !== cleanedSymbol) {
+          return
+        }
+        stockResponse.value = mergeStockChartData(stockResponse.value, chartData)
+      } catch (error) {
+        console.warn(`Could not warm ${cleanedSymbol} ${interval} chart data.`, error)
+      }
+    }, 1)
+  }, 2500)
 }
 
 async function fetchCryptoAnalysis(symbol, { analysisMode = 'full', compact = false, cacheResult = true, indicatorNames = null, matchDetails = false, usageContext = '', usageBatchId = '' } = {}) {
@@ -8631,7 +8676,7 @@ async function handleChartIntervalChange(interval) {
   const symbol = responseRef.value?.stock?.symbol
   const availableSeries = responseRef.value?.chartData?.series || {}
 
-  if (!symbol || availableSeries[interval]?.length) {
+  if (!symbol || isChartSeriesReady(symbol, interval, availableSeries, isCryptoPage)) {
     selectedChartInterval.value = interval
     return
   }
@@ -8671,6 +8716,21 @@ async function handleChartIntervalChange(interval) {
     selectedChartInterval.value = previousInterval
     errorMessage.value = getReadableMarketDataError(error?.message, symbol)
   }
+}
+
+function isChartSeriesReady(symbol, interval, availableSeries, isCryptoPage = false) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol, { isCrypto: isCryptoPage })
+  const cacheKey = isCryptoPage
+    ? `crypto|${cleanedSymbol}|${interval}`
+    : `${cleanedSymbol}|${interval}`
+  const bars = availableSeries?.[interval]
+
+  if (loadedChartSeriesKeys.has(cacheKey)) {
+    return Array.isArray(bars) && bars.length > 0
+  }
+
+  const minimumBars = CHART_SERIES_MINIMUM_BARS[interval] || 1
+  return Array.isArray(bars) && bars.length >= minimumBars
 }
 
 function getHourRefreshKey(now = new Date()) {
@@ -10063,6 +10123,10 @@ function signOut() {
   if (dashboardGenerateWarmTimer) {
     window.clearTimeout(dashboardGenerateWarmTimer)
     dashboardGenerateWarmTimer = null
+  }
+  if (stockChartWarmTimer) {
+    window.clearTimeout(stockChartWarmTimer)
+    stockChartWarmTimer = null
   }
   symbolInput.value = ''
   activeSymbol.value = ''
