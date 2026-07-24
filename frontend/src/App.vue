@@ -8557,37 +8557,6 @@ async function refreshStockMatchDetailsInBackground(symbol, requestVersion, indi
   }
 }
 
-async function refreshStockSearchContextInBackground(symbol, requestVersion) {
-  try {
-    const data = await fetchStockAnalysis(symbol, {
-      analysisMode: 'search',
-      cacheResult: false,
-    })
-
-    const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
-    if (
-      requestVersion !== analysisRequestVersion
-      || activePage.value !== 'Stock Trade'
-      || responseSymbol !== String(symbol || '').toUpperCase()
-    ) {
-      return
-    }
-
-    const currentSymbol = String(stockResponse.value?.stock?.symbol || '').toUpperCase()
-    const currentAnalysis = currentSymbol === responseSymbol
-      ? stockResponse.value?.patternAnalysis
-      : null
-    const mergedData = {
-      ...data,
-      patternAnalysis: currentAnalysis || data.patternAnalysis,
-    }
-
-    applyAnalysisResponse(mergedData, false)
-  } catch (error) {
-    console.warn('Stock search context could not refresh in background.', error)
-  }
-}
-
 async function runSearch(source = 'search') {
   const isCryptoPage = activePage.value === 'Crypto Trade'
   const cleanedSymbol = normalizeTradeSymbolInput(symbolInput.value, { isCrypto: isCryptoPage })
@@ -8656,7 +8625,6 @@ async function runSearch(source = 'search') {
   if (isGenerateAction) {
     scrollAnalysisWorkspaceToTop()
     void refreshFullGenerateInBackground(cleanedSymbol, false, requestVersion)
-    void refreshStockSearchContextInBackground(cleanedSymbol, requestVersion)
     return
   }
 
