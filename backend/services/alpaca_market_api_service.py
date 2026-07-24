@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import threading
 from urllib.parse import quote
 
 import requests
@@ -12,6 +13,8 @@ class AlpacaMarketApiService:
 
     _provider_disabled_until = None
     _provider_failure_count = 0
+    _sessions = {}
+    _sessions_lock = threading.Lock()
     SYMBOL_ALIASES = {
         "APL": "AAPL",
         "APPL": "AAPL",
@@ -44,17 +47,29 @@ class AlpacaMarketApiService:
         self.feed = str(feed or "iex").strip().lower()
         self.timeout = timeout
         self.cooldown_seconds = cooldown_seconds
-        self.session = requests.Session()
-        adapter = HTTPAdapter(pool_connections=8, pool_maxsize=8)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
-        self.session.headers.update(
-            {
-                "APCA-API-KEY-ID": self.api_key or "",
-                "APCA-API-SECRET-KEY": self.api_secret or "",
-                "Connection": "keep-alive",
-            }
-        )
+        self.session = self._shared_session(self.base_url, self.api_key, self.api_secret)
+
+    @classmethod
+    def _shared_session(cls, base_url, api_key, api_secret):
+        session_key = (base_url, api_key or "", api_secret or "")
+        with cls._sessions_lock:
+            session = cls._sessions.get(session_key)
+            if session is not None:
+                return session
+
+            session = requests.Session()
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+            session.headers.update(
+                {
+                    "APCA-API-KEY-ID": api_key or "",
+                    "APCA-API-SECRET-KEY": api_secret or "",
+                    "Connection": "keep-alive",
+                }
+            )
+            cls._sessions[session_key] = session
+            return session
 
     def is_configured(self):
         return bool(self.api_key and self.api_secret)

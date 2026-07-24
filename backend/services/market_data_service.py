@@ -162,6 +162,8 @@ class MarketDataService:
 
     MARKET_NEWS_CACHE = {}
     MARKET_API_CACHE = {}
+    MARKET_API_CACHE_LOCK = threading.RLock()
+    MARKET_API_CACHE_INFLIGHT = {}
     MARKET_API_CACHE_MAX_ENTRIES = 512
     ANALYSIS_RESPONSE_CACHE = {}
     ANALYSIS_RESPONSE_CACHE_LOCK = threading.RLock()
@@ -1340,40 +1342,68 @@ class MarketDataService:
 
     def _get_cached_market_payload(self, cache_key, ttl_seconds, loader):
         ttl = max(0, int(ttl_seconds or 0))
-        now = time.time()
-        cached = self.MARKET_API_CACHE.get(cache_key)
+        wait_timeout = max(5.0, float(self.config.get("MARKET_DATA_TIMEOUT_SECONDS", 3.5)) + 1.0)
+        owner_event = None
+        cached = None
 
-        if ttl and cached and cached.get("expires_at", 0) > now:
-            return deepcopy(cached["value"])
+        while owner_event is None:
+            now = time.time()
+            with self.MARKET_API_CACHE_LOCK:
+                cached = self.MARKET_API_CACHE.get(cache_key)
+                if ttl and cached and cached.get("expires_at", 0) > now:
+                    return deepcopy(cached["value"])
+
+                inflight_event = self.MARKET_API_CACHE_INFLIGHT.get(cache_key)
+                if inflight_event is None:
+                    owner_event = threading.Event()
+                    self.MARKET_API_CACHE_INFLIGHT[cache_key] = owner_event
+                    break
+
+            if not inflight_event.wait(timeout=wait_timeout):
+                with self.MARKET_API_CACHE_LOCK:
+                    stale = self.MARKET_API_CACHE.get(cache_key)
+                if stale:
+                    return deepcopy(stale["value"])
+                raise TimeoutError(f"Timed out waiting for shared market data: {cache_key}")
 
         try:
             value = loader()
         except Exception:
-            if cached:
+            with self.MARKET_API_CACHE_LOCK:
+                stale = self.MARKET_API_CACHE.get(cache_key)
+            if stale:
                 logger.warning("Using stale market data cache for %s.", cache_key, exc_info=True)
-                return deepcopy(cached["value"])
+                return deepcopy(stale["value"])
             raise
+        else:
+            if ttl:
+                now = time.time()
+                with self.MARKET_API_CACHE_LOCK:
+                    if len(self.MARKET_API_CACHE) >= self.MARKET_API_CACHE_MAX_ENTRIES:
+                        oldest_key = min(
+                            self.MARKET_API_CACHE,
+                            key=lambda key: self.MARKET_API_CACHE[key].get("stored_at", 0),
+                        )
+                        self.MARKET_API_CACHE.pop(oldest_key, None)
 
-        if ttl:
-            if len(self.MARKET_API_CACHE) >= self.MARKET_API_CACHE_MAX_ENTRIES:
-                oldest_key = min(
-                    self.MARKET_API_CACHE,
-                    key=lambda key: self.MARKET_API_CACHE[key].get("stored_at", 0),
-                )
-                self.MARKET_API_CACHE.pop(oldest_key, None)
-
-            self.MARKET_API_CACHE[cache_key] = {
-                "stored_at": now,
-                "expires_at": now + ttl,
-                "value": deepcopy(value),
-            }
-
-        return value
+                    self.MARKET_API_CACHE[cache_key] = {
+                        "stored_at": now,
+                        "expires_at": now + ttl,
+                        "value": deepcopy(value),
+                    }
+            return value
+        finally:
+            with self.MARKET_API_CACHE_LOCK:
+                current_event = self.MARKET_API_CACHE_INFLIGHT.get(cache_key)
+                if current_event is owner_event:
+                    self.MARKET_API_CACHE_INFLIGHT.pop(cache_key, None)
+            owner_event.set()
 
     def _peek_cached_market_payload(self, cache_key):
-        cached = self.MARKET_API_CACHE.get(cache_key)
-        if cached and cached.get("expires_at", 0) > time.time():
-            return deepcopy(cached["value"])
+        with self.MARKET_API_CACHE_LOCK:
+            cached = self.MARKET_API_CACHE.get(cache_key)
+            if cached and cached.get("expires_at", 0) > time.time():
+                return deepcopy(cached["value"])
         return None
 
     def _analysis_response_cache_key(

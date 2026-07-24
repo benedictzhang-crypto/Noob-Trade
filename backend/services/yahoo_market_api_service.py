@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import threading
 from urllib.parse import quote
 
 import requests
@@ -12,6 +13,8 @@ class YahooMarketApiService:
 
     _provider_disabled_until = None
     _provider_failure_count = 0
+    _sessions = {}
+    _sessions_lock = threading.Lock()
     SYMBOL_ALIASES = {
         "APL": "AAPL",
         "APPL": "AAPL",
@@ -41,17 +44,28 @@ class YahooMarketApiService:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.cooldown_seconds = cooldown_seconds
-        self.session = requests.Session()
-        adapter = HTTPAdapter(pool_connections=8, pool_maxsize=8)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
-        self.session.headers.update(
-            {
-                "User-Agent": "Mozilla/5.0 NoobTrade/1.0",
-                "Accept": "application/json,text/plain,*/*",
-                "Connection": "keep-alive",
-            }
-        )
+        self.session = self._shared_session(self.base_url)
+
+    @classmethod
+    def _shared_session(cls, base_url):
+        with cls._sessions_lock:
+            session = cls._sessions.get(base_url)
+            if session is not None:
+                return session
+
+            session = requests.Session()
+            adapter = HTTPAdapter(pool_connections=16, pool_maxsize=16)
+            session.mount("https://", adapter)
+            session.mount("http://", adapter)
+            session.headers.update(
+                {
+                    "User-Agent": "Mozilla/5.0 NoobTrade/1.0",
+                    "Accept": "application/json,text/plain,*/*",
+                    "Connection": "keep-alive",
+                }
+            )
+            cls._sessions[base_url] = session
+            return session
 
     def is_configured(self):
         return True
