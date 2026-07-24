@@ -1,3 +1,4 @@
+
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
@@ -37,6 +38,14 @@ const props = defineProps({
   isCryptoMode: {
     type: Boolean,
     default: false
+  },
+  comparisonAnchorIndex: {
+    type: Number,
+    default: null
+  },
+  comparisonAnchorLabel: {
+    type: String,
+    default: ''
   }
 })
 
@@ -322,6 +331,38 @@ const candleGeometry = computed(() => {
       tone: close >= open ? 'up' : 'down'
     }
   })
+})
+
+const comparisonAnchor = computed(() => {
+  if (!Number.isInteger(props.comparisonAnchorIndex) || !activeCandles.value.length) {
+    return null
+  }
+
+  const maxStart = Math.max(fullCandles.value.length - visibleBarCount.value, 0)
+  const visibleStart = clamp(viewStartIndex.value, 0, maxStart)
+  const localIndex = props.comparisonAnchorIndex - visibleStart
+
+  if (localIndex < 0 || localIndex >= activeCandles.value.length) {
+    return null
+  }
+
+  const geometry = candleGeometry.value[localIndex]
+
+  if (!geometry) {
+    return null
+  }
+
+  const bandWidth = clamp(Math.max(geometry.width * 3.2, 3.2), 3.2, 8)
+
+  return {
+    x: geometry.x,
+    bandX: clamp(geometry.x - (bandWidth / 2), PRICE_LEFT, PRICE_RIGHT - bandWidth),
+    bandWidth,
+    labelStyle: {
+      left: `${geometry.x}%`
+    },
+    labelOnLeft: geometry.x > 68
+  }
 })
 
 const stackedPanels = computed(() => {
@@ -1395,6 +1436,24 @@ function getBarOpacity() {
             />
           </g>
 
+          <g v-if="comparisonAnchor" class="comparison-anchor-marker">
+            <rect
+              class="comparison-anchor-band"
+              :x="comparisonAnchor.bandX"
+              y="0"
+              :width="comparisonAnchor.bandWidth"
+              height="100"
+            />
+            <line
+              class="comparison-anchor-line"
+              vector-effect="non-scaling-stroke"
+              :x1="comparisonAnchor.x"
+              :x2="comparisonAnchor.x"
+              y1="0"
+              y2="100"
+            />
+          </g>
+
           <polyline
             v-for="overlay in mainOverlays"
             :key="overlay.key"
@@ -1446,6 +1505,17 @@ function getBarOpacity() {
           <span v-for="label in priceAxisLabels" :key="`axis-${label}`" class="price-label">
             {{ label }}
           </span>
+        </div>
+
+        <div v-if="comparisonAnchor" class="comparison-anchor-label-layer">
+          <div
+            class="comparison-anchor-label"
+            :class="{ 'is-left': comparisonAnchor.labelOnLeft }"
+            :style="comparisonAnchor.labelStyle"
+          >
+            <strong>{{ comparisonAnchorLabel || 'Current-like moment' }}</strong>
+            <small>Historical analog of now</small>
+          </div>
         </div>
 
         <div
