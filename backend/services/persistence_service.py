@@ -1,5 +1,6 @@
 from copy import deepcopy
-from datetime import date, datetime
+from bisect import bisect_right
+from datetime import date, datetime, timedelta
 import heapq
 from statistics import mean, pstdev
 import threading
@@ -623,9 +624,86 @@ class PersistenceService:
                 )
                 for row in rows
             ]
+            self._hydrate_snapshot_forward_extremes(snapshot)
 
             self.MATCH_CANDIDATE_SNAPSHOT[cache_key] = snapshot
             return snapshot
+
+    def _hydrate_snapshot_forward_extremes(self, snapshot):
+        """Bulk-fill missing 5-day outcomes so scoring never falls into per-window queries."""
+        missing = [
+            window for window in (snapshot or [])
+            if not self._has_cached_forward_extremes(window, trading_days=5)
+        ]
+        if not missing:
+            return
+
+        symbol_ids = sorted({window.symbol_id for window in missing if window.symbol_id is not None})
+        end_dates = [window.end_date for window in missing if window.end_date is not None]
+        if not symbol_ids or not end_dates:
+            return
+
+        price_rows = db.session.query(
+            DailyPrice.symbol_id,
+            DailyPrice.trade_date,
+            DailyPrice.close,
+            DailyPrice.high,
+            DailyPrice.low,
+        ).filter(
+            DailyPrice.symbol_id.in_(symbol_ids),
+            DailyPrice.trade_date >= min(end_dates),
+            DailyPrice.trade_date <= max(end_dates) + timedelta(days=21),
+        ).order_by(
+            DailyPrice.symbol_id.asc(),
+            DailyPrice.trade_date.asc(),
+        ).all()
+
+        rows_by_symbol = {}
+        for row in price_rows:
+            rows_by_symbol.setdefault(row.symbol_id, []).append(row)
+
+        dates_by_symbol = {
+            symbol_id: [row.trade_date for row in rows]
+            for symbol_id, rows in rows_by_symbol.items()
+        }
+        rows_by_symbol_date = {
+            symbol_id: {row.trade_date: row for row in rows}
+            for symbol_id, rows in rows_by_symbol.items()
+        }
+
+        for window in missing:
+            symbol_rows = rows_by_symbol.get(window.symbol_id) or []
+            symbol_dates = dates_by_symbol.get(window.symbol_id) or []
+            end_row = (rows_by_symbol_date.get(window.symbol_id) or {}).get(window.end_date)
+            if end_row is None or end_row.close in (None, 0):
+                continue
+
+            future_start = bisect_right(symbol_dates, window.end_date)
+            future_rows = symbol_rows[future_start:future_start + 5]
+            if len(future_rows) < 5:
+                continue
+
+            future_high = max((float(row.high) for row in future_rows if row.high is not None), default=None)
+            future_low = min((float(row.low) for row in future_rows if row.low is not None), default=None)
+            if future_high is None or future_low is None:
+                continue
+
+            base_close = float(end_row.close)
+            feature_vector = deepcopy(window.feature_vector or {})
+            forward_extremes = dict(feature_vector.get("forwardExtremes") or {})
+            forward_extremes["5d"] = {
+                "maxUpPct": round(((future_high - base_close) / base_close) * 100, 6),
+                "maxDownPct": round(((future_low - base_close) / base_close) * 100, 6),
+                "targetPrice": round(future_high, 6),
+                "riskPrice": round(future_low, 6),
+            }
+            feature_vector["forwardExtremes"] = forward_extremes
+            window.feature_vector = feature_vector
+
+    def _has_cached_forward_extremes(self, window_record, trading_days=5):
+        feature_vector = getattr(window_record, "feature_vector", None) or {}
+        cached_value = (feature_vector.get("forwardExtremes") or {}).get(f"{trading_days}d")
+        return isinstance(cached_value, dict) and any(value is not None for value in cached_value.values())
 
     def _candidate_distance_value(self, current_window, candidate_window, selected_indicators):
         selected = set(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
