@@ -1,7 +1,7 @@
 import logging
 import time
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import deepcopy
 from datetime import datetime, timedelta
 from types import SimpleNamespace
@@ -61,17 +61,41 @@ class FallbackMarketApiService:
             self.secondary.mark_available()
 
     def get_daily_prices(self, symbol, limit):
-        try:
+        if not self.secondary or not self.secondary.is_configured() or not self.secondary.is_available():
             payload = self.primary.get_daily_prices(symbol, limit)
             self._validate_daily_price_payload(payload, symbol)
             return payload
-        except Exception:
-            if self.secondary and self.secondary.is_configured() and self.secondary.is_available():
-                logger.warning("Primary daily market data failed quality checks; trying secondary.", exc_info=True)
-                payload = self.secondary.get_daily_prices(symbol, limit)
-                self._validate_daily_price_payload(payload, symbol)
-                return payload
-            raise
+
+        executor = ThreadPoolExecutor(max_workers=2)
+        pending = {
+            executor.submit(self.primary.get_daily_prices, symbol, limit): "primary",
+            executor.submit(self.secondary.get_daily_prices, symbol, limit): "secondary",
+        }
+        errors = []
+
+        try:
+            while pending:
+                completed, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    provider_label = pending.pop(future)
+                    try:
+                        payload = future.result()
+                        self._validate_daily_price_payload(payload, symbol)
+                        return payload
+                    except Exception as error:
+                        errors.append(error)
+                        logger.warning(
+                            "%s daily market data failed quality checks for %s.",
+                            provider_label.capitalize(),
+                            symbol,
+                            exc_info=True,
+                        )
+
+            raise errors[-1]
+        finally:
+            for future in pending:
+                future.cancel()
+            executor.shutdown(wait=False, cancel_futures=True)
 
     def get_intraday_prices(self, symbol, interval, limit=390):
         return self._call("get_intraday_prices", symbol, interval, limit)
