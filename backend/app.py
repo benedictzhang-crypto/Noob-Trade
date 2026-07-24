@@ -1,3 +1,4 @@
+
 from pathlib import Path
 from datetime import datetime
 import sqlite3
@@ -596,7 +597,7 @@ def _run_stock_analysis_cache_warmup(app, symbols=None):
                     default_indicators=indicators,
                     compact_response=True,
                     analysis_mode="full",
-                    scoring_profile="public_equal9",
+                    scoring_profile="paper_weighted",
                 )
                 warmed_symbols.append(f"{symbol}:{time.time() - started_at:.1f}s")
             except Exception:
