@@ -675,35 +675,37 @@ class PersistenceService:
             symbol_rows = rows_by_symbol.get(window.symbol_id) or []
             symbol_dates = dates_by_symbol.get(window.symbol_id) or []
             end_row = (rows_by_symbol_date.get(window.symbol_id) or {}).get(window.end_date)
-            if end_row is None or end_row.close in (None, 0):
-                continue
+            forward_stats = self._empty_forward_stat()
+            if end_row is not None and end_row.close not in (None, 0):
+                future_start = bisect_right(symbol_dates, window.end_date)
+                future_rows = symbol_rows[future_start:future_start + 5]
+                if len(future_rows) == 5:
+                    future_high = max((float(row.high) for row in future_rows if row.high is not None), default=None)
+                    future_low = min((float(row.low) for row in future_rows if row.low is not None), default=None)
+                    if future_high is not None and future_low is not None:
+                        base_close = float(end_row.close)
+                        forward_stats = {
+                            "maxUpPct": round(((future_high - base_close) / base_close) * 100, 6),
+                            "maxDownPct": round(((future_low - base_close) / base_close) * 100, 6),
+                            "targetPrice": round(future_high, 6),
+                            "riskPrice": round(future_low, 6),
+                        }
 
-            future_start = bisect_right(symbol_dates, window.end_date)
-            future_rows = symbol_rows[future_start:future_start + 5]
-            if len(future_rows) < 5:
-                continue
-
-            future_high = max((float(row.high) for row in future_rows if row.high is not None), default=None)
-            future_low = min((float(row.low) for row in future_rows if row.low is not None), default=None)
-            if future_high is None or future_low is None:
-                continue
-
-            base_close = float(end_row.close)
             feature_vector = deepcopy(window.feature_vector or {})
             forward_extremes = dict(feature_vector.get("forwardExtremes") or {})
-            forward_extremes["5d"] = {
-                "maxUpPct": round(((future_high - base_close) / base_close) * 100, 6),
-                "maxDownPct": round(((future_low - base_close) / base_close) * 100, 6),
-                "targetPrice": round(future_high, 6),
-                "riskPrice": round(future_low, 6),
-            }
+            forward_extremes["5d"] = {**forward_stats, "_resolved": True}
             feature_vector["forwardExtremes"] = forward_extremes
             window.feature_vector = feature_vector
 
     def _has_cached_forward_extremes(self, window_record, trading_days=5):
         feature_vector = getattr(window_record, "feature_vector", None) or {}
         cached_value = (feature_vector.get("forwardExtremes") or {}).get(f"{trading_days}d")
-        return isinstance(cached_value, dict) and any(value is not None for value in cached_value.values())
+        if not isinstance(cached_value, dict):
+            return False
+        return bool(cached_value.get("_resolved")) or any(
+            cached_value.get(key) is not None
+            for key in ("maxUpPct", "maxDownPct", "targetPrice", "riskPrice")
+        )
 
     def _candidate_distance_value(self, current_window, candidate_window, selected_indicators):
         selected = set(self.quant_scoring_service.normalize_indicator_names(selected_indicators))
@@ -1262,7 +1264,13 @@ class PersistenceService:
         forward_extremes = feature_vector.get("forwardExtremes", {})
         cached_value = forward_extremes.get(f"{trading_days}d")
     
-        if isinstance(cached_value, dict) and any(value is not None for value in cached_value.values()):
+        if isinstance(cached_value, dict) and (
+            cached_value.get("_resolved")
+            or any(
+                cached_value.get(key) is not None
+                for key in ("maxUpPct", "maxDownPct", "targetPrice", "riskPrice")
+            )
+        ):
             return {
                 "maxUpPct": self._to_response_number(cached_value.get("maxUpPct")),
                 "maxDownPct": self._to_response_number(cached_value.get("maxDownPct")),
