@@ -796,8 +796,6 @@ const defaultLiveLoadPromises = {
   crypto: null
 }
 const loginGenerateWarmKeys = new Set()
-const dashboardGenerateWarmKeys = new Set()
-let dashboardGenerateWarmTimer = null
 let stockChartWarmTimer = null
 let stockMatchDetailRevealTimer = null
 
@@ -8294,68 +8292,10 @@ async function preloadDefaultLiveWorkspaces() {
     defaultLiveLoadPromises.stock,
     defaultLiveLoadPromises.crypto
   ])
-  scheduleDashboardGenerateWarmup(8000)
 }
 
 function buildLoginGenerateWarmKey(assetType, symbol, indicatorNames) {
   return `${assetType}|${String(symbol || '').trim().toUpperCase()}|${indicatorNames.join(',')}`
-}
-
-function scheduleDashboardGenerateWarmup(delayMs = 900) {
-  if (!isAuthenticated.value) {
-    return
-  }
-
-  if (dashboardGenerateWarmTimer) {
-    window.clearTimeout(dashboardGenerateWarmTimer)
-  }
-
-  dashboardGenerateWarmTimer = window.setTimeout(() => {
-    dashboardGenerateWarmTimer = null
-    void warmDashboardGenerateCaches()
-  }, delayMs)
-}
-
-async function warmDashboardGenerateCaches() {
-  if (
-    !isAuthenticated.value
-    || activePage.value !== 'Dashboard'
-    || isSearching.value
-    || isGenerating.value
-    || isWatchlistScanning.value
-  ) {
-    return
-  }
-
-  const scanIndicators = getAllIndicatorNames()
-  // A single default stock Generate is warmed at login. Keep this batch warmup crypto-only so
-  // several stock requests do not crowd the first manual Generate on the single Render worker.
-  const warmItems = cryptoStarredSymbols.value.map((symbol) => ({ assetType: 'crypto', symbol }))
-    .map((item) => ({
-      ...item,
-      symbol: String(item.symbol || '').trim().toUpperCase(),
-    }))
-    .filter((item) => item.symbol)
-
-  await runLimitedTasks(warmItems, async ({ assetType, symbol }) => {
-    const warmKey = `${assetType}|${symbol}|${scanIndicators.join(',')}`
-    if (dashboardGenerateWarmKeys.has(warmKey)) {
-      return
-    }
-
-    dashboardGenerateWarmKeys.add(warmKey)
-    try {
-      await fetchCryptoAnalysis(symbol, {
-        analysisMode: 'full',
-        compact: true,
-        cacheResult: false,
-        indicatorNames: scanIndicators,
-      })
-    } catch (error) {
-      dashboardGenerateWarmKeys.delete(warmKey)
-      console.warn(`Could not warm ${assetType} Generate cache for ${symbol}.`, error)
-    }
-  }, 1)
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
@@ -8948,23 +8888,6 @@ watch(
   () => [isAuthenticated.value, activePage.value, appMode.value, exploreSearchQuery.value],
   () => {
     scheduleExploreLiveSearch()
-  },
-  { immediate: true }
-)
-
-watch(
-  () => [isAuthenticated.value, starredSymbols.value.join('|'), cryptoStarredSymbols.value.join('|')],
-  ([authenticated]) => {
-    if (!authenticated) {
-      dashboardGenerateWarmKeys.clear()
-      if (dashboardGenerateWarmTimer) {
-        window.clearTimeout(dashboardGenerateWarmTimer)
-        dashboardGenerateWarmTimer = null
-      }
-      return
-    }
-
-    scheduleDashboardGenerateWarmup(8000)
   },
   { immediate: true }
 )
@@ -10119,11 +10042,6 @@ function signOut() {
   defaultLiveLoadPromises.stock = null
   defaultLiveLoadPromises.crypto = null
   loginGenerateWarmKeys.clear()
-  dashboardGenerateWarmKeys.clear()
-  if (dashboardGenerateWarmTimer) {
-    window.clearTimeout(dashboardGenerateWarmTimer)
-    dashboardGenerateWarmTimer = null
-  }
   if (stockChartWarmTimer) {
     window.clearTimeout(stockChartWarmTimer)
     stockChartWarmTimer = null
