@@ -1,3 +1,4 @@
+
 import logging
 
 from services.crypto_market_api_service import CryptoMarketApiService
@@ -13,12 +14,12 @@ class CryptoMarketDataService(MarketDataService):
     """Crypto flavor of the stock market data service with the same response shape."""
 
     DAILY_GENERATE_STRATEGY = {
-        "id": "crypto9-1d-public-equal9",
-        "name": "Crypto Daily Baseline",
+        "id": "crypto9-1d-moderate-smooth13",
+        "name": "Crypto Daily Moderate",
         "timeframe": "daily",
-        "sourceVariantId": "crypto9_1d_public_equal9",
-        "indicatorFitWeight": 1.0,
-        "pathWeight": 0.0,
+        "sourceVariantId": "crypto9_1d_smooth13_ma011_ema010_macd011_boll011_rsi011_vol011_kdj011_oi011_obv303__indicator75_path25_thr88",
+        "indicatorFitWeight": 0.75,
+        "pathWeight": 0.25,
         "buyThreshold": 88.0,
         "evidence": {
             "totalReturnPct": 34.1334,
@@ -28,15 +29,15 @@ class CryptoMarketDataService(MarketDataService):
         },
         "indicators": ("MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"),
         "weights": {
-            "BOLL": 1.0,
+            "BOLL": 1.1,
             "EMA": 1.0,
-            "KDJ": 1.0,
-            "MA": 1.0,
-            "MACD": 1.0,
-            "OBV": 1.0,
-            "OI": 1.0,
-            "RSI": 1.0,
-            "VOL": 1.0,
+            "KDJ": 1.1,
+            "MA": 1.1,
+            "MACD": 1.1,
+            "OBV": 30.3,
+            "OI": 1.1,
+            "RSI": 1.1,
+            "VOL": 1.1,
         },
     }
 
