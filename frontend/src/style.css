@@ -3781,6 +3781,27 @@ select {
   letter-spacing: -0.02em;
 }
 
+.watchlist-scan-heading-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.watchlist-scan-heading-meta p {
+  max-width: 580px;
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.watchlist-scan-heading-meta .section-chip {
+  flex: 0 0 auto;
+}
+
 .watchlist-scan-bar {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(150px, auto);
@@ -4606,6 +4627,25 @@ select {
 
   .watchlist-scan-message {
     display: grid;
+  }
+
+  .watchlist-scan-results .table-header.compact,
+  .watchlist-scan-heading-meta {
+    align-items: flex-start;
+  }
+
+  .watchlist-scan-results .table-header.compact {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .watchlist-scan-heading-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .watchlist-scan-heading-meta p {
+    text-align: left;
   }
 
   .portfolio-adjust-cell {

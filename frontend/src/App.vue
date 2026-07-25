@@ -10545,7 +10545,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
             <div class="table-header compact">
               <h3>Generated Matches</h3>
-              <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
+              <div class="watchlist-scan-heading-meta">
+                <p>Approximate results from a simplified Generate pass. Run Generate on each symbol for more detailed data.</p>
+                <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
+              </div>
             </div>
             <div class="data-table watchlist-scan-table">
               <div class="data-row data-head watchlist-scan-head">
