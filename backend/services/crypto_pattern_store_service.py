@@ -502,6 +502,11 @@ class CryptoPatternStoreService:
         for index, (row, score) in enumerate(top_matches, start=1):
             future_stats = row["_future_stats"]
             candles = [] if compact_response else self._load_window_candles(snapshot, row["id"])
+            future_candles = [] if compact_response else self._load_future_candles(
+                snapshot,
+                row,
+                lookback_window,
+            )
             matches.append({
                 "patternName": f"Historical setup #{index}",
                 "matchScore": round(score.get("selected_score_percent") or 0.0, 2),
@@ -516,6 +521,7 @@ class CryptoPatternStoreService:
                 "futureStats5d": future_stats,
                 "quantSelectedPercent": round(score.get("selected_score_percent") or 0.0, 2),
                 "historicalCandles": candles,
+                "futureCandles": future_candles,
                 "regime": row["regime"],
                 "diversityKey": row["diversity_key"],
             })
@@ -613,6 +619,11 @@ class CryptoPatternStoreService:
             score_percent = round(float(scores[row_index]), 4)
             future_stats = row["_future_stats"]
             candles = [] if compact_response else self._load_window_candles(snapshot, row["id"])
+            future_candles = [] if compact_response else self._load_future_candles(
+                snapshot,
+                row,
+                int(row.get("window_size") or 30),
+            )
             matches.append({
                 "patternName": f"Historical setup #{index}",
                 "matchScore": round(score_percent, 2),
@@ -627,6 +638,7 @@ class CryptoPatternStoreService:
                 "futureStats5d": future_stats,
                 "quantSelectedPercent": round(score_percent, 2),
                 "historicalCandles": candles,
+                "futureCandles": future_candles,
                 "regime": row["regime"],
                 "diversityKey": row["diversity_key"],
             })
@@ -650,6 +662,18 @@ class CryptoPatternStoreService:
                 (window_id,),
             ).fetchone()
         return self._decode_json(row["candles_json"], []) if row else []
+
+    def _load_future_candles(self, snapshot, window_row, limit):
+        symbol = str(window_row.get("symbol") or "").strip().upper()
+        interval = str(window_row.get("interval") or "daily").strip().lower()
+        end_time = self._parse_date(window_row.get("end_time"))
+        candles = snapshot.get("candles", {}).get((symbol, interval), [])
+        future_candles = [
+            candle
+            for candle in candles
+            if self._parse_date(candle.get("trade_date")) > end_time
+        ][:max(int(limit or 30), 1)]
+        return self._serialize_chart_candles(future_candles)
 
     def _vectorized_path_similarity(self, candidate_paths, current_path):
         if candidate_paths.size == 0 or not current_path:

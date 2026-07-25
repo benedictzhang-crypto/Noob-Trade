@@ -5337,7 +5337,9 @@ const replayChartData = computed(() => {
   }
 
   const interval = replayPattern.value.timeframe || 'daily'
-  const candles = replayPattern.value.historicalCandles || []
+  const setupCandles = replayPattern.value.historicalCandles || []
+  const futureCandles = (replayPattern.value.futureCandles || []).slice(0, setupCandles.length)
+  const candles = [...setupCandles, ...futureCandles]
 
   return {
     series: {

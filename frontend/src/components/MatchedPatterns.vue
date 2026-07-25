@@ -56,7 +56,14 @@ const selectedPattern = computed(() => {
   return props.matchedPatterns.find((pattern) => patternKey(pattern) === selectedPatternKey.value) || null
 })
 
-const selectedHistoricalCandles = computed(() => selectedPattern.value?.historicalCandles || [])
+const selectedSetupCandles = computed(() => selectedPattern.value?.historicalCandles || [])
+const selectedFutureCandles = computed(() => (
+  (selectedPattern.value?.futureCandles || []).slice(0, selectedSetupCandles.value.length)
+))
+const selectedHistoricalCandles = computed(() => (
+  [...selectedSetupCandles.value, ...selectedFutureCandles.value]
+))
+const detailAnchorIndex = computed(() => Math.max(selectedSetupCandles.value.length - 1, 0))
 
 const detailPriceRange = computed(() => {
   const candles = selectedHistoricalCandles.value
@@ -100,6 +107,30 @@ const detailGeometry = computed(() => {
       tone: close >= open ? 'up' : 'down'
     }
   })
+})
+
+const detailAnchor = computed(() => {
+  if (!selectedSetupCandles.value.length) {
+    return null
+  }
+
+  const geometry = detailGeometry.value[detailAnchorIndex.value]
+  if (!geometry) {
+    return null
+  }
+
+  const bandWidth = Math.max(geometry.width * 3.2, 3.2)
+  const bandX = Math.max(6, Math.min(95 - bandWidth, geometry.x - (bandWidth / 2)))
+
+  return {
+    x: geometry.x,
+    bandX,
+    bandWidth,
+    futureWidth: Math.max(95 - geometry.x, 0),
+    labelStyle: {
+      left: `${geometry.x}%`
+    }
+  }
 })
 
 const detailAxisLabels = computed(() => {
@@ -355,6 +386,30 @@ function getCandleWidth(count) {
               <line x1="6" y1="80" x2="95" y2="80" />
             </g>
 
+            <g v-if="detailAnchor" class="match-detail-anchor-marker">
+              <rect
+                class="match-detail-future-zone"
+                :x="detailAnchor.x"
+                y="0"
+                :width="detailAnchor.futureWidth"
+                height="88"
+              />
+              <rect
+                class="match-detail-anchor-band"
+                :x="detailAnchor.bandX"
+                y="0"
+                :width="detailAnchor.bandWidth"
+                height="88"
+              />
+              <line
+                class="match-detail-anchor-line"
+                :x1="detailAnchor.x"
+                :x2="detailAnchor.x"
+                y1="0"
+                y2="88"
+              />
+            </g>
+
             <g class="match-detail-candles">
               <g v-for="candle in detailGeometry" :key="candle.key">
                 <line
@@ -377,6 +432,15 @@ function getCandleWidth(count) {
               </g>
             </g>
           </svg>
+
+          <div
+            v-if="detailAnchor"
+            class="match-detail-anchor-label"
+            :style="detailAnchor.labelStyle"
+          >
+            <strong>Current-like moment</strong>
+            <small>Historical outcome to the right</small>
+          </div>
 
           <div class="match-detail-time-axis">
             <span

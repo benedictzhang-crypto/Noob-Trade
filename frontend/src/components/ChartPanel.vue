@@ -126,7 +126,7 @@ const chartIntervalOptions = computed(() => {
 })
 
 watch(
-  () => [props.selectedInterval, fullCandles.value.length],
+  () => [props.selectedInterval, fullCandles.value.length, props.comparisonAnchorIndex],
   () => resetViewport(),
   { immediate: true }
 )
@@ -487,6 +487,17 @@ function resetViewport() {
   }
 
   const defaultBars = DEFAULT_VISIBLE_BARS[props.selectedInterval] ?? 60
+  if (Number.isInteger(props.comparisonAnchorIndex)) {
+    const comparisonBars = Math.min(Math.max(defaultBars, 60), total)
+    visibleBarCount.value = comparisonBars
+    viewStartIndex.value = clamp(
+      props.comparisonAnchorIndex - Math.floor((comparisonBars - 1) / 2),
+      0,
+      Math.max(total - comparisonBars, 0)
+    )
+    return
+  }
+
   visibleBarCount.value = Math.min(defaultBars, total)
   viewStartIndex.value = Math.max(total - visibleBarCount.value, 0)
 }

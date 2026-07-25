@@ -1550,6 +1550,7 @@ class MarketDataService:
                 {
                     "candidate_window": candidate_window,
                     "future_window": future_window,
+                    "display_future_window": candles[end_index + 1:end_index + 1 + lookback_window],
                     "candidate_record": candidate_record,
                     "score": score,
                     "distance": self._window_distance(current_window_candles, candidate_window),
@@ -1593,6 +1594,7 @@ class MarketDataService:
                     "futureStats5d": future_stats,
                     "quantSelectedPercent": match_score,
                     "historicalCandles": [] if compact_response else self._serialize_grouped_candles(candidate_window),
+                    "futureCandles": [] if compact_response else self._serialize_grouped_candles(item["display_future_window"]),
                 }
             )
 
@@ -1750,13 +1752,14 @@ class MarketDataService:
             symbol.id: symbol.symbol
             for symbol in Symbol.query.filter(Symbol.id.in_(matched_symbol_ids)).all()
         } if matched_symbol_ids else {}
-        candle_lookup = {}
+        candle_context_lookup = {}
         if not compact_response:
-            candle_lookup = self.persistence_service._build_match_candles_map(matched_windows)
+            candle_context_lookup = self.persistence_service._build_match_candle_context_map(matched_windows)
 
         response_matches = []
         for matched_window, score in top_matches:
             future_stats = score.get("future_stats_5d") or self._empty_forward_stat()
+            candle_context = candle_context_lookup.get(matched_window.id, {})
             response_matches.append(
                 {
                     "patternName": self.persistence_service._build_pattern_label(matched_window),
@@ -1772,7 +1775,8 @@ class MarketDataService:
                     "isFutureBullish": score["is_future_bullish"],
                     "futureStats5d": future_stats,
                     "quantSelectedPercent": score["selected_score_percent"],
-                    "historicalCandles": candle_lookup.get(matched_window.id, []),
+                    "historicalCandles": candle_context.get("historicalCandles", []),
+                    "futureCandles": candle_context.get("futureCandles", []),
                 }
             )
 
