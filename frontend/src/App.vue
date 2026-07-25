@@ -5331,16 +5331,35 @@ const portfolioChartPath = computed(() => buildMiniChartPath(portfolioChartPoint
 const portfolioAreaPath = computed(() => buildMiniAreaPath(portfolioChartPoints.value))
 const portfolioYAxis = computed(() => buildAxisLabels(portfolioChartPoints.value))
 
+const replayChartContext = computed(() => {
+  if (!replayPattern.value) {
+    return { candles: [], anchorIndex: 0 }
+  }
+
+  const setupCandles = replayPattern.value.historicalCandles || []
+  const availableFutureCandles = replayPattern.value.futureCandles || []
+  if (!setupCandles.length || !availableFutureCandles.length) {
+    return {
+      candles: setupCandles,
+      anchorIndex: Math.max(setupCandles.length - 1, 0)
+    }
+  }
+
+  const sideCount = Math.min(Math.max(setupCandles.length - 1, 0), availableFutureCandles.length)
+  const centeredSetupCandles = setupCandles.slice(-(sideCount + 1))
+  return {
+    candles: [...centeredSetupCandles, ...availableFutureCandles.slice(0, sideCount)],
+    anchorIndex: centeredSetupCandles.length - 1
+  }
+})
+
 const replayChartData = computed(() => {
   if (!replayPattern.value) {
     return { series: {}, history: { daily: [] } }
   }
 
   const interval = replayPattern.value.timeframe || 'daily'
-  const setupCandles = replayPattern.value.historicalCandles || []
-  const futureCandles = (replayPattern.value.futureCandles || []).slice(0, setupCandles.length)
-  const candles = [...setupCandles, ...futureCandles]
-
+  const candles = replayChartContext.value.candles
   return {
     series: {
       [interval]: candles
@@ -11653,7 +11672,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           :chart-data="replayChartData"
           :chart-intervals="[replayPattern.timeframe]"
           :company-name="`${replayPattern.symbol} historical replay`"
-          :comparison-anchor-index="Math.max((replayPattern.historicalCandles?.length || 1) - 1, 0)"
+          :comparison-anchor-index="replayChartContext.anchorIndex"
           comparison-anchor-label="Current-like moment"
           :industry="'Historical match'"
           :is-crypto-mode="isCryptoMode"

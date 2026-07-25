@@ -56,9 +56,20 @@ const selectedPattern = computed(() => {
   return props.matchedPatterns.find((pattern) => patternKey(pattern) === selectedPatternKey.value) || null
 })
 
-const selectedSetupCandles = computed(() => selectedPattern.value?.historicalCandles || [])
+const selectedRawSetupCandles = computed(() => selectedPattern.value?.historicalCandles || [])
+const selectedRawFutureCandles = computed(() => selectedPattern.value?.futureCandles || [])
+const selectedReplaySideCount = computed(() => Math.min(
+  Math.max(selectedRawSetupCandles.value.length - 1, 0),
+  selectedRawFutureCandles.value.length
+))
+const selectedSetupCandles = computed(() => {
+  if (!selectedRawFutureCandles.value.length) {
+    return selectedRawSetupCandles.value
+  }
+  return selectedRawSetupCandles.value.slice(-(selectedReplaySideCount.value + 1))
+})
 const selectedFutureCandles = computed(() => (
-  (selectedPattern.value?.futureCandles || []).slice(0, selectedSetupCandles.value.length)
+  selectedRawFutureCandles.value.slice(0, selectedReplaySideCount.value)
 ))
 const selectedHistoricalCandles = computed(() => (
   [...selectedSetupCandles.value, ...selectedFutureCandles.value]
