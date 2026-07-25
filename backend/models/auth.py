@@ -59,6 +59,23 @@ class LoginActivity(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
 
 
+class UsageActivity(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "usage_activities"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category = db.Column(db.String(32), nullable=False, index=True)
+    market = db.Column(db.String(16), nullable=False)
+    status_code = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now(), index=True)
+
+
 class AssistantIntentFeedback(db.Model):
     __bind_key__ = "app"
     __tablename__ = "assistant_intent_feedback"

@@ -8286,6 +8286,7 @@ async function preloadDefaultLiveWorkspaces() {
       compact: true,
       cacheResult: true,
       indicatorNames: selectedIndicators,
+      usageContext: 'warmup',
     })
       .catch((error) => {
         loginGenerateWarmKeys.delete(defaultStockWarmKey)
@@ -8301,6 +8302,7 @@ async function preloadDefaultLiveWorkspaces() {
       compact: true,
       cacheResult: true,
       indicatorNames: selectedIndicators,
+      usageContext: 'warmup',
     })
       .catch((error) => {
         loginGenerateWarmKeys.delete(defaultCryptoWarmKey)

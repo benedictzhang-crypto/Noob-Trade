@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 import hmac
 import html
@@ -6,7 +7,7 @@ import secrets
 
 from flask import Blueprint, current_app, jsonify, request, session
 from extensions import db
-from models.auth import LoginActivity, LoginVerificationCode, User
+from models.auth import LoginActivity, LoginVerificationCode, UsageActivity, User
 from services.email_service import EmailService
 from services.security_service import hash_secret, needs_rehash, verify_secret
 
@@ -838,6 +839,100 @@ def list_users():
     if admin_user is None:
         return jsonify({"message": "Admin access is required."}), 403
     return jsonify({"users": _serialized_admin_users()})
+
+
+@auth_blueprint.route("/users/<int:user_id>/activity", methods=["GET"])
+def get_user_activity(user_id):
+    admin_user = _get_admin_user()
+    if admin_user is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    target_user = User.query.filter_by(id=user_id).first()
+    if target_user is None:
+        return jsonify({"message": "User not found."}), 404
+
+    now = _utcnow()
+    login_rows = (
+        LoginActivity.query
+        .filter_by(user_id=target_user.id)
+        .order_by(LoginActivity.created_at.asc())
+        .all()
+    )
+    usage_rows = (
+        UsageActivity.query
+        .filter_by(user_id=target_user.id)
+        .order_by(UsageActivity.created_at.asc())
+        .all()
+    )
+
+    login_times = []
+    for row in login_rows:
+        created_at = _coerce_utc_datetime(row.created_at)
+        if created_at is not None:
+            login_times.append(created_at)
+
+    usage_records = []
+    for row in usage_rows:
+        created_at = _coerce_utc_datetime(row.created_at)
+        if created_at is not None:
+            usage_records.append((row, created_at))
+
+    category_counts = Counter(row.category for row, _ in usage_records)
+    market_counts = Counter(row.market for row, _ in usage_records)
+    successful_records = [
+        (row, created_at)
+        for row, created_at in usage_records
+        if 200 <= int(row.status_code or 0) < 400
+    ]
+    successful_category_counts = Counter(row.category for row, _ in successful_records)
+
+    def _count_since(records, since):
+        return sum(1 for _, created_at in records if created_at >= since)
+
+    daily_counts = Counter(
+        created_at.date().isoformat()
+        for _, created_at in usage_records
+        if created_at >= now - timedelta(days=30)
+    )
+
+    return jsonify(
+        {
+            "user": _serialize_user(target_user),
+            "login": {
+                "total": len(login_rows),
+                "firstAt": login_times[0].isoformat() if login_times else None,
+                "lastAt": login_times[-1].isoformat() if login_times else None,
+                "distinctDevices": len({row.device_label for row in login_rows if row.device_label}),
+                "distinctLocations": len({row.location_label for row in login_rows if row.location_label}),
+            },
+            "usage": {
+                "trackingStartedAt": usage_records[0][1].isoformat() if usage_records else None,
+                "lastUsedAt": usage_records[-1][1].isoformat() if usage_records else None,
+                "total": len(usage_records),
+                "successful": len(successful_records),
+                "failed": len(usage_records) - len(successful_records),
+                "last24Hours": _count_since(usage_records, now - timedelta(hours=24)),
+                "last7Days": _count_since(usage_records, now - timedelta(days=7)),
+                "last30Days": _count_since(usage_records, now - timedelta(days=30)),
+                "byCategory": [
+                    {
+                        "category": category,
+                        "total": count,
+                        "successful": successful_category_counts.get(category, 0),
+                    }
+                    for category, count in sorted(category_counts.items())
+                ],
+                "byMarket": [
+                    {"market": market, "total": count}
+                    for market, count in sorted(market_counts.items())
+                ],
+                "daily": [
+                    {"date": date, "total": count}
+                    for date, count in sorted(daily_counts.items())
+                ],
+            },
+        }
+    )
 
 
 @auth_blueprint.route("/users/<int:user_id>", methods=["DELETE"])

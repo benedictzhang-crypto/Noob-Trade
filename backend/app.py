@@ -5,7 +5,7 @@ import sqlite3
 import threading
 import time
 
-from flask import Flask, jsonify, request, session
+from flask import Flask, g, jsonify, request, session
 from flask_cors import CORS
 from flask import send_from_directory
 from sqlalchemy import inspect, text
@@ -23,6 +23,7 @@ from routes.crypto_routes import crypto_blueprint
 from routes.stock_routes import stock_blueprint
 from services.rate_limit_service import rate_limit_service
 from services.security_service import hash_secret, verify_secret
+from services.usage_activity_service import enqueue_usage_activity, initialize_usage_activity_recorder
 
 
 def _generate_compatible_password_hash(app, password):
@@ -120,7 +121,13 @@ def ensure_auth_schema(app):
         inspector = inspect(db.engines["app"])
         table_names = set(inspector.get_table_names())
 
-        if "users" not in table_names or "login_verification_codes" not in table_names or "login_activities" not in table_names:
+        required_tables = {
+            "users",
+            "login_verification_codes",
+            "login_activities",
+            "usage_activities",
+        }
+        if not required_tables.issubset(table_names):
             db.create_all()
             return
 
@@ -147,7 +154,7 @@ def ensure_auth_postgres_sequences(app):
         if auth_engine.dialect.name != "postgresql":
             return
 
-        table_names = ("users", "login_verification_codes", "login_activities")
+        table_names = ("users", "login_verification_codes", "login_activities", "usage_activities")
 
         with auth_engine.begin() as connection:
             for table_name in table_names:
@@ -813,6 +820,9 @@ def create_app():
             return None
 
         endpoint = request.endpoint or ""
+        usage_context = str(request.args.get("usage", "")).strip().lower()
+        if usage_context == "warmup":
+            return None
 
         if endpoint in {"stock.get_stock", "crypto.get_crypto"}:
             analysis_mode = str(request.args.get("analysis", "full")).strip().lower()
@@ -820,7 +830,6 @@ def create_app():
                 return "search_chart"
             if request.args.get("matchDetails", default=0, type=int) == 1:
                 return "matched_detail"
-            usage_context = str(request.args.get("usage", "")).strip().lower()
             if usage_context == "dashboard-scan" or request.args.get("scan", default=0, type=int) == 1:
                 return "dashboard_scan"
             return "single_generate"
@@ -832,6 +841,50 @@ def create_app():
             return "explore"
 
         return None
+
+    def _usage_activity_event():
+        if request.method != "GET":
+            return None
+
+        user_id = session.get("user_id")
+        user_role = str(session.get("user_role", "")).strip().lower()
+        if not user_id or user_role == "admin":
+            return None
+
+        usage_context = str(request.args.get("usage", "")).strip().lower()
+        if usage_context == "warmup":
+            return None
+
+        endpoint = request.endpoint or ""
+        if endpoint in {"stock.get_stock", "crypto.get_crypto"}:
+            analysis_mode = str(request.args.get("analysis", "full")).strip().lower()
+            if analysis_mode in {"search", "summary"}:
+                category = "search"
+            elif request.args.get("matchDetails", default=0, type=int) == 1:
+                category = "matched_detail"
+            elif usage_context == "dashboard-scan" or request.args.get("scan", default=0, type=int) == 1:
+                category = "scan"
+            else:
+                category = "generate"
+            market = "stock" if endpoint.startswith("stock.") else "crypto"
+        elif endpoint == "crypto.get_crypto_top50":
+            category = "explore"
+            market = "crypto"
+        else:
+            return None
+
+        if category == "scan":
+            batch_id = str(request.args.get("scanBatchId", "")).strip()[:96]
+            if batch_id:
+                marker_key = f"activity-seen:{user_id}:{category}:{batch_id}"
+                if not rate_limit_service.mark_once(marker_key, ttl_seconds=86400):
+                    return None
+
+        return {
+            "user_id": int(user_id),
+            "category": category,
+            "market": market,
+        }
 
     def _should_count_usage_event(actor_key, category):
         if category != "dashboard_scan":
@@ -925,6 +978,8 @@ def create_app():
         if usage_limit_response is not None:
             return usage_limit_response
 
+        g.usage_activity_event = _usage_activity_event()
+
         if _usage_limit_category() is None:
             rate_limit_key = f"{client_ip}:{request.endpoint or request.path}:{request.method}"
             if request.endpoint == "stock.get_pro_signal":
@@ -947,12 +1002,26 @@ def create_app():
 
     @app.after_request
     def apply_security_headers(response):
+        usage_event = getattr(g, "usage_activity_event", None)
+        if usage_event is not None:
+            enqueue_usage_activity(
+                app,
+                {
+                    "user_id": usage_event["user_id"],
+                    "category": usage_event["category"],
+                    "market": usage_event["market"],
+                    "status_code": response.status_code,
+                },
+            )
+
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Cache-Control"] = "no-store"
         response.headers["Content-Security-Policy"] = "default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:5010 http://127.0.0.1:5173 http://127.0.0.1:5174;"
         return response
+
+    initialize_usage_activity_recorder(app)
 
     if str(app.config.get("ENVIRONMENT", "")).lower() == "production":
         _start_background_database_init(app)
