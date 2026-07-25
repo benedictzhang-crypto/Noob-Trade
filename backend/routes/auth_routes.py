@@ -1,11 +1,13 @@
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import hmac
 import html
 import re
 import secrets
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, current_app, jsonify, request, session
+from sqlalchemy import func
 from extensions import db
 from models.auth import LoginActivity, LoginVerificationCode, UsageActivity, User
 from services.email_service import EmailService
@@ -931,6 +933,234 @@ def get_user_activity(user_id):
                     for date, count in sorted(daily_counts.items())
                 ],
             },
+        }
+    )
+
+
+def _weekly_period_metrics(period_start, period_end):
+    grouped_rows = (
+        db.session.query(
+            UsageActivity.user_id,
+            UsageActivity.category,
+            UsageActivity.market,
+            UsageActivity.status_code,
+            func.count(UsageActivity.id),
+            func.max(UsageActivity.created_at),
+        )
+        .filter(
+            UsageActivity.created_at >= period_start,
+            UsageActivity.created_at < period_end,
+        )
+        .group_by(
+            UsageActivity.user_id,
+            UsageActivity.category,
+            UsageActivity.market,
+            UsageActivity.status_code,
+        )
+        .all()
+    )
+    active_day_rows = (
+        db.session.query(
+            UsageActivity.user_id,
+            func.count(func.distinct(func.date(UsageActivity.created_at))),
+        )
+        .filter(
+            UsageActivity.created_at >= period_start,
+            UsageActivity.created_at < period_end,
+        )
+        .group_by(UsageActivity.user_id)
+        .all()
+    )
+
+    metrics = {}
+    for user_id, category, market, status_code, count, last_used_at in grouped_rows:
+        user_metrics = metrics.setdefault(
+            user_id,
+            {
+                "actions": 0,
+                "successful": 0,
+                "failed": 0,
+                "activeDays": 0,
+                "byCategory": Counter(),
+                "byMarket": Counter(),
+                "lastUsedAt": None,
+            },
+        )
+        event_count = int(count or 0)
+        user_metrics["actions"] += event_count
+        if 200 <= int(status_code or 0) < 400:
+            user_metrics["successful"] += event_count
+        else:
+            user_metrics["failed"] += event_count
+        user_metrics["byCategory"][category] += event_count
+        user_metrics["byMarket"][market] += event_count
+
+        coerced_last_used_at = _coerce_utc_datetime(last_used_at)
+        if coerced_last_used_at is not None and (
+            user_metrics["lastUsedAt"] is None
+            or coerced_last_used_at > user_metrics["lastUsedAt"]
+        ):
+            user_metrics["lastUsedAt"] = coerced_last_used_at
+
+    for user_id, active_days in active_day_rows:
+        user_metrics = metrics.setdefault(
+            user_id,
+            {
+                "actions": 0,
+                "successful": 0,
+                "failed": 0,
+                "activeDays": 0,
+                "byCategory": Counter(),
+                "byMarket": Counter(),
+                "lastUsedAt": None,
+            },
+        )
+        user_metrics["activeDays"] = int(active_days or 0)
+
+    return metrics
+
+
+def _serialize_week_metrics(metrics):
+    actions = int(metrics.get("actions") or 0)
+    active_days = int(metrics.get("activeDays") or 0)
+    successful = int(metrics.get("successful") or 0)
+    last_used_at = metrics.get("lastUsedAt")
+
+    return {
+        "actions": actions,
+        "activeDays": active_days,
+        "averagePerActiveDay": round(actions / active_days, 2) if active_days else 0,
+        "successful": successful,
+        "failed": int(metrics.get("failed") or 0),
+        "successRate": round((successful / actions) * 100, 2) if actions else None,
+        "lastUsedAt": last_used_at.isoformat() if last_used_at else None,
+        "byCategory": dict(sorted(metrics.get("byCategory", {}).items())),
+        "byMarket": dict(sorted(metrics.get("byMarket", {}).items())),
+    }
+
+
+@auth_blueprint.route("/activity/weekly", methods=["GET"])
+def get_weekly_activity_report():
+    admin_user = _get_admin_user()
+    if admin_user is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    report_timezone = ZoneInfo("America/New_York")
+    requested_week_start = str(request.args.get("weekStart", "")).strip()
+    if requested_week_start:
+        try:
+            requested_date = date.fromisoformat(requested_week_start)
+        except ValueError:
+            return jsonify({"message": "weekStart must use YYYY-MM-DD format."}), 400
+        report_week_date = requested_date - timedelta(days=requested_date.weekday())
+    else:
+        local_today = _utcnow().astimezone(report_timezone).date()
+        current_week_start = local_today - timedelta(days=local_today.weekday())
+        report_week_date = current_week_start - timedelta(days=7)
+
+    report_start_local = datetime.combine(report_week_date, time.min, tzinfo=report_timezone)
+    report_end_local = report_start_local + timedelta(days=7)
+    comparison_start_local = report_start_local - timedelta(days=7)
+    report_start = report_start_local.astimezone(timezone.utc)
+    report_end = report_end_local.astimezone(timezone.utc)
+    comparison_start = comparison_start_local.astimezone(timezone.utc)
+
+    users = User.query.filter(User.role != "admin").order_by(User.created_at.asc(), User.id.asc()).all()
+    display_code_map = _build_display_code_map(User.query.order_by(User.created_at.asc(), User.id.asc()).all())
+    report_metrics = _weekly_period_metrics(report_start, report_end)
+    comparison_metrics = _weekly_period_metrics(comparison_start, report_start)
+
+    lifetime_rows = (
+        db.session.query(
+            UsageActivity.user_id,
+            func.count(UsageActivity.id),
+            func.min(UsageActivity.created_at),
+            func.max(UsageActivity.created_at),
+        )
+        .group_by(UsageActivity.user_id)
+        .all()
+    )
+    lifetime_by_user = {
+        user_id: {
+            "actions": int(actions or 0),
+            "firstUsedAt": _coerce_utc_datetime(first_used_at),
+            "lastUsedAt": _coerce_utc_datetime(last_used_at),
+        }
+        for user_id, actions, first_used_at, last_used_at in lifetime_rows
+    }
+    tracking_started_at = _coerce_utc_datetime(
+        db.session.query(func.min(UsageActivity.created_at)).scalar()
+    )
+
+    serialized_users = []
+    for user in users:
+        current = report_metrics.get(user.id, {})
+        previous = comparison_metrics.get(user.id, {})
+        lifetime = lifetime_by_user.get(user.id, {})
+        current_actions = int(current.get("actions") or 0)
+        previous_actions = int(previous.get("actions") or 0)
+        first_observed_at = lifetime.get("firstUsedAt")
+
+        if first_observed_at is None:
+            average_weekly_actions = 0
+        else:
+            observation_start = max(first_observed_at, tracking_started_at or first_observed_at)
+            observed_weeks = max(1.0, (_utcnow() - observation_start).total_seconds() / 604800)
+            average_weekly_actions = round(int(lifetime.get("actions") or 0) / observed_weeks, 2)
+
+        serialized_users.append(
+            {
+                "id": user.id,
+                "displayCode": display_code_map.get(user.id, 0),
+                "fullName": user.full_name,
+                "email": user.email,
+                "registeredAt": user.created_at.isoformat() if user.created_at else None,
+                "lifetimeActionsSinceTracking": int(lifetime.get("actions") or 0),
+                "averageWeeklyActionsSinceTracking": average_weekly_actions,
+                "reportWeek": _serialize_week_metrics(current),
+                "previousWeekActions": previous_actions,
+                "weekOverWeekChangePercent": (
+                    round(((current_actions - previous_actions) / previous_actions) * 100, 2)
+                    if previous_actions
+                    else None
+                ),
+            }
+        )
+
+    serialized_users.sort(
+        key=lambda item: (
+            -item["reportWeek"]["actions"],
+            -item["lifetimeActionsSinceTracking"],
+            item["displayCode"],
+        )
+    )
+    total_actions = sum(item["reportWeek"]["actions"] for item in serialized_users)
+    total_successful = sum(item["reportWeek"]["successful"] for item in serialized_users)
+    previous_total_actions = sum(item["previousWeekActions"] for item in serialized_users)
+
+    return jsonify(
+        {
+            "timezone": "America/New_York",
+            "trackingStartedAt": tracking_started_at.isoformat() if tracking_started_at else None,
+            "period": {
+                "start": report_start_local.date().isoformat(),
+                "endExclusive": report_end_local.date().isoformat(),
+                "comparisonStart": comparison_start_local.date().isoformat(),
+            },
+            "summary": {
+                "registeredUsers": len(serialized_users),
+                "activeUsers": sum(1 for item in serialized_users if item["reportWeek"]["actions"] > 0),
+                "inactiveUsers": sum(1 for item in serialized_users if item["reportWeek"]["actions"] == 0),
+                "totalActions": total_actions,
+                "previousWeekActions": previous_total_actions,
+                "weekOverWeekChangePercent": (
+                    round(((total_actions - previous_total_actions) / previous_total_actions) * 100, 2)
+                    if previous_total_actions
+                    else None
+                ),
+                "successRate": round((total_successful / total_actions) * 100, 2) if total_actions else None,
+            },
+            "users": serialized_users,
         }
     )
 
