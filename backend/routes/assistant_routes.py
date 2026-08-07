@@ -79,6 +79,8 @@ INDICATOR_ALIASES = {
     "open interest": "OI",
     "oi": "OI",
     "obv": "OBV",
+    "opv": "OBV",
+    "o p v": "OBV",
     "on balance volume": "OBV",
     "布林带": "BOLL",
     "布林": "BOLL",
@@ -86,6 +88,8 @@ INDICATOR_ALIASES = {
     "均线": "MA",
     "指数均线": "EMA",
 }
+
+ALL_INDICATORS = ["MA", "EMA", "MACD", "BOLL", "RSI", "Vol", "KDJ", "OI", "OBV"]
 
 INTERVAL_ALIASES = {
     "1 minute": "1min",
@@ -444,6 +448,7 @@ def _extract_symbol(text):
         "generate", "analyze", "analysis", "scroll", "down", "up", "more", "little",
         "dashboard", "portfolio", "market", "markets", "settings", "crypto", "explore",
         "full", "board", "pool", "universe", "guide", "manual", "user", "learn",
+        "again", "rerun", "repeat", "please",
     }
     tokens = re.findall(r"\b[a-zA-Z]{1,5}\b", text)
     for token in reversed(tokens):
@@ -579,6 +584,29 @@ def _rule_based_intent(transcript, context=None):
         if value is not None:
             return _base_intent("adjust_probability", 0.94, side=side, value=value)
 
+    select_all_indicator_phrases = (
+        "select all indicators", "select every indicator", "enable all indicators",
+        "turn on all indicators", "use all indicators", "choose all indicators",
+        "全选指标", "选择所有指标", "选择全部指标", "打开所有指标", "启用所有指标",
+        "seleccionar todos los indicadores", "activar todos los indicadores",
+        "selectionner tous les indicateurs", "sélectionner tous les indicateurs",
+        "activer tous les indicateurs",
+    )
+    if any(phrase in text for phrase in select_all_indicator_phrases):
+        return _base_intent("set_indicator", 0.99, indicators=list(ALL_INDICATORS), active=True)
+
+    if any(phrase in text for phrase in (
+        "clear indicators", "clear all indicators", "turn off all indicators",
+        "disable all indicators", "清空指标", "关闭所有指标", "取消所有指标",
+    )):
+        return _base_intent("clear_indicators", 0.99)
+
+    if any(phrase in text for phrase in (
+        "reset indicators", "default indicators", "restore indicators",
+        "重置指标", "默认指标", "恢复指标",
+    )):
+        return _base_intent("reset_indicators", 0.99)
+
     indicators = _extract_indicators(text)
     selected_indicators = {
         str(item).upper()
@@ -653,6 +681,15 @@ def _rule_based_intent(transcript, context=None):
         if symbol:
             return _base_intent("set_star", 0.94, symbol=symbol, active=not is_remove)
 
+    repeat_generate_phrases = (
+        "generate again", "generate it again", "run generate again", "rerun generate",
+        "repeat generate", "generate one more time", "regenerate", "重新generate",
+        "再generate一次", "再生成一次", "重新生成", "再分析一次",
+        "generar de nuevo", "genera otra vez", "generer a nouveau", "générer à nouveau",
+    )
+    if any(phrase in text for phrase in repeat_generate_phrases):
+        return _base_intent("generate", 0.99, symbol=context.get("symbol"))
+
     if any(phrase in text for phrase in ("generate", "analyze", "analyse", "生成", "分析")):
         return _base_intent("generate", 0.86, symbol=_extract_symbol(text))
 
@@ -714,7 +751,7 @@ def _openai_intent(transcript, context):
         "transcript": transcript,
         "context": context,
         "allowedPages": ["Dashboard", "Stock Trade", "Crypto Trade", "Portfolio", "Explore", "Markets", "Settings", "More", "User Guide", "Admin"],
-        "allowedIndicators": ["MA", "EMA", "MACD", "BOLL", "RSI", "Vol", "KDJ", "OI", "OBV"],
+        "allowedIndicators": ALL_INDICATORS,
         "shortReplyBank": SHORT_REPLY_LIBRARY,
         "rules": [
             "Return one UI command intent only.",
@@ -731,6 +768,9 @@ def _openai_intent(transcript, context):
             "If the user asks to go to stock trade page, return navigate page Stock Trade.",
             "Do not treat words like stock, trade, page, dashboard, portfolio, settings as stock tickers.",
             "Indicator names are strong entities. RSI alone should toggle/select RSI. I want RSI should select RSI. Remove RSI should unselect RSI.",
+            "Treat OPV or O P V as speech-recognition variants of OBV.",
+            "If the user says select all indicators, return set_indicator with every allowed indicator and active true.",
+            "If the user says generate again, rerun generate for the current context symbol; never use AGAIN as a symbol.",
             "Star/favorite/watchlist commands should return set_star with the ticker or current context symbol.",
             "Probability slider commands like set upside to 3 percent or 把上涨调到3% should return adjust_probability with side and value.",
             "Questions like what is the upside probability should return summarize_probability.",

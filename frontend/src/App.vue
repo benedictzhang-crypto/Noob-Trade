@@ -587,7 +587,7 @@ const voiceIndicatorAliases = [
   { name: 'Vol', phrases: ['vol', 'volume', '成交量', '量能', 'volumen'] },
   { name: 'KDJ', phrases: ['kdj', 'k d j'] },
   { name: 'OI', phrases: ['oi', 'o i', 'open interest', '未平仓量', 'interes abierto', 'intérêt ouvert'] },
-  { name: 'OBV', phrases: ['obv', 'o b v', 'on balance volume', '能量潮', 'balance volume'] }
+  { name: 'OBV', phrases: ['obv', 'opv', 'o b v', 'o p v', 'on balance volume', '能量潮', 'balance volume'] }
 ]
 const voicePageAliases = [
   { page: 'Crypto Trade', phrases: ['crypto trade', 'crypto', 'crypto analysis', '加密', '加密分析', '虚拟货币', 'cripto', 'criptomonedas', 'crypto monnaie', 'cryptomonnaie'] },
