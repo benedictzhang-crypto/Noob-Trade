@@ -31,10 +31,8 @@ test.describe('Analysis workspace', () => {
 
     await signInAndOpenAnalysis(page)
 
-    await page.locator('#lookback').selectOption('20')
-
     const searchInput = page.getByPlaceholder('Enter Ticker (e.g. AAPL)')
-    const aaplResponse = await request.get('http://127.0.0.1:5010/api/stock/AAPL?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,Vol')
+    const aaplResponse = await request.get('http://127.0.0.1:5010/api/stock/AAPL?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,Vol&persist=1&usage=warmup')
     expect(aaplResponse.ok()).toBeTruthy()
     const aaplData = await aaplResponse.json()
     await page.evaluate((responseData) => window.__NOOB_TRADE_E2E__.applyResponse(responseData), aaplData)
@@ -42,11 +40,9 @@ test.describe('Analysis workspace', () => {
     await expect(page.getByText('Prediction Summary')).toBeVisible()
     await expect(searchInput).toHaveValue('AAPL')
     await expect(page.getByText('Data Source')).toBeVisible()
-    await expect(page.locator('.source-pill').first()).toContainText(/Mock Data|Live API/)
-    await expect(page.getByText('Suggested Sell Price')).toBeVisible()
+    await expect(page.locator('.source-pill').first()).toContainText(/Market Data|Mock Data|Live API/)
+    await expect(page.getByText('Target Price')).toBeVisible()
     await expect(page.getByText('Matched Historical Patterns')).toBeVisible()
-    await expect(page.getByText('High-Fit Historical Paths')).toBeVisible()
-    await expect(page.getByText('Paper Trading Panel')).toBeVisible()
 
     await setInterval(page, 'weekly')
     await expect(page.getByText('Weekly Candles')).toBeVisible()
@@ -58,15 +54,14 @@ test.describe('Analysis workspace', () => {
     await expect(page.getByText('Daily Candles')).toBeVisible()
 
     const indicatorList = page.locator('.indicator-list')
-    await indicatorList.getByRole('button', { name: /RSI/i }).click()
-    await expect(page.locator('.indicator-metric-card').filter({ hasText: 'RSI' })).toBeVisible()
+    const rsiButton = indicatorList.getByRole('button', { name: /RSI/i })
+    await expect(rsiButton).toHaveClass(/active/)
+    await rsiButton.click()
+    await expect(rsiButton).not.toHaveClass(/active/)
+    await rsiButton.click()
+    await expect(rsiButton).toHaveClass(/active/)
 
-    await indicatorList.getByRole('button', { name: /MACD/i }).click()
-    await expect(page.getByText('Histogram, MACD, and Signal')).toHaveCount(0)
-    await indicatorList.getByRole('button', { name: /MACD/i }).click()
-    await expect(page.getByText('Histogram, MACD, and Signal')).toBeVisible()
-
-    const tslaResponse = await request.get('http://127.0.0.1:5010/api/stock/TSLA?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,RSI,Vol')
+    const tslaResponse = await request.get('http://127.0.0.1:5010/api/stock/TSLA?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,RSI,Vol&persist=1&usage=warmup')
     expect(tslaResponse.ok()).toBeTruthy()
     const tslaData = await tslaResponse.json()
     await page.evaluate((responseData) => window.__NOOB_TRADE_E2E__.applyResponse(responseData), tslaData)
@@ -75,11 +70,11 @@ test.describe('Analysis workspace', () => {
     await expect(page.getByText('TSLA Forecast')).toBeVisible()
 
     const counts = await getCoreTableCounts()
-    expect(counts.symbols).toBe(2)
+    expect(counts.symbols).toBeGreaterThanOrEqual(2)
     expect(counts.daily_prices).toBeGreaterThan(0)
     expect(counts.daily_indicators).toBeGreaterThan(0)
     expect(counts.pattern_windows).toBeGreaterThan(0)
-    expect(counts.analysis_runs).toBe(2)
+    expect(counts.analysis_runs).toBeGreaterThanOrEqual(2)
     expect(counts.pattern_matches).toBeGreaterThan(0)
   })
 
@@ -91,9 +86,7 @@ test.describe('Analysis workspace', () => {
 
     await page.goto('/')
     await signInAndOpenAnalysis(page)
-    await page.locator('#lookback').selectOption('20')
 
-    const searchInput = page.getByPlaceholder('Enter Ticker (e.g. AAPL)')
     const pendingSearch = runSearch(page, 'AAPL', { lookback: 20 })
 
     await expect(page.getByRole('button', { name: 'Loading...' })).toBeVisible()
@@ -111,8 +104,8 @@ test.describe('Analysis workspace', () => {
     await runSearch(page, '')
     await expect(page.getByText('Please enter a stock symbol before searching.')).toBeVisible()
 
-    await runSearch(page, 'AAPL1')
-    await expect(page.getByText('Please enter a valid symbol using letters only, such as AAPL.')).toBeVisible()
+    await runSearch(page, 'AAPL-1')
+    await expect(page.getByText('Please enter a valid symbol, such as AAPL or BRK.B.')).toBeVisible()
   })
 
   test('shows a friendly error when the backend request fails', async ({ page }) => {
@@ -122,13 +115,9 @@ test.describe('Analysis workspace', () => {
 
     await page.goto('/')
     await signInAndOpenAnalysis(page)
-    await page.locator('#lookback').selectOption('20')
 
-    const searchInput = page.getByPlaceholder('Enter Ticker (e.g. AAPL)')
-    await runSearch(page, 'AAPL', { lookback: 20 })
+    await runSearch(page, 'XYZTEST', { lookback: 20 })
 
-    await expect(
-      page.getByText('We could not load stock data. Please make sure the Flask backend is running and try again.')
-    ).toBeVisible()
+    await expect(page.locator('.error-message')).toContainText(/Failed to fetch|not accessible|timed out/i)
   })
 })

@@ -11,9 +11,8 @@ test.describe('Markets page', () => {
     await page.goto('/')
     await page.evaluate(() => window.__NOOB_TRADE_E2E__.signIn())
     await page.evaluate(() => window.__NOOB_TRADE_E2E__.setPage('Analysis'))
-    await page.locator('#lookback').selectOption('20')
 
-    const tslaResponse = await request.get('http://127.0.0.1:5010/api/stock/TSLA?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,Vol')
+    const tslaResponse = await request.get('http://127.0.0.1:5010/api/stock/TSLA?lookback=20&interval=daily&indicators=MA,EMA,MACD,BOLL,Vol&usage=warmup')
     expect(tslaResponse.ok()).toBeTruthy()
     const tslaData = await tslaResponse.json()
     await page.evaluate((responseData) => window.__NOOB_TRADE_E2E__.applyResponse(responseData), tslaData)
@@ -21,11 +20,12 @@ test.describe('Markets page', () => {
 
     await page.getByRole('button', { name: 'Markets' }).click()
 
-    await expect(page.getByRole('heading', { name: 'TSLA Focus News' })).toBeVisible()
-    await expect(page.getByText('Tesla sentiment remains split as traders watch post-event follow-through')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Hot Market News' })).toBeVisible()
+    await expect(page.locator('.news-ticker-track')).toContainText('TSLA')
     await expect(page.getByText('X / Trader Posts')).toBeVisible()
-    await expect(page.getByText('@teslatape')).toBeVisible()
+    await expect(page.locator('.post-list')).toContainText('TSLA')
     await expect(page.getByText('Market Spotlight')).toBeVisible()
+    await expect(page.locator('.spotlight-card')).toContainText('TSLA')
     await expect(page.getByText('Probability', { exact: true })).toBeVisible()
   })
 })

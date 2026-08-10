@@ -1,3 +1,4 @@
+import os
 from datetime import date, datetime, timedelta
 
 VISIBLE_INTERVAL_BARS = {
@@ -12,6 +13,13 @@ VISIBLE_INTERVAL_BARS = {
     "2week": 400,
     "monthly": 240,
 }
+
+
+def _mock_daily_candle_count():
+    try:
+        return max(90, int(os.getenv("MOCK_DAILY_CANDLE_COUNT", "3200")))
+    except ValueError:
+        return 3200
 
 
 def parse_indicators(raw_indicators, default_indicators):
@@ -36,7 +44,7 @@ def build_mock_daily_candles(symbol):
     close_price = 154.0
     session_index = 0
 
-    while len(candles) < 3200:
+    while len(candles) < _mock_daily_candle_count():
         if current_day.weekday() >= 5:
             current_day += timedelta(days=1)
             continue

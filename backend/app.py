@@ -825,6 +825,8 @@ def create_app():
             return None
 
         if endpoint in {"stock.get_stock", "crypto.get_crypto"}:
+            if request.args.get("prefetch", default=0, type=int) == 1:
+                return "search_chart"
             analysis_mode = str(request.args.get("analysis", "full")).strip().lower()
             if analysis_mode in {"search", "summary"}:
                 return "search_chart"
@@ -858,7 +860,9 @@ def create_app():
         endpoint = request.endpoint or ""
         if endpoint in {"stock.get_stock", "crypto.get_crypto"}:
             analysis_mode = str(request.args.get("analysis", "full")).strip().lower()
-            if analysis_mode in {"search", "summary"}:
+            if request.args.get("prefetch", default=0, type=int) == 1:
+                category = "search"
+            elif analysis_mode in {"search", "summary"}:
                 category = "search"
             elif request.args.get("matchDetails", default=0, type=int) == 1:
                 category = "matched_detail"
