@@ -7545,16 +7545,17 @@ async function scanStarredWatchlist() {
           usageContext: 'dashboard-scan',
           usageBatchId: scanBatchId,
         })
-      const probability = getAnalysisUpsideProbability(data)
-      const currentPrice = Number(data?.stock?.currentPrice)
+      const calibratedData = applyNoobTradeProbabilityCalibration(data)
+      const probability = getAnalysisUpsideProbability(calibratedData)
+      const currentPrice = Number(calibratedData?.stock?.currentPrice)
 
       return {
         symbol,
         probability,
         price: Number.isFinite(currentPrice) ? formatCurrency(currentPrice) : '--',
-        signal: data?.patternAnalysis?.signalClassification || 'Generated',
-        matchedCount: Number(data?.patternAnalysis?.matchedPatternsCount || data?.patternAnalysis?.matchedHistoricalPatterns?.length || 0),
-        dataSource: data?.dataSource || 'live'
+        signal: calibratedData?.patternAnalysis?.signalClassification || 'Generated',
+        matchedCount: Number(calibratedData?.patternAnalysis?.matchedPatternsCount || calibratedData?.patternAnalysis?.matchedHistoricalPatterns?.length || 0),
+        dataSource: calibratedData?.dataSource || 'live'
       }
     }, symbols.length, applyScanResult)
 
@@ -8231,13 +8232,32 @@ function normalizeAnalysisResponseCollections(data) {
   }
 }
 
-function applyAnalysisResponse(data, isCryptoPage) {
+function applyNoobTradeProbabilityCalibration(data, matches = null) {
   const normalizedData = normalizeAnalysisResponseCollections(data)
+  if (normalizedData.patternAnalysis.probabilityCalibration?.method === 'similarity_weighted_v1') {
+    return normalizedData
+  }
+
+  const calibrationMatches = Array.isArray(matches)
+    ? matches
+    : normalizedData.patternAnalysis.matchedHistoricalPatterns
+
+  return {
+    ...normalizedData,
+    patternAnalysis: applySimilarityProbabilityCalibration(
+      normalizedData.patternAnalysis,
+      calibrationMatches,
+    ),
+  }
+}
+
+function applyAnalysisResponse(data, isCryptoPage) {
+  const normalizedData = applyNoobTradeProbabilityCalibration(data)
   if (isCryptoPage) {
     const incomingSymbol = String(normalizedData?.stock?.symbol || '').toUpperCase()
     const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
     cryptoResponse.value = incomingSymbol && incomingSymbol === currentSymbol
-      ? normalizeAnalysisResponseCollections(mergeStockChartData(cryptoResponse.value, normalizedData))
+      ? applyNoobTradeProbabilityCalibration(mergeStockChartData(cryptoResponse.value, normalizedData))
       : normalizedData
     symbolInput.value = normalizedData.stock.symbol
     return
@@ -8459,7 +8479,7 @@ async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion) {
       return
     }
 
-    cryptoResponse.value = normalizeAnalysisResponseCollections(
+    cryptoResponse.value = applyNoobTradeProbabilityCalibration(
       mergeStockChartData(cryptoResponse.value, data)
     )
   } catch (error) {
@@ -8561,18 +8581,13 @@ function mergeStockMatchedHistory(data, nasdaqAnalysis) {
     .sort((left, right) => Number(right.matchScore || 0) - Number(left.matchScore || 0))
     .slice(0, MATCHED_PATTERN_DISPLAY_LIMIT)
 
-  const patternAnalysis = applySimilarityProbabilityCalibration(
-    {
+  return applyNoobTradeProbabilityCalibration({
+    ...data,
+    patternAnalysis: {
       ...(data?.patternAnalysis || {}),
       matchedHistoricalPatterns,
     },
-    basePatterns,
-  )
-
-  return {
-    ...data,
-    patternAnalysis,
-  }
+  }, basePatterns)
 }
 
 function revealStockMatchDetailsProgressively(data, symbol, requestVersion) {

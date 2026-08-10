@@ -16,6 +16,7 @@ from urllib.parse import quote
 from sqlalchemy import create_engine, text
 
 from services.persistence_service import PersistenceService
+from services.probability_calibration_service import build_probability_calibration_summary
 
 try:
     import numpy as np
@@ -831,6 +832,7 @@ class CryptoPatternStoreService:
                 }
                 for match in matches
             ],
+            "probabilityCalibrationSummary": build_probability_calibration_summary(matches),
         }
         return analysis
 

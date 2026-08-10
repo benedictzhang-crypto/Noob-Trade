@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   applySimilarityProbabilityCalibration,
   buildSimilarityProbabilityCalibration,
+  buildSimilarityProbabilityCalibrationFromSummary,
   calculateSimilarityAdjustedProbability,
 } from '../../src/utils/similarityProbability.js'
 
@@ -59,6 +60,30 @@ test('uses only the 20 most similar matches even when 30 are displayed', () => {
 
   assert.equal(calibration.sampleSize, 20)
   assert.equal(calibration.samples.at(-1).similarityPercent, 81)
+})
+
+test('calibrates compact scan probabilities from the lightweight summary', () => {
+  const summary = {
+    sampleSize: 20,
+    top1Similarity: 70,
+    top10AverageSimilarity: 50,
+  }
+  const calibration = buildSimilarityProbabilityCalibrationFromSummary(summary)
+  const calibrated = applySimilarityProbabilityCalibration({
+    probabilityOfIncrease: 95,
+    probabilityOfDecrease: 40,
+    matchedPatternsCount: 20,
+    matchedHistoricalPatterns: [],
+    probabilityCalibrationSummary: summary,
+    futureFiveDayProbabilities: {
+      up: [{ threshold: 1, probability: 95 }],
+      down: [{ threshold: 1, probability: 40 }],
+    },
+  }, [])
+
+  assert.equal(calibration.confidenceFactorPercent, 77.9)
+  assert.equal(calibrated.probabilityOfIncrease, 74)
+  assert.equal(calibrated.probabilityCalibration.samples.length, 0)
 })
 
 test('applies calibrated ladders without mutating the raw analysis', () => {

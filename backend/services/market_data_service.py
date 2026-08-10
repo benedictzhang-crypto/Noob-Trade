@@ -18,6 +18,7 @@ from models.market_data import (
 )
 from services.alpaca_market_api_service import AlpacaMarketApiService
 from services.persistence_service import PersistenceService
+from services.probability_calibration_service import build_probability_calibration_summary
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
 from services.yahoo_market_api_service import YahooMarketApiService
 from services.mock_market_data_service import (
@@ -1085,6 +1086,9 @@ class MarketDataService:
         response.pop("_currentWindow", None)
         analysis = response.get("patternAnalysis")
         if isinstance(analysis, dict):
+            matches = analysis.get("matchedHistoricalPatterns") or []
+            if matches and not analysis.get("probabilityCalibrationSummary"):
+                analysis["probabilityCalibrationSummary"] = build_probability_calibration_summary(matches)
             analysis.pop("matchedHistoricalPatterns", None)
             analysis.pop("highFitHistoricalPaths", None)
         return response
@@ -1700,6 +1704,7 @@ class MarketDataService:
             "recommendedSellPrice": round(current_price * (1 + max(avg_up_touch, 0) / 100), 2),
             "recommendedSellDate": self._estimate_sell_date_from_last_date(interval, last_date),
             "stopLossPrice": round(current_price * (1 + min(avg_down_touch, 0) / 100), 2),
+            "probabilityCalibrationSummary": build_probability_calibration_summary(matched_patterns),
         }
         if compact_response:
             response["highFitHistoricalPaths"] = []
@@ -1807,6 +1812,7 @@ class MarketDataService:
             "recommendedSellPrice": round(current_price * (1 + max(average_return or 0, 0) / 100), 2),
             "recommendedSellDate": self._estimate_sell_date_from_last_date(interval, last_date),
             "stopLossPrice": round(current_price * (1 + min(average_drawdown or 0, 0) / 100), 2),
+            "probabilityCalibrationSummary": build_probability_calibration_summary(matched_patterns),
         }
         if compact_response:
             response["highFitHistoricalPaths"] = []
