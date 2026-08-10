@@ -8,13 +8,21 @@ from zoneinfo import ZoneInfo
 
 from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from extensions import db
-from models.auth import LoginActivity, LoginVerificationCode, UsageActivity, User
+from models.auth import LoginActivity, LoginVerificationCode, UsageActivity, User, UserWatchlist
 from services.email_service import EmailService
 from services.security_service import hash_secret, needs_rehash, verify_secret
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9]+$")
+WATCHLIST_SYMBOL_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,19}$")
+WATCHLIST_MARKETS = {"stock", "crypto"}
+DEFAULT_WATCHLIST_SYMBOLS = {
+    "stock": ["AAPL", "NVDA", "TSLA"],
+    "crypto": ["BTC", "ETH", "SOL", "OKB"],
+}
+MAX_WATCHLIST_SYMBOLS = 500
 
 
 def _utcnow():
@@ -268,6 +276,61 @@ def _session_response_payload():
         "user": _serialize_user(user),
         "adminUsers": None,
     }
+
+
+def _authenticated_owner_email():
+    session_payload = _session_response_payload()
+    if session_payload is None:
+        return None
+    return str(session_payload["user"].get("email") or "").strip().lower() or None
+
+
+def _normalize_watchlist_symbols(symbols):
+    if not isinstance(symbols, list):
+        return None
+
+    normalized = []
+    seen = set()
+    for symbol in symbols:
+        cleaned_symbol = str(symbol or "").strip().upper()
+        if not cleaned_symbol or not WATCHLIST_SYMBOL_PATTERN.fullmatch(cleaned_symbol):
+            continue
+        if cleaned_symbol in seen:
+            continue
+        seen.add(cleaned_symbol)
+        normalized.append(cleaned_symbol)
+        if len(normalized) >= MAX_WATCHLIST_SYMBOLS:
+            break
+
+    return normalized
+
+
+def _get_or_create_user_watchlists(owner_email):
+    rows = UserWatchlist.query.filter_by(owner_email=owner_email).all()
+    rows_by_market = {row.market: row for row in rows if row.market in WATCHLIST_MARKETS}
+    created = False
+
+    for market in WATCHLIST_MARKETS:
+        if market in rows_by_market:
+            continue
+        row = UserWatchlist(
+            owner_email=owner_email,
+            market=market,
+            symbols=list(DEFAULT_WATCHLIST_SYMBOLS[market]),
+        )
+        db.session.add(row)
+        rows_by_market[market] = row
+        created = True
+
+    if created:
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            rows = UserWatchlist.query.filter_by(owner_email=owner_email).all()
+            rows_by_market = {row.market: row for row in rows if row.market in WATCHLIST_MARKETS}
+
+    return rows_by_market
 
 
 def _ensure_user_is_active(user):
@@ -822,6 +885,46 @@ def auth_session():
             "csrfToken": session.get("csrf_token") or _issue_csrf_token(),
         }
     )
+
+
+@auth_blueprint.route("/watchlists", methods=["GET"])
+def get_watchlists():
+    owner_email = _authenticated_owner_email()
+    if owner_email is None:
+        return jsonify({"message": "Sign in to load saved symbols."}), 401
+
+    rows_by_market = _get_or_create_user_watchlists(owner_email)
+    return jsonify(
+        {
+            "watchlists": {
+                market: _normalize_watchlist_symbols(rows_by_market[market].symbols) or []
+                for market in sorted(WATCHLIST_MARKETS)
+            }
+        }
+    )
+
+
+@auth_blueprint.route("/watchlists/<market>", methods=["PUT"])
+def save_watchlist(market):
+    normalized_market = str(market or "").strip().lower()
+    if normalized_market not in WATCHLIST_MARKETS:
+        return jsonify({"message": "Unknown watchlist market."}), 404
+
+    owner_email = _authenticated_owner_email()
+    if owner_email is None:
+        return jsonify({"message": "Sign in to save symbols."}), 401
+
+    payload = request.get_json(silent=True) or {}
+    normalized_symbols = _normalize_watchlist_symbols(payload.get("symbols"))
+    if normalized_symbols is None:
+        return jsonify({"message": "Symbols must be provided as a list."}), 400
+
+    rows_by_market = _get_or_create_user_watchlists(owner_email)
+    row = rows_by_market[normalized_market]
+    row.symbols = normalized_symbols
+    db.session.commit()
+
+    return jsonify({"market": normalized_market, "symbols": normalized_symbols})
 
 
 @auth_blueprint.route("/logout", methods=["POST"])

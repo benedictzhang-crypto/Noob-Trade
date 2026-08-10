@@ -76,6 +76,27 @@ class UsageActivity(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now(), index=True)
 
 
+class UserWatchlist(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "user_watchlists"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    owner_email = db.Column(db.String(255), nullable=False, index=True)
+    market = db.Column(db.String(16), nullable=False)
+    symbols = db.Column(db.JSON, nullable=False, default=list)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=db.func.now(),
+        onupdate=db.func.now(),
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("owner_email", "market", name="uq_user_watchlists_owner_market"),
+    )
+
+
 class AssistantIntentFeedback(db.Model):
     __bind_key__ = "app"
     __tablename__ = "assistant_intent_feedback"

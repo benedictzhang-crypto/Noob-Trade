@@ -126,6 +126,7 @@ def ensure_auth_schema(app):
             "login_verification_codes",
             "login_activities",
             "usage_activities",
+            "user_watchlists",
         }
         if not required_tables.issubset(table_names):
             db.create_all()
@@ -154,7 +155,13 @@ def ensure_auth_postgres_sequences(app):
         if auth_engine.dialect.name != "postgresql":
             return
 
-        table_names = ("users", "login_verification_codes", "login_activities", "usage_activities")
+        table_names = (
+            "users",
+            "login_verification_codes",
+            "login_activities",
+            "usage_activities",
+            "user_watchlists",
+        )
 
         with auth_engine.begin() as connection:
             for table_name in table_names:

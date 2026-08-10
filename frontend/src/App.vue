@@ -16,6 +16,8 @@ const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
 const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
+const DEFAULT_STOCK_STARRED_SYMBOLS = Object.freeze(['AAPL', 'NVDA', 'TSLA'])
+const DEFAULT_CRYPTO_STARRED_SYMBOLS = Object.freeze(['BTC', 'ETH', 'SOL', 'OKB'])
 const STOCK_GENERATE_INTERVAL = 'daily'
 const CRYPTO_GENERATE_INTERVAL = 'daily'
 const CURRENT_STOCK_INDICATOR_NAMES = ['MA', 'EMA', 'MACD', 'BOLL', 'RSI', 'Vol', 'KDJ', 'OI', 'OBV']
@@ -928,8 +930,15 @@ const publicFeatureRows = [
   }
 ]
 
-const starredSymbols = ref(['AAPL', 'NVDA', 'TSLA'])
-const cryptoStarredSymbols = ref(['BTC', 'ETH', 'SOL', 'OKB'])
+const starredSymbols = ref([...DEFAULT_STOCK_STARRED_SYMBOLS])
+const cryptoStarredSymbols = ref([...DEFAULT_CRYPTO_STARRED_SYMBOLS])
+let savedWatchlistsOwner = ''
+let savedWatchlistsGeneration = 0
+let savedWatchlistsLoadPromise = null
+const savedWatchlistSaveQueues = {
+  stock: Promise.resolve(),
+  crypto: Promise.resolve()
+}
 
 const stockDashboardAnnouncements = [
   {
@@ -8955,12 +8964,118 @@ function isStarredSymbol(symbol) {
   return starredLookup.value.has(symbol)
 }
 
-function toggleStarredSymbol(symbol) {
+function normalizeSavedSymbols(symbols) {
+  if (!Array.isArray(symbols)) {
+    return []
+  }
+
+  return [...new Set(
+    symbols
+      .map((symbol) => String(symbol || '').trim().toUpperCase())
+      .filter(Boolean)
+  )]
+}
+
+function resetSavedWatchlists() {
+  savedWatchlistsGeneration += 1
+  savedWatchlistsOwner = ''
+  savedWatchlistsLoadPromise = null
+  savedWatchlistSaveQueues.stock = Promise.resolve()
+  savedWatchlistSaveQueues.crypto = Promise.resolve()
+  starredSymbols.value = [...DEFAULT_STOCK_STARRED_SYMBOLS]
+  cryptoStarredSymbols.value = [...DEFAULT_CRYPTO_STARRED_SYMBOLS]
+}
+
+async function loadSavedWatchlists(owner, generation) {
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/watchlists`, {
+      timeoutMs: 12000
+    })
+    const payload = await parseJsonResponse(response, 'Could not load saved symbols.')
+
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not load saved symbols.')
+    }
+
+    if (owner !== savedWatchlistsOwner || generation !== savedWatchlistsGeneration) {
+      return false
+    }
+
+    starredSymbols.value = normalizeSavedSymbols(payload.watchlists?.stock)
+    cryptoStarredSymbols.value = normalizeSavedSymbols(payload.watchlists?.crypto)
+    return true
+  } catch (error) {
+    console.warn('Could not restore saved symbols for this account.', error)
+    return false
+  }
+}
+
+function beginSavedWatchlistsSession(user) {
+  const owner = String(user?.email || '').trim().toLowerCase()
+  resetSavedWatchlists()
+
+  if (!owner) {
+    return
+  }
+
+  savedWatchlistsOwner = owner
+  const generation = savedWatchlistsGeneration
+  savedWatchlistsLoadPromise = loadSavedWatchlists(owner, generation)
+}
+
+async function waitForSavedWatchlists() {
+  if (savedWatchlistsLoadPromise) {
+    await savedWatchlistsLoadPromise
+  }
+}
+
+function queueSavedWatchlistWrite(market) {
+  const owner = savedWatchlistsOwner
+  const generation = savedWatchlistsGeneration
+  const symbols = market === 'crypto'
+    ? [...cryptoStarredSymbols.value]
+    : [...starredSymbols.value]
+
+  const previousWrite = savedWatchlistSaveQueues[market] || Promise.resolve()
+  const nextWrite = previousWrite
+    .catch(() => {})
+    .then(async () => {
+      if (!owner || owner !== savedWatchlistsOwner || generation !== savedWatchlistsGeneration) {
+        return false
+      }
+
+      const response = await secureFetch(`${API_BASE_URL}/auth/watchlists/${market}`, {
+        method: 'PUT',
+        timeoutMs: 12000,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ symbols })
+      })
+      const payload = await parseJsonResponse(response, 'Could not save starred symbols.')
+
+      if (!response.ok) {
+        throw new Error(payload.message || 'Could not save starred symbols.')
+      }
+      return true
+    })
+
+  savedWatchlistSaveQueues[market] = nextWrite
+  nextWrite.catch((error) => {
+    console.warn(`Could not save the ${market} watchlist.`, error)
+  })
+  return nextWrite
+}
+
+async function toggleStarredSymbol(symbol) {
   const cleanedSymbol = String(symbol || '').trim().toUpperCase()
 
   if (!cleanedSymbol) {
     return
   }
+
+  await waitForSavedWatchlists()
+  const market = isCryptoMode.value ? 'crypto' : 'stock'
 
   if (isStarredSymbol(cleanedSymbol)) {
     if (isCryptoMode.value) {
@@ -8968,6 +9083,7 @@ function toggleStarredSymbol(symbol) {
     } else {
       starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
     }
+    void queueSavedWatchlistWrite(market)
     return
   }
 
@@ -8976,14 +9092,19 @@ function toggleStarredSymbol(symbol) {
   } else {
     starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
   }
+  void queueSavedWatchlistWrite(market)
 }
 
-function setStarredSymbol(symbol, active = true) {
+async function setStarredSymbol(symbol, active = true) {
   const cleanedSymbol = String(symbol || '').trim().toUpperCase()
 
   if (!cleanedSymbol) {
     return false
   }
+
+  await waitForSavedWatchlists()
+  const market = isCryptoMode.value ? 'crypto' : 'stock'
+  let changed = false
 
   if (active && !isStarredSymbol(cleanedSymbol)) {
     if (isCryptoMode.value) {
@@ -8991,6 +9112,7 @@ function setStarredSymbol(symbol, active = true) {
     } else {
       starredSymbols.value = [...starredSymbols.value, cleanedSymbol]
     }
+    changed = true
   }
 
   if (!active && isStarredSymbol(cleanedSymbol)) {
@@ -8999,6 +9121,11 @@ function setStarredSymbol(symbol, active = true) {
     } else {
       starredSymbols.value = starredSymbols.value.filter((item) => item !== cleanedSymbol)
     }
+    changed = true
+  }
+
+  if (changed) {
+    void queueSavedWatchlistWrite(market)
   }
 
   return true
@@ -9615,7 +9742,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
 
   if (intent === 'set_star') {
     const targetSymbol = intentPayload.symbol || activeTradeResponse.value?.stock?.symbol || activeSymbol.value
-    if (setStarredSymbol(targetSymbol, intentPayload.active !== false)) {
+    if (await setStarredSymbol(targetSymbol, intentPayload.active !== false)) {
       setVoiceShortStatus(intentPayload.active === false ? 'starRemoved' : 'starAdded', { transcript: rawTranscript })
       return true
     }
@@ -9686,6 +9813,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
 function applyAuthenticatedState(user, message = '') {
   currentUser.value = user
   isAuthenticated.value = true
+  beginSavedWatchlistsSession(user)
   activePage.value = 'Dashboard'
   authMessage.value = message
   void loadCryptoExploreUniverse()
@@ -10188,6 +10316,7 @@ function signOut() {
   }).catch(() => {})
   isAuthenticated.value = false
   currentUser.value = null
+  resetSavedWatchlists()
   activePage.value = 'Home'
   authMessage.value = ''
   adminUsers.value = []
