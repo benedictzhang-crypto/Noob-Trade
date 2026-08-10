@@ -1,8 +1,9 @@
 const DEFAULT_SAMPLE_LIMIT = 20
+const COMPLETE_INDICATOR_SET = ['MA', 'EMA', 'MACD', 'BOLL', 'RSI', 'VOL', 'KDJ', 'OI', 'OBV']
 const TOP_MATCH_WEIGHT = 0.6
 const TOP_TEN_WEIGHT = 0.4
-const CONFIDENCE_FLOOR = 0.5
-const CONFIDENCE_RANGE = 0.45
+const CONFIDENCE_FLOOR = 0.92
+const CONFIDENCE_RANGE = 0.03
 
 function toFiniteNumber(value) {
   const numericValue = Number(value)
@@ -16,6 +17,11 @@ function clamp(value, minimum, maximum) {
 function round(value, digits = 1) {
   const multiplier = 10 ** digits
   return Math.round((value + Number.EPSILON) * multiplier) / multiplier
+}
+
+export function hasCompleteIndicatorSet(indicatorNames) {
+  const selected = new Set((indicatorNames || []).map((name) => String(name || '').trim().toUpperCase()))
+  return COMPLETE_INDICATOR_SET.every((name) => selected.has(name))
 }
 
 function buildCalibrationMetadata({ sampleSize, top1Similarity, top10AverageSimilarity, samples = [] }) {
@@ -35,7 +41,7 @@ function buildCalibrationMetadata({ sampleSize, top1Similarity, top10AverageSimi
   )
 
   return {
-    method: 'similarity_weighted_v1',
+    method: 'similarity_weighted_v2',
     sampleLimit: DEFAULT_SAMPLE_LIMIT,
     sampleSize: normalizedSampleSize,
     top1Similarity: round(normalizedTop1 * 100, 2),
@@ -201,5 +207,33 @@ export function applySimilarityProbabilityCalibration(patternAnalysis, matches, 
     futureFiveDayProbabilities: { up, down },
     matchedPatternsCount: calibration.sampleSize,
     probabilityCalibration: calibration,
+  }
+}
+
+export function applySimilarityProbabilityCalibrationForIndicators(patternAnalysis, matches, indicatorNames, options = {}) {
+  if (hasCompleteIndicatorSet(indicatorNames)) {
+    if (patternAnalysis?.probabilityCalibration?.method === 'similarity_weighted_v2') {
+      return patternAnalysis
+    }
+    return applySimilarityProbabilityCalibration(patternAnalysis, matches, options)
+  }
+
+  if (!patternAnalysis?.probabilityCalibration) {
+    return patternAnalysis
+  }
+
+  const {
+    probabilityCalibration: _probabilityCalibration,
+    rawProbabilityOfIncrease,
+    rawProbabilityOfDecrease,
+    rawFutureFiveDayProbabilities,
+    ...uncalibratedAnalysis
+  } = patternAnalysis
+
+  return {
+    ...uncalibratedAnalysis,
+    probabilityOfIncrease: rawProbabilityOfIncrease ?? uncalibratedAnalysis.probabilityOfIncrease,
+    probabilityOfDecrease: rawProbabilityOfDecrease ?? uncalibratedAnalysis.probabilityOfDecrease,
+    futureFiveDayProbabilities: rawFutureFiveDayProbabilities ?? uncalibratedAnalysis.futureFiveDayProbabilities,
   }
 }

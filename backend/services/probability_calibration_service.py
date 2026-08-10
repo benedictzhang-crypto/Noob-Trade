@@ -17,7 +17,7 @@ def build_probability_calibration_summary(matches, sample_limit=20):
 
     top_ten_scores = selected_scores[:10]
     return {
-        "method": "similarity_weighted_v1",
+        "method": "similarity_weighted_v2",
         "sampleSize": len(selected_scores),
         "top1Similarity": round(selected_scores[0], 2),
         "top10AverageSimilarity": round(mean(top_ten_scores), 2),

@@ -8,7 +8,7 @@ import IndicatorSelector from './components/IndicatorSelector.vue'
 import MatchedPatterns from './components/MatchedPatterns.vue'
 import PredictionSummary from './components/PredictionSummary.vue'
 import SearchBar from './components/SearchBar.vue'
-import { applySimilarityProbabilityCalibration } from './utils/similarityProbability.js'
+import { applySimilarityProbabilityCalibrationForIndicators } from './utils/similarityProbability.js'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
@@ -7545,7 +7545,7 @@ async function scanStarredWatchlist() {
           usageContext: 'dashboard-scan',
           usageBatchId: scanBatchId,
         })
-      const calibratedData = applyNoobTradeProbabilityCalibration(data)
+      const calibratedData = applyNoobTradeProbabilityCalibration(data, null, scanIndicators)
       const probability = getAnalysisUpsideProbability(calibratedData)
       const currentPrice = Number(calibratedData?.stock?.currentPrice)
 
@@ -8232,11 +8232,11 @@ function normalizeAnalysisResponseCollections(data) {
   }
 }
 
-function applyNoobTradeProbabilityCalibration(data, matches = null) {
+function applyNoobTradeProbabilityCalibration(data, matches = null, indicatorNames = null) {
   const normalizedData = normalizeAnalysisResponseCollections(data)
-  if (normalizedData.patternAnalysis.probabilityCalibration?.method === 'similarity_weighted_v1') {
-    return normalizedData
-  }
+  const selectedIndicators = Array.isArray(indicatorNames) && indicatorNames.length
+    ? indicatorNames
+    : (normalizedData.request?.indicators || normalizedData.patternAnalysis.selectedIndicators || [])
 
   const calibrationMatches = Array.isArray(matches)
     ? matches
@@ -8244,20 +8244,21 @@ function applyNoobTradeProbabilityCalibration(data, matches = null) {
 
   return {
     ...normalizedData,
-    patternAnalysis: applySimilarityProbabilityCalibration(
+    patternAnalysis: applySimilarityProbabilityCalibrationForIndicators(
       normalizedData.patternAnalysis,
       calibrationMatches,
+      selectedIndicators,
     ),
   }
 }
 
-function applyAnalysisResponse(data, isCryptoPage) {
-  const normalizedData = applyNoobTradeProbabilityCalibration(data)
+function applyAnalysisResponse(data, isCryptoPage, indicatorNames = null) {
+  const normalizedData = applyNoobTradeProbabilityCalibration(data, null, indicatorNames)
   if (isCryptoPage) {
     const incomingSymbol = String(normalizedData?.stock?.symbol || '').toUpperCase()
     const currentSymbol = String(cryptoResponse.value?.stock?.symbol || '').toUpperCase()
     cryptoResponse.value = incomingSymbol && incomingSymbol === currentSymbol
-      ? applyNoobTradeProbabilityCalibration(mergeStockChartData(cryptoResponse.value, normalizedData))
+      ? applyNoobTradeProbabilityCalibration(mergeStockChartData(cryptoResponse.value, normalizedData), null, indicatorNames)
       : normalizedData
     symbolInput.value = normalizedData.stock.symbol
     return
@@ -8383,7 +8384,7 @@ function buildLoginGenerateWarmKey(assetType, symbol, indicatorNames) {
 }
 
 async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVersion) {
-  const analysisIndicatorNames = isCryptoPage ? null : getSelectedIndicators()
+  const analysisIndicatorNames = getSelectedIndicators()
   const chartIntervalAtRequest = selectedChartInterval.value
   try {
     let data = isCryptoPage
@@ -8391,6 +8392,7 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
         analysisMode: 'full',
         compact: true,
         cacheResult: true,
+        indicatorNames: analysisIndicatorNames,
       })
       : await fetchStockAnalysis(symbol, {
         analysisMode: 'full',
@@ -8431,9 +8433,9 @@ async function refreshFullGenerateInBackground(symbol, isCryptoPage, requestVers
       return
     }
 
-    applyAnalysisResponse(data, isCryptoPage)
+    applyAnalysisResponse(data, isCryptoPage, analysisIndicatorNames)
     if (isCryptoPage) {
-      void refreshCryptoMatchDetailsInBackground(symbol, requestVersion)
+      void refreshCryptoMatchDetailsInBackground(symbol, requestVersion, analysisIndicatorNames)
     } else {
       void refreshStockMatchDetailsInBackground(symbol, requestVersion, analysisIndicatorNames)
     }
@@ -8456,7 +8458,7 @@ function isActiveCryptoGenerateRequest(symbol, requestVersion) {
   )
 }
 
-async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion) {
+async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion, indicatorNames) {
   if (!isActiveCryptoGenerateRequest(symbol, requestVersion)) {
     return
   }
@@ -8468,6 +8470,7 @@ async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion) {
       compact: false,
       matchDetails: true,
       cacheResult: false,
+      indicatorNames,
     })
 
     if (!isActiveCryptoGenerateRequest(symbol, requestVersion)) {
@@ -8480,7 +8483,9 @@ async function refreshCryptoMatchDetailsInBackground(symbol, requestVersion) {
     }
 
     cryptoResponse.value = applyNoobTradeProbabilityCalibration(
-      mergeStockChartData(cryptoResponse.value, data)
+      mergeStockChartData(cryptoResponse.value, data),
+      null,
+      indicatorNames,
     )
   } catch (error) {
     if (isActiveCryptoGenerateRequest(symbol, requestVersion)) {
@@ -8538,7 +8543,7 @@ function matchedPatternIdentity(pattern) {
   return symbol && date ? [symbol, timeframe, date].join('|') : ''
 }
 
-function mergeStockMatchedHistory(data, nasdaqAnalysis) {
+function mergeStockMatchedHistory(data, nasdaqAnalysis, indicatorNames) {
   const basePatterns = data?.patternAnalysis?.matchedHistoricalPatterns || []
   const nasdaqPatterns = nasdaqAnalysis?.matchedHistoricalPatterns || []
   const merged = new Map()
@@ -8587,7 +8592,7 @@ function mergeStockMatchedHistory(data, nasdaqAnalysis) {
       ...(data?.patternAnalysis || {}),
       matchedHistoricalPatterns,
     },
-  }, basePatterns)
+  }, basePatterns, indicatorNames)
 }
 
 function revealStockMatchDetailsProgressively(data, symbol, requestVersion) {
@@ -8663,7 +8668,7 @@ async function refreshStockMatchDetailsInBackground(symbol, requestVersion, indi
     }
 
     revealStockMatchDetailsProgressively(
-      mergeStockMatchedHistory(data, nasdaqAnalysis),
+      mergeStockMatchedHistory(data, nasdaqAnalysis, indicatorNames),
       symbol,
       requestVersion,
     )
@@ -10248,7 +10253,11 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       signOut()
     },
     applyResponse(responseData) {
-      stockResponse.value = responseData
+      stockResponse.value = applyNoobTradeProbabilityCalibration(
+        responseData,
+        null,
+        responseData?.request?.indicators,
+      )
       activeSymbol.value = responseData.stock.symbol
       symbolInput.value = responseData.stock.symbol
       selectedChartInterval.value = responseData.request.interval

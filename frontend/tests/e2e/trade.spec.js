@@ -108,6 +108,45 @@ test.describe('Analysis workspace', () => {
     await expect(page.getByText('Please enter a valid symbol, such as AAPL or BRK.B.')).toBeVisible()
   })
 
+  test('calibrates only complete indicator selections in the rendered summary', async ({ page }) => {
+    await page.goto('/')
+    await signInAndOpenAnalysis(page)
+
+    const buildResponse = (indicators, probability) => ({
+      dataSource: 'live',
+      request: { symbol: 'AAPL', interval: 'daily', indicators },
+      stock: { symbol: 'AAPL', companyName: 'Apple', currentPrice: 200 },
+      patternAnalysis: {
+        probabilityOfIncrease: probability,
+        probabilityOfDecrease: 40,
+        matchedPatternsCount: 20,
+        matchedHistoricalPatterns: [],
+        highFitHistoricalPaths: [],
+        probabilityCalibrationSummary: {
+          method: 'similarity_weighted_v2',
+          sampleSize: 20,
+          top1Similarity: 70,
+          top10AverageSimilarity: 50,
+        },
+        futureFiveDayProbabilities: {
+          up: [{ threshold: 1, probability }],
+          down: [{ threshold: 1, probability: 40 }],
+        },
+      },
+      chartData: { series: { daily: [] } },
+    })
+    const fullIndicators = ['MA', 'EMA', 'MACD', 'BOLL', 'RSI', 'Vol', 'KDJ', 'OI', 'OBV']
+
+    await page.evaluate((responseData) => window.__NOOB_TRADE_E2E__.applyResponse(responseData), buildResponse(fullIndicators, 100))
+    await expect(page.locator('.summary-hero h3')).toHaveText('93.9%')
+
+    await page.evaluate(
+      (responseData) => window.__NOOB_TRADE_E2E__.applyResponse(responseData),
+      buildResponse(fullIndicators.filter((name) => name !== 'OI'), 87.35),
+    )
+    await expect(page.locator('.summary-hero h3')).toHaveText('87%')
+  })
+
   test('shows a friendly error when the backend request fails', async ({ page }) => {
     await page.route('**/api/stock/**', async (route) => {
       await route.abort()

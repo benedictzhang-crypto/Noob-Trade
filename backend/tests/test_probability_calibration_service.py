@@ -9,7 +9,7 @@ class ProbabilityCalibrationSummaryTests(unittest.TestCase):
 
         summary = build_probability_calibration_summary(matches)
 
-        self.assertEqual(summary["method"], "similarity_weighted_v1")
+        self.assertEqual(summary["method"], "similarity_weighted_v2")
         self.assertEqual(summary["sampleSize"], 20)
         self.assertEqual(summary["top1Similarity"], 100.0)
         self.assertEqual(summary["top10AverageSimilarity"], 95.5)
