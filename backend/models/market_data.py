@@ -106,6 +106,90 @@ class PatternWindow(db.Model):
             "end_date",
             name="uq_pattern_windows_lookup",
         ),
+        db.Index(
+            "ix_pattern_windows_timeframe_window_end",
+            "timeframe",
+            "window_size",
+            db.desc("end_date"),
+            db.desc("id"),
+        ),
+    )
+
+
+class StrategyDailyPrice(db.Model):
+    __tablename__ = "strategy_daily_prices"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    strategy_key = db.Column(db.String(32), nullable=False)
+    symbol_id = db.Column(COMPAT_BIGINT, db.ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False)
+    trade_date = db.Column(db.Date, nullable=False)
+    open = db.Column(db.Numeric(18, 6), nullable=False)
+    high = db.Column(db.Numeric(18, 6), nullable=False)
+    low = db.Column(db.Numeric(18, 6), nullable=False)
+    close = db.Column(db.Numeric(18, 6), nullable=False)
+    adjusted_close = db.Column(db.Numeric(18, 6))
+    volume = db.Column(db.BigInteger)
+    source = db.Column(db.String(64), nullable=False, default="strategy_cache")
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "strategy_key",
+            "symbol_id",
+            "trade_date",
+            name="uq_strategy_daily_prices_lookup",
+        ),
+        db.Index(
+            "ix_strategy_daily_prices_symbol_date",
+            "strategy_key",
+            "symbol_id",
+            db.desc("trade_date"),
+        ),
+    )
+
+
+class StrategyPatternWindow(db.Model):
+    __tablename__ = "strategy_pattern_windows"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    strategy_key = db.Column(db.String(32), nullable=False)
+    symbol_id = db.Column(COMPAT_BIGINT, db.ForeignKey("symbols.id", ondelete="CASCADE"), nullable=False)
+    timeframe = db.Column(db.String(16), nullable=False)
+    window_size = db.Column(db.Integer, nullable=False)
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=False)
+    return_pct = db.Column(db.Numeric(12, 6))
+    avg_return = db.Column(db.Numeric(12, 6))
+    max_drawdown = db.Column(db.Numeric(12, 6))
+    volatility = db.Column(db.Numeric(12, 6))
+    probability_score = db.Column(db.Numeric(12, 6))
+    ma_slope = db.Column(db.Numeric(12, 6))
+    ema_slope = db.Column(db.Numeric(12, 6))
+    macd_trend = db.Column(db.Numeric(12, 6))
+    rsi_avg = db.Column(db.Numeric(12, 6))
+    rsi_min = db.Column(db.Numeric(12, 6))
+    rsi_max = db.Column(db.Numeric(12, 6))
+    volume_change_ratio = db.Column(db.Numeric(12, 6))
+    feature_vector = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "strategy_key",
+            "symbol_id",
+            "timeframe",
+            "window_size",
+            "end_date",
+            name="uq_strategy_pattern_windows_lookup",
+        ),
+        db.Index(
+            "ix_strategy_pattern_windows_recent",
+            "strategy_key",
+            "timeframe",
+            "window_size",
+            db.desc("end_date"),
+            db.desc("id"),
+        ),
     )
 
 

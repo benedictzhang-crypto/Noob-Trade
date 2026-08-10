@@ -9,7 +9,13 @@ from statistics import mean
 from urllib.parse import quote
 
 from config import Config
-from models.market_data import DailyPrice, PatternWindow, Symbol
+from models.market_data import (
+    DailyPrice,
+    PatternWindow,
+    StrategyDailyPrice,
+    StrategyPatternWindow,
+    Symbol,
+)
 from services.alpaca_market_api_service import AlpacaMarketApiService
 from services.persistence_service import PersistenceService
 from services.duke_market_api_service import DukeMarketApiService, DukeMarketApiUnavailable
@@ -651,6 +657,7 @@ class MarketDataService:
         indicators=None,
         deep_history=False,
         candidate_limit=None,
+        scoring_models=None,
     ):
         symbol_code = symbol.upper()
         symbol_record = Symbol.query.filter_by(symbol=symbol_code).first()
@@ -661,9 +668,39 @@ class MarketDataService:
         price_limit = max(self.PRODUCTION_PRICE_LIMIT, lookback_window + self.LIVE_FORWARD_DAYS + 10)
         minimum_candle_count = lookback_window + self.LIVE_FORWARD_DAYS + 1
         daily_candles = self._normalize_external_daily_candles(daily_candles_override)
+        requested_strategy_keys = []
+        if isinstance(scoring_models, dict):
+            for raw_model in scoring_models.values():
+                if not isinstance(raw_model, dict):
+                    continue
+                strategy_key = self._normalize_strategy_key(raw_model.get("strategyKey"))
+                candidate_symbols = raw_model.get("candidateSymbols")
+                if (
+                    strategy_key
+                    and (
+                        not isinstance(candidate_symbols, list)
+                        or symbol_code in {
+                            str(item or "").strip().upper()
+                            for item in candidate_symbols
+                        }
+                    )
+                    and strategy_key not in requested_strategy_keys
+                ):
+                    requested_strategy_keys.append(strategy_key)
 
         if len(daily_candles) < minimum_candle_count:
             price_records = self._load_cached_daily_prices(symbol_record, limit=price_limit)
+
+            if len(price_records) < minimum_candle_count:
+                for strategy_key in requested_strategy_keys:
+                    strategy_records = self._load_cached_strategy_daily_prices(
+                        symbol_record,
+                        strategy_key,
+                        limit=price_limit,
+                    )
+                    if len(strategy_records) >= minimum_candle_count:
+                        price_records = strategy_records
+                        break
 
             if len(price_records) < minimum_candle_count:
                 raise ValueError(f"Not enough cached price history for {symbol_code}.")
@@ -693,6 +730,7 @@ class MarketDataService:
 
         selected_indicators = indicators or ["MA", "EMA", "MACD", "BOLL", "RSI", "VOL", "KDJ", "OI", "OBV"]
         current_price_value = self._to_float(current_price) if current_price is not None else self._to_float(daily_candles[-1]["close"])
+        candidate_window_cache = {}
         if deep_history:
             live_match_summary = self._build_deep_pro_signal_summary(
                 symbol=symbol_code,
@@ -704,6 +742,7 @@ class MarketDataService:
                 indicators=selected_indicators,
                 compact_response=True,
                 candidate_limit=candidate_limit,
+                candidate_window_cache=candidate_window_cache,
             )
         else:
             live_match_summary = self._build_live_match_summary(
@@ -717,7 +756,43 @@ class MarketDataService:
                 compact_response=True,
             )
 
-        return {
+        strategy_analyses = {}
+        if deep_history and isinstance(scoring_models, dict):
+            for raw_model_name, raw_model in list(scoring_models.items())[:6]:
+                model_name = str(raw_model_name or "").strip()[:64]
+                if not model_name or not isinstance(raw_model, dict):
+                    continue
+                raw_candidate_symbols = raw_model.get("candidateSymbols")
+                strategy_key = self._normalize_strategy_key(raw_model.get("strategyKey"))
+                candidate_symbols = None
+                if isinstance(raw_candidate_symbols, list):
+                    candidate_symbols = []
+                    seen_symbols = set()
+                    for raw_symbol in raw_candidate_symbols[:100]:
+                        candidate_symbol = str(raw_symbol or "").strip().upper()
+                        if not candidate_symbol or candidate_symbol in seen_symbols:
+                            continue
+                        candidate_symbols.append(candidate_symbol)
+                        seen_symbols.add(candidate_symbol)
+                strategy_analyses[model_name] = self._build_deep_pro_signal_summary(
+                    symbol=symbol_code,
+                    interval=interval,
+                    lookback_window=lookback_window,
+                    daily_candles=daily_candles,
+                    current_price=current_price_value,
+                    last_date=daily_candles[-1]["date"] if daily_candles else None,
+                    indicators=selected_indicators,
+                    compact_response=True,
+                    candidate_limit=candidate_limit,
+                    indicator_weights=raw_model.get("indicatorWeights"),
+                    indicator_fit_weight=raw_model.get("indicatorFitWeight"),
+                    path_weight=raw_model.get("pathWeight"),
+                    candidate_symbols=candidate_symbols,
+                    candidate_window_cache=candidate_window_cache,
+                    strategy_key=strategy_key,
+                )
+
+        response = {
             "status": "ok",
             "symbol": symbol_code,
             "companyName": symbol_record.company_name or symbol_code,
@@ -725,6 +800,9 @@ class MarketDataService:
             "currentPrice": current_price_value,
             "patternAnalysis": live_match_summary,
         }
+        if strategy_analyses:
+            response["strategyAnalyses"] = strategy_analyses
+        return response
 
     def _normalize_external_daily_candles(self, daily_candles):
         if not isinstance(daily_candles, list):
@@ -1655,6 +1733,12 @@ class MarketDataService:
         indicators,
         compact_response=False,
         candidate_limit=None,
+        indicator_weights=None,
+        indicator_fit_weight=None,
+        path_weight=None,
+        candidate_symbols=None,
+        candidate_window_cache=None,
+        strategy_key=None,
     ):
         prepared_candles = self.persistence_service._prepare_candles(daily_candles)
         current_window = self._build_current_window_snapshot(prepared_candles, interval, lookback_window)
@@ -1662,12 +1746,35 @@ class MarketDataService:
             return self._empty_live_match_summary(interval, last_date, current_price)
 
         max_candidates = max(20, int(candidate_limit or self.PRO_SIGNAL_DEEP_CANDIDATE_LIMIT))
-        candidate_windows = self._load_recent_pro_signal_candidates(current_window, max_candidates)
+        candidate_key = (
+            current_window.timeframe,
+            current_window.window_size,
+            current_window.end_date,
+            max_candidates,
+            strategy_key,
+            tuple(candidate_symbols or self.top_50_symbols),
+        )
+        candidate_windows = None
+        if isinstance(candidate_window_cache, dict):
+            candidate_windows = candidate_window_cache.get(candidate_key)
+        if candidate_windows is None:
+            candidate_windows = self._load_recent_pro_signal_candidates(
+                current_window,
+                max_candidates,
+                candidate_symbols=candidate_symbols,
+                strategy_key=strategy_key,
+            )
+            if isinstance(candidate_window_cache, dict):
+                candidate_window_cache[candidate_key] = candidate_windows
         matched_patterns = self._rank_pro_signal_candidates(
             current_window=current_window,
             candidate_windows=candidate_windows,
             indicators=indicators,
             compact_response=compact_response,
+            indicator_weights=indicator_weights,
+            indicator_fit_weight=indicator_fit_weight,
+            path_weight=path_weight,
+            strategy_key=strategy_key,
         )
         if not matched_patterns:
             return self._empty_live_match_summary(interval, last_date, current_price)
@@ -1705,25 +1812,45 @@ class MarketDataService:
             ]
         return response
 
-    def _load_recent_pro_signal_candidates(self, current_window, limit):
-        query = PatternWindow.query.filter(
-            PatternWindow.timeframe == current_window.timeframe,
-            PatternWindow.window_size == current_window.window_size,
+    def _load_recent_pro_signal_candidates(
+        self,
+        current_window,
+        limit,
+        candidate_symbols=None,
+        strategy_key=None,
+    ):
+        window_model = StrategyPatternWindow if strategy_key else PatternWindow
+        query = window_model.query.filter(
+            window_model.timeframe == current_window.timeframe,
+            window_model.window_size == current_window.window_size,
         )
-        if self.top_50_symbols:
+        if strategy_key:
+            query = query.filter(window_model.strategy_key == strategy_key)
+        selected_candidate_symbols = tuple(candidate_symbols or self.top_50_symbols)
+        if selected_candidate_symbols:
             query = query.join(
                 Symbol,
-                Symbol.id == PatternWindow.symbol_id,
-            ).filter(Symbol.symbol.in_(self.top_50_symbols))
+                Symbol.id == window_model.symbol_id,
+            ).filter(Symbol.symbol.in_(selected_candidate_symbols))
         if getattr(current_window, "end_date", None) is not None:
-            query = query.filter(PatternWindow.end_date < current_window.end_date)
+            query = query.filter(window_model.end_date < current_window.end_date)
 
         return query.order_by(
-            PatternWindow.end_date.desc(),
-            PatternWindow.id.desc(),
+            window_model.end_date.desc(),
+            window_model.id.desc(),
         ).limit(limit).all()
 
-    def _rank_pro_signal_candidates(self, current_window, candidate_windows, indicators, compact_response=False):
+    def _rank_pro_signal_candidates(
+        self,
+        current_window,
+        candidate_windows,
+        indicators,
+        compact_response=False,
+        indicator_weights=None,
+        indicator_fit_weight=None,
+        path_weight=None,
+        strategy_key=None,
+    ):
         if not candidate_windows:
             return []
 
@@ -1734,8 +1861,15 @@ class MarketDataService:
                 candidate,
                 indicators,
                 include_breakdown=False,
+                indicator_weights=indicator_weights,
+                indicator_fit_weight=indicator_fit_weight,
+                path_weight=path_weight,
             )
-            future_stats_5d = self.persistence_service._cached_forward_extremes(candidate, trading_days=5)
+            future_stats_5d = (
+                self._strategy_forward_extremes(candidate, strategy_key, trading_days=5)
+                if strategy_key
+                else self.persistence_service._cached_forward_extremes(candidate, trading_days=5)
+            )
             score["future_stats_5d"] = future_stats_5d
             score["future_return_5d"] = future_stats_5d.get("maxUpPct")
             score["future_drawdown_5d"] = future_stats_5d.get("maxDownPct")
@@ -1781,6 +1915,65 @@ class MarketDataService:
             )
 
         return response_matches
+
+    def _normalize_strategy_key(self, raw_strategy_key):
+        normalized = str(raw_strategy_key or "").strip().lower()
+        if not normalized or len(normalized) > 32:
+            return None
+        if not all(character.isalnum() or character in {"_", "-"} for character in normalized):
+            return None
+        return normalized
+
+    def _load_cached_strategy_daily_prices(self, symbol_record, strategy_key, limit=None):
+        query = StrategyDailyPrice.query.filter_by(
+            strategy_key=strategy_key,
+            symbol_id=symbol_record.id,
+        ).order_by(StrategyDailyPrice.trade_date.desc())
+        records = query.limit(limit).all() if limit else query.all()
+        return list(reversed(records))
+
+    def _strategy_forward_extremes(self, window_record, strategy_key, trading_days=5):
+        feature_vector = window_record.feature_vector or {}
+        cached_value = (feature_vector.get("forwardExtremes") or {}).get(f"{trading_days}d")
+        if isinstance(cached_value, dict) and (
+            cached_value.get("_resolved")
+            or any(
+                cached_value.get(key) is not None
+                for key in ("maxUpPct", "maxDownPct", "targetPrice", "riskPrice")
+            )
+        ):
+            return {
+                "maxUpPct": self.persistence_service._to_response_number(cached_value.get("maxUpPct")),
+                "maxDownPct": self.persistence_service._to_response_number(cached_value.get("maxDownPct")),
+                "targetPrice": self.persistence_service._to_response_number(cached_value.get("targetPrice")),
+                "riskPrice": self.persistence_service._to_response_number(cached_value.get("riskPrice")),
+            }
+
+        end_price = StrategyDailyPrice.query.filter_by(
+            strategy_key=strategy_key,
+            symbol_id=window_record.symbol_id,
+            trade_date=window_record.end_date,
+        ).first()
+        if end_price is None or end_price.close in (None, 0):
+            return self._empty_forward_stat()
+        future_prices = StrategyDailyPrice.query.filter(
+            StrategyDailyPrice.strategy_key == strategy_key,
+            StrategyDailyPrice.symbol_id == window_record.symbol_id,
+            StrategyDailyPrice.trade_date > window_record.end_date,
+        ).order_by(StrategyDailyPrice.trade_date.asc()).limit(trading_days).all()
+        if len(future_prices) < trading_days:
+            return self._empty_forward_stat()
+        future_high = max((float(price.high) for price in future_prices if price.high is not None), default=None)
+        future_low = min((float(price.low) for price in future_prices if price.low is not None), default=None)
+        base_close = float(end_price.close)
+        if base_close == 0 or future_high is None or future_low is None:
+            return self._empty_forward_stat()
+        return {
+            "maxUpPct": round(((future_high - base_close) / base_close) * 100, 6),
+            "maxDownPct": round(((future_low - base_close) / base_close) * 100, 6),
+            "targetPrice": round(future_high, 6),
+            "riskPrice": round(future_low, 6),
+        }
 
     def _empty_live_match_summary(self, interval, last_date, current_price):
         return {
