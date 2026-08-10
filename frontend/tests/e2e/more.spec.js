@@ -10,7 +10,7 @@ test.describe('More page', () => {
     await expect(page.getByText('About NoobTrade')).toBeVisible()
     await expect(page.getByText('What the platform helps with')).toBeVisible()
     await expect(page.getByText('Write to the team')).toBeVisible()
-    await expect(page.getByRole('link', { name: 'benedictzhang01@gmail.com' })).toHaveCount(2)
+    await expect(page.getByRole('link', { name: 'contact@amplialpha.com' })).toHaveCount(2)
     await expect(page.getByRole('link', { name: '@NoobTrade123 on X' })).toBeVisible()
   })
 })

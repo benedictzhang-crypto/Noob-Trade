@@ -782,7 +782,7 @@ const usagePaywall = ref({
 const usagePaywallUpgradeHref = computed(() => {
   const subject = encodeURIComponent('NoobTrade Pro unlimited requests')
   const body = encodeURIComponent('Hi, I want to upgrade to NoobTrade Pro at $29.99/month for unlimited requests.')
-  return `mailto:benedictzhang01@gmail.com?subject=${subject}&body=${body}`
+  return `mailto:contact@amplialpha.com?subject=${subject}&body=${body}`
 })
 
 let feedRefreshTimer = null
@@ -1041,8 +1041,8 @@ const cryptoMoreFeatures = [
 ]
 
 const feedbackChannels = [
-  { label: 'Feedback Email', value: 'benedictzhang01@gmail.com', href: 'mailto:benedictzhang01@gmail.com' },
-  { label: 'Research Requests', value: 'benedictzhang01@gmail.com', href: 'mailto:benedictzhang01@gmail.com' },
+  { label: 'Feedback Email', value: 'contact@amplialpha.com', href: 'mailto:contact@amplialpha.com' },
+  { label: 'Research Requests', value: 'contact@amplialpha.com', href: 'mailto:contact@amplialpha.com' },
   {
     label: 'Product Notes',
     value: '@NoobTrade123 on X',
