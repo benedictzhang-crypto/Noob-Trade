@@ -17,6 +17,11 @@ const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const STOCK_GENERATE_INTERVAL = 'daily'
 const CRYPTO_GENERATE_INTERVAL = 'daily'
+const CURRENT_STOCK_INDICATOR_NAMES = ['MA', 'EMA', 'MACD', 'BOLL', 'RSI', 'Vol', 'KDJ', 'OI', 'OBV']
+const CURRENT_STOCK_SCORING_PROFILE = 'paper_weighted'
+const NASDAQ_HISTORY_MODEL_KEY = 'noobtrade_nasdaq_history'
+const NASDAQ_HISTORY_STRATEGY_KEY = 'nq8'
+const MATCHED_PATTERN_DISPLAY_LIMIT = 30
 const GENERATE_WARM_RETRY_ATTEMPTS = 8
 const STOCK_CHART_PREFETCH_INTERVALS = ['1min', '5min', '15min', '30min', '1hour', 'monthly']
 const CHART_SERIES_MINIMUM_BARS = {
@@ -804,11 +809,11 @@ const indicators = ref([
   { name: 'EMA', active: true },
   { name: 'MACD', active: true },
   { name: 'BOLL', active: true },
-  { name: 'RSI', active: false },
+  { name: 'RSI', active: true },
   { name: 'Vol', active: true },
-  { name: 'KDJ', active: false },
-  { name: 'OI', active: false },
-  { name: 'OBV', active: false }
+  { name: 'KDJ', active: true },
+  { name: 'OI', active: true },
+  { name: 'OBV', active: true }
 ])
 
 const stockResponse = ref(createDefaultResponse())
@@ -7173,7 +7178,7 @@ async function handleVoiceCommand(rawTranscript) {
   }
 
   if (includesVoicePhrase(command, ['reset indicators', 'default indicators', 'restore indicators', '重置指标', '默认指标', 'restablecer indicadores', 'indicadores predeterminados', 'retablir indicateurs', 'réinitialiser indicateurs'])) {
-    const defaultSelected = new Set(['MA', 'EMA', 'MACD', 'BOLL', 'VOL'])
+    const defaultSelected = new Set(CURRENT_STOCK_INDICATOR_NAMES.map((name) => name.toUpperCase()))
     indicators.value = indicators.value.map((indicator) => ({
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())
@@ -7832,6 +7837,41 @@ async function fetchStockAnalysis(symbol, { analysisMode = 'full', compact = fal
   return data
 }
 
+async function fetchNasdaqMatchedHistory(symbol, indicatorNames) {
+  const cleanedSymbol = normalizeTradeSymbolInput(symbol)
+  const currentStock = stockResponse.value?.stock || {}
+  const currentDailyCandles = stockResponse.value?.chartData?.series?.daily || []
+  const payload = {
+    interval: STOCK_GENERATE_INTERVAL,
+    lookback: 30,
+    currentPrice: currentStock.currentPrice,
+    dailyCandles: currentDailyCandles.slice(-160),
+    indicators: indicatorNames,
+    deepHistory: true,
+    candidateLimit: 2000,
+    includeMatchDetails: true,
+    scoringModels: {
+      [NASDAQ_HISTORY_MODEL_KEY]: {
+        strategyKey: NASDAQ_HISTORY_STRATEGY_KEY,
+        scoringProfile: CURRENT_STOCK_SCORING_PROFILE,
+      },
+    },
+  }
+  const response = await fetchWithDatabaseWarmRetry(
+    `${API_BASE_URL}/pro-signal/${encodeURIComponent(cleanedSymbol)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      timeoutMs: 35000,
+    },
+    `${cleanedSymbol} Nasdaq matched history is not accessible right now.`,
+    3,
+  )
+  const data = await response.json()
+  return data?.strategyAnalyses?.[NASDAQ_HISTORY_MODEL_KEY] || null
+}
+
 async function fetchStockChartData(symbol, interval) {
   const cleanedSymbol = normalizeTradeSymbolInput(symbol)
   const cacheKey = `${cleanedSymbol}|${interval}`
@@ -8470,6 +8510,65 @@ function buildStockResponseWithVisibleMatches(data, visiblePatterns, visiblePath
   }
 }
 
+function matchedPatternIdentity(pattern) {
+  const symbol = String(pattern?.symbol || '').trim().toUpperCase()
+  const timeframe = String(pattern?.timeframe || '').trim().toUpperCase()
+  const date = String(pattern?.date || '').trim().toUpperCase()
+  return symbol && date ? [symbol, timeframe, date].join('|') : ''
+}
+
+function mergeStockMatchedHistory(data, nasdaqAnalysis) {
+  const basePatterns = data?.patternAnalysis?.matchedHistoricalPatterns || []
+  const nasdaqPatterns = nasdaqAnalysis?.matchedHistoricalPatterns || []
+  const merged = new Map()
+
+  for (const [patterns, sourceUniverse] of [
+    [basePatterns, 'S&P 500'],
+    [nasdaqPatterns, 'Nasdaq 100'],
+  ]) {
+    for (const rawPattern of patterns) {
+      const identity = matchedPatternIdentity(rawPattern)
+      if (!identity) {
+        continue
+      }
+
+      const candidate = { ...rawPattern, sourceUniverse }
+      const existing = merged.get(identity)
+      if (!existing) {
+        merged.set(identity, candidate)
+        continue
+      }
+
+      const preferred = Number(candidate.matchScore || 0) > Number(existing.matchScore || 0)
+        ? candidate
+        : existing
+      const alternate = preferred === candidate ? existing : candidate
+      merged.set(identity, {
+        ...preferred,
+        sourceUniverse: 'S&P 500 / Nasdaq 100',
+        historicalCandles: preferred.historicalCandles?.length
+          ? preferred.historicalCandles
+          : (alternate.historicalCandles || []),
+        futureCandles: preferred.futureCandles?.length
+          ? preferred.futureCandles
+          : (alternate.futureCandles || []),
+      })
+    }
+  }
+
+  const matchedHistoricalPatterns = [...merged.values()]
+    .sort((left, right) => Number(right.matchScore || 0) - Number(left.matchScore || 0))
+    .slice(0, MATCHED_PATTERN_DISPLAY_LIMIT)
+
+  return {
+    ...data,
+    patternAnalysis: {
+      ...(data?.patternAnalysis || {}),
+      matchedHistoricalPatterns,
+    },
+  }
+}
+
 function revealStockMatchDetailsProgressively(data, symbol, requestVersion) {
   clearStockMatchDetailReveal({ resetLoading: false })
 
@@ -8518,13 +8617,19 @@ async function refreshStockMatchDetailsInBackground(symbol, requestVersion, indi
 
   isMatchDetailsLoading.value = true
   try {
-    const data = await fetchStockAnalysis(symbol, {
-      analysisMode: 'full',
-      compact: true,
-      matchDetails: true,
-      cacheResult: false,
-      indicatorNames,
-    })
+    const [data, nasdaqAnalysis] = await Promise.all([
+      fetchStockAnalysis(symbol, {
+        analysisMode: 'full',
+        compact: true,
+        matchDetails: true,
+        cacheResult: false,
+        indicatorNames,
+      }),
+      fetchNasdaqMatchedHistory(symbol, indicatorNames).catch((error) => {
+        console.warn('Nasdaq matched history could not finish.', error)
+        return null
+      }),
+    ])
 
     const responseSymbol = String(data?.stock?.symbol || '').toUpperCase()
     if (!isActiveStockGenerateRequest(symbol, requestVersion)) {
@@ -8536,7 +8641,11 @@ async function refreshStockMatchDetailsInBackground(symbol, requestVersion, indi
       return
     }
 
-    revealStockMatchDetailsProgressively(data, symbol, requestVersion)
+    revealStockMatchDetailsProgressively(
+      mergeStockMatchedHistory(data, nasdaqAnalysis),
+      symbol,
+      requestVersion,
+    )
   } catch (error) {
     if (isActiveStockGenerateRequest(symbol, requestVersion)) {
       console.warn('Stock matched history details could not finish.', error)
@@ -9493,7 +9602,7 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
   }
 
   if (intent === 'reset_indicators') {
-    const defaultSelected = new Set(['MA', 'EMA', 'MACD', 'BOLL', 'VOL'])
+    const defaultSelected = new Set(CURRENT_STOCK_INDICATOR_NAMES.map((name) => name.toUpperCase()))
     indicators.value = indicators.value.map((indicator) => ({
       ...indicator,
       active: defaultSelected.has(String(indicator.name).toUpperCase())

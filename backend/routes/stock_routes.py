@@ -446,6 +446,7 @@ def get_pro_signal(symbol):
     daily_candles = payload.get("dailyCandles")
     raw_indicators = payload.get("indicators") or current_app.config["DEFAULT_INDICATORS"]
     deep_history = bool(payload.get("deepHistory"))
+    include_match_details = bool(payload.get("includeMatchDetails") or payload.get("matchDetails"))
     scoring_models = payload.get("scoringModels")
     raw_candidate_limit = payload.get("candidateLimit")
     try:
@@ -466,6 +467,7 @@ def get_pro_signal(symbol):
             deep_history=deep_history,
             candidate_limit=candidate_limit,
             scoring_models=scoring_models if isinstance(scoring_models, dict) else None,
+            include_match_details=include_match_details,
         )
         return jsonify(response_data)
     except Exception as error:

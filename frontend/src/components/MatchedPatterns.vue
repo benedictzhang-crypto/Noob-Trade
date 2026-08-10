@@ -171,7 +171,7 @@ const detailTicks = computed(() => {
 })
 
 function patternKey(pattern) {
-  return `${pattern.symbol}-${pattern.timeframe}-${pattern.date}-${pattern.patternName}`
+  return `${pattern.symbol}-${pattern.timeframe}-${pattern.date}-${pattern.patternName}-${pattern.sourceUniverse || ''}`
 }
 
 function selectPattern(pattern) {
@@ -218,7 +218,8 @@ function getSelectedPatternSummary() {
     matchScore: selectedPattern.value.matchScore,
     returnPct: selectedPattern.value.returnPct,
     maxDrawdown: selectedPattern.value.maxDrawdown,
-    futureReturn5d: selectedPattern.value.futureReturn5d
+    futureReturn5d: selectedPattern.value.futureReturn5d,
+    sourceUniverse: selectedPattern.value.sourceUniverse
   }
 }
 
@@ -335,7 +336,9 @@ function getCandleWidth(count) {
         <div class="match-main">
           <div>
             <p class="match-name">{{ pattern.patternName }}</p>
-            <p class="match-meta">{{ pattern.symbol }} · {{ pattern.timeframe }}</p>
+            <p class="match-meta">
+              {{ pattern.symbol }} · {{ pattern.timeframe }}<template v-if="pattern.sourceUniverse"> · {{ pattern.sourceUniverse }}</template>
+            </p>
           </div>
           <strong class="match-score">{{ pattern.matchScore }}%</strong>
         </div>
@@ -372,7 +375,9 @@ function getCandleWidth(count) {
         <div>
           <p class="match-detail-eyebrow">Selected Historical Window</p>
           <h3>{{ selectedPattern.patternName }}</h3>
-          <p class="match-detail-meta">{{ selectedPattern.symbol }} · {{ selectedPattern.timeframe }}</p>
+          <p class="match-detail-meta">
+            {{ selectedPattern.symbol }} · {{ selectedPattern.timeframe }}<template v-if="selectedPattern.sourceUniverse"> · {{ selectedPattern.sourceUniverse }}</template>
+          </p>
         </div>
         <strong class="match-detail-score">{{ selectedPattern.matchScore }}%</strong>
       </div>
