@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { calculateSimilarityAdjustedProbability } from '../utils/similarityProbability.js'
 
 const props = defineProps({
   requestData: {
@@ -49,7 +50,7 @@ function formatProbabilityLabel(value) {
     return 'Not scored yet'
   }
 
-  return `${numericValue.toFixed(0)}%`
+  return `${numericValue.toFixed(props.analysisData.probabilityCalibration ? 1 : 0)}%`
 }
 
 function formatPrice(value) {
@@ -88,7 +89,8 @@ function findThresholdProbability(side, threshold) {
     return calculateDynamicProbability(side, threshold).replace(/\.0%$/, '%')
   }
 
-  return Number(matched.probability).toFixed(0) + '%'
+  const digits = props.analysisData.probabilityCalibration ? 1 : 0
+  return Number(matched.probability).toFixed(digits) + '%'
 }
 
 function getNumericProbability(value) {
@@ -156,6 +158,17 @@ function formatThreshold(value) {
 
 function calculateDynamicProbabilityValue(side, threshold) {
   const safeThreshold = Math.max(1, Number(threshold) || 1)
+  const calibration = props.analysisData.probabilityCalibration
+
+  if (calibration?.samples?.length) {
+    return calculateSimilarityAdjustedProbability(
+      calibration.samples,
+      side,
+      safeThreshold,
+      calibration.confidenceFactor,
+    )?.probability ?? null
+  }
+
   const totalWeight = matchedPatterns.value.reduce((sum, match) => {
     const weight = Number(match.quantSelectedPercent || match.matchScore || 0)
     return sum + Math.max(weight, 0)
@@ -257,9 +270,8 @@ defineExpose({
           <p class="summary-label">5D Probability Of Reaching +1%</p>
           <h3>{{ headlineProbabilityLabel }}</h3>
           <p v-if="hasHeadlineProbability" class="summary-disclaimer">
-            This result is based on the {{ matchedPatternCount }} most similar historical setups. We measure how often price touched upside and
-            downside thresholds within the following 5 trading days. The upside and downside probabilities can both be
-            triggered by the same 5-day path.
+            This result is based on the {{ matchedPatternCount }} most similar historical setups. Historical touch rates are discounted when the
+            current setup is less similar to those matches. Upside and downside probabilities can both be triggered by the same 5-day path.
           </p>
           <p v-else class="summary-disclaimer">
             Search loads live market data only. Generate to score probabilities and matched historical setups.

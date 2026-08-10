@@ -8,6 +8,7 @@ import IndicatorSelector from './components/IndicatorSelector.vue'
 import MatchedPatterns from './components/MatchedPatterns.vue'
 import PredictionSummary from './components/PredictionSummary.vue'
 import SearchBar from './components/SearchBar.vue'
+import { applySimilarityProbabilityCalibration } from './utils/similarityProbability.js'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
@@ -8560,12 +8561,17 @@ function mergeStockMatchedHistory(data, nasdaqAnalysis) {
     .sort((left, right) => Number(right.matchScore || 0) - Number(left.matchScore || 0))
     .slice(0, MATCHED_PATTERN_DISPLAY_LIMIT)
 
-  return {
-    ...data,
-    patternAnalysis: {
+  const patternAnalysis = applySimilarityProbabilityCalibration(
+    {
       ...(data?.patternAnalysis || {}),
       matchedHistoricalPatterns,
     },
+    basePatterns,
+  )
+
+  return {
+    ...data,
+    patternAnalysis,
   }
 }
 
