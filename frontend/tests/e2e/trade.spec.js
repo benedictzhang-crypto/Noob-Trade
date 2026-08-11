@@ -44,6 +44,34 @@ test.describe('Analysis workspace', () => {
     await expect(page.getByText('Target Price')).toBeVisible()
     await expect(page.getByText('Matched Historical Patterns')).toBeVisible()
 
+    await page.locator('.match-row--interactive').first().click()
+    const replayModal = page.locator('.replay-modal')
+    const replayChart = replayModal.locator('.chart-main-shell')
+    await expect(replayModal).toBeVisible()
+    await expect(replayChart).toBeVisible()
+
+    const replayScrollStyles = await replayModal.evaluate((element) => {
+      const styles = window.getComputedStyle(element)
+      return {
+        overflowY: styles.overflowY,
+        touchAction: styles.touchAction,
+      }
+    })
+    expect(replayScrollStyles.overflowY).toBe('auto')
+    expect(replayScrollStyles.touchAction).toContain('pan-y')
+
+    const ordinaryWheelPrevented = await replayChart.evaluate((element) => {
+      const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 120 })
+      return !element.dispatchEvent(event)
+    })
+    const zoomWheelPrevented = await replayChart.evaluate((element) => {
+      const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: -120 })
+      return !element.dispatchEvent(event)
+    })
+    expect(ordinaryWheelPrevented).toBeFalsy()
+    expect(zoomWheelPrevented).toBeTruthy()
+    await replayModal.getByRole('button', { name: 'Close' }).click()
+
     await setInterval(page, 'weekly')
     await expect(page.getByText('Weekly Candles')).toBeVisible()
 

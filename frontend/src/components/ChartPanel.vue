@@ -540,7 +540,7 @@ function updateViewport(nextVisibleCount, anchorRatio = 0.5) {
 function handleWheel(event) {
   const total = fullCandles.value.length
 
-  if (!total || !chartViewportRef.value) {
+  if (!total || !chartViewportRef.value || (!event.ctrlKey && !event.metaKey)) {
     return
   }
 
@@ -569,7 +569,11 @@ function resetView() {
 }
 
 function handlePointerDown(event) {
-  if (!chartViewportRef.value || fullCandles.value.length <= visibleBarCount.value) {
+  if (
+    event.pointerType === 'touch'
+    || !chartViewportRef.value
+    || fullCandles.value.length <= visibleBarCount.value
+  ) {
     return
   }
 
@@ -1393,7 +1397,7 @@ function getBarOpacity() {
     <div class="chart-interaction-hint">
       <span>{{ activeCandles.length }} bars in view</span>
       <div class="chart-toolbar">
-        <span class="chart-toolbar-hint">Wheel to zoom, drag to pan</span>
+        <span class="chart-toolbar-hint">Ctrl/⌘ + wheel to zoom, drag to pan</span>
         <button class="chart-toolbar-button" @click="zoomIn">+</button>
         <button class="chart-toolbar-button" @click="zoomOut">-</button>
         <button class="chart-toolbar-button reset" @click="resetView">Reset</button>
@@ -1414,7 +1418,7 @@ function getBarOpacity() {
         ref="chartViewportRef"
         class="chart-main-shell"
         :class="{ dragging: isDragging }"
-        @wheel.prevent="handleWheel"
+        @wheel="handleWheel"
         @pointerdown="handlePointerDown"
         @pointermove="handleChartHover"
         @pointerleave="clearChartHover"

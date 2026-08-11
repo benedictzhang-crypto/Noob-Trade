@@ -979,16 +979,40 @@ select {
   padding: 24px;
   background: rgba(15, 23, 42, 0.46);
   backdrop-filter: blur(10px);
+  overflow: hidden;
+  touch-action: pan-y pinch-zoom;
 }
 
 .replay-modal {
   width: min(1180px, 100%);
   max-height: calc(100vh - 48px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 116, 139, 0.56) rgba(148, 163, 184, 0.12);
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
   border: 1px solid var(--border);
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+}
+
+.replay-modal::-webkit-scrollbar {
+  width: 10px;
+}
+
+.replay-modal::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.replay-modal::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.56);
+  background-clip: padding-box;
 }
 
 .replay-topbar {
@@ -2178,7 +2202,7 @@ select {
   gap: 0;
   user-select: none;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y pinch-zoom;
 }
 
 .chart-main-shell.dragging {
