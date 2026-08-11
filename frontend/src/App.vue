@@ -5195,6 +5195,10 @@ const dashboardWatchlistRows = computed(() => {
 const sortedWatchlistScanResults = computed(() => {
   return [...watchlistScanResults.value].sort((left, right) => right.probability - left.probability)
 })
+
+function isBearishScanResult(result) {
+  return String(result?.signal || '').trim().toLowerCase().includes('bearish')
+}
 const watchlistScanThresholdLabel = computed(() => `${normalizeProbabilityThreshold(watchlistScanThreshold.value).toFixed(0)}%`)
 const mobileNavPages = computed(() => visiblePages.value)
 const isAppleMobile = computed(() => {
@@ -10837,7 +10841,10 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <div class="table-header compact">
               <h3>Generated Matches</h3>
               <div class="watchlist-scan-heading-meta">
-                <p>Approximate results from a simplified Generate pass. Run Generate on each symbol for more detailed data.</p>
+                <div class="watchlist-scan-notes">
+                  <p>Approximate results from a simplified Generate pass. Run Generate on each symbol for more detailed data.</p>
+                  <p class="watchlist-scan-bearish-note">Bearish Bias means historical 5-day downside probability is higher than upside probability.</p>
+                </div>
                 <span class="section-chip">>= {{ watchlistScanThresholdLabel }}</span>
               </div>
             </div>
@@ -10853,6 +10860,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 v-for="(result, index) in sortedWatchlistScanResults"
                 :key="`scan-${result.symbol}`"
                 class="data-row watchlist-scan-row"
+                :class="{ 'watchlist-scan-row--bearish': isBearishScanResult(result) }"
               >
                 <span>#{{ index + 1 }}</span>
                 <button class="watchlist-link explore-symbol-link" @click="openModeAnalysis(result.symbol)">
@@ -10860,7 +10868,12 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 </button>
                 <strong class="positive">{{ result.probability.toFixed(2) }}%</strong>
                 <span>{{ result.price }}</span>
-                <span>{{ result.signal }}</span>
+                <span
+                  class="watchlist-scan-signal"
+                  :class="{ 'watchlist-scan-signal--bearish': isBearishScanResult(result) }"
+                >
+                  {{ result.signal }}
+                </span>
               </div>
             </div>
           </div>

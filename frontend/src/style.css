@@ -3896,6 +3896,16 @@ select {
   text-align: right;
 }
 
+.watchlist-scan-notes {
+  display: grid;
+  gap: 3px;
+}
+
+.watchlist-scan-heading-meta .watchlist-scan-bearish-note {
+  color: #a61b1b;
+  font-weight: 700;
+}
+
 .watchlist-scan-heading-meta .section-chip {
   flex: 0 0 auto;
 }
@@ -3986,6 +3996,16 @@ select {
 .watchlist-scan-head,
 .watchlist-scan-row {
   grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1.2fr;
+}
+
+.watchlist-scan-row--bearish {
+  background: #fff3f3;
+  box-shadow: inset 3px 0 0 #d65c5c;
+}
+
+.watchlist-scan-signal--bearish {
+  color: #a61b1b;
+  font-weight: 800;
 }
 
 .explore-hero {
