@@ -3991,6 +3991,7 @@ select {
 
 .watchlist-scan-results {
   margin-top: 14px;
+  scroll-margin-top: 96px;
 }
 
 .watchlist-scan-head,

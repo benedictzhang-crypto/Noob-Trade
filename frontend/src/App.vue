@@ -1,6 +1,6 @@
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Fuse from 'fuse.js'
 
 import ChartPanel from './components/ChartPanel.vue'
@@ -749,6 +749,7 @@ const portfolioSparklineSeries = ref({})
 const watchlistScanThreshold = ref(60)
 const isWatchlistScanning = ref(false)
 const watchlistScanResults = ref([])
+const watchlistScanResultsSection = ref(null)
 const watchlistScanMessage = ref('')
 const watchlistScanScannedAt = ref('')
 const voiceAssistantOpen = ref(false)
@@ -7470,6 +7471,14 @@ function formatScanTimestamp(date = new Date()) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+async function scrollToCompletedScanResults() {
+  await nextTick()
+  watchlistScanResultsSection.value?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  })
+}
+
 async function runLimitedTasks(items, worker, limit = 4, onSettled = null) {
   const results = []
   let nextIndex = 0
@@ -7525,6 +7534,7 @@ async function scanStarredWatchlist() {
   const failedSymbols = []
   const scanBatchId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   let completedSymbols = 0
+  let shouldScrollToResults = false
 
   const applyScanResult = (result, symbol) => {
     completedSymbols += 1
@@ -7579,10 +7589,15 @@ async function scanStarredWatchlist() {
     watchlistScanMessage.value = failedSymbols.length
       ? `${passedLabel}. ${failedSymbols.length} symbol${failedSymbols.length === 1 ? '' : 's'} could not be scanned.`
       : `${passedLabel}.`
+    shouldScrollToResults = watchlistScanResults.value.length > 0
   } catch (error) {
     watchlistScanMessage.value = error?.message || 'Watchlist scan could not finish right now.'
   } finally {
     isWatchlistScanning.value = false
+  }
+
+  if (shouldScrollToResults) {
+    await scrollToCompletedScanResults()
   }
 }
 
@@ -10837,7 +10852,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <div v-else class="empty-state empty-state--compact">
             {{ isCryptoMode ? 'Star crypto assets in Explore and they will appear here.' : 'Star stocks in Explore and they will appear here as your self-selected list.' }}
           </div>
-          <div v-if="sortedWatchlistScanResults.length" class="watchlist-scan-results">
+          <div v-if="sortedWatchlistScanResults.length" ref="watchlistScanResultsSection" class="watchlist-scan-results">
             <div class="table-header compact">
               <h3>Generated Matches</h3>
               <div class="watchlist-scan-heading-meta">
