@@ -1,7 +1,7 @@
 {
   "name": "NoobTrade",
   "short_name": "NoobTrade",
-  "description": "A beginner-first stock analysis workspace with Trade, Explore, Markets, Portfolio, and Dashboard views.",
+  "description": "NoobTrade is AmpliAlpha's stock and crypto market research app for live charts, probability analysis, watchlist scans, and historical pattern review.",
   "theme_color": "#ff8a00",
   "background_color": "#fff7f0",
   "display": "standalone",
