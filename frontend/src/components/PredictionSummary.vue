@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { resolveMatchedPatternDisplayCount } from '../utils/matchedPatterns.js'
 import { calculateSimilarityAdjustedProbability } from '../utils/similarityProbability.js'
 
 const props = defineProps({
@@ -109,15 +110,10 @@ function getLadderProbability(side, threshold) {
 }
 
 const matchedPatterns = computed(() => props.analysisData.matchedHistoricalPatterns || [])
-const matchedPatternCount = computed(() => {
-  const explicitCount = Number(props.analysisData.matchedPatternsCount)
-
-  if (Number.isFinite(explicitCount) && explicitCount > 0) {
-    return explicitCount
-  }
-
-  return matchedPatterns.value.length
-})
+const matchedPatternCount = computed(() => resolveMatchedPatternDisplayCount(
+  matchedPatterns.value,
+  props.analysisData.matchedPatternsCount,
+))
 const headlineProbabilityValue = computed(() => (
   getNumericProbability(props.analysisData.probabilityOfIncrease)
     ?? getLadderProbability('up', 1)
