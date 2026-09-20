@@ -4,8 +4,9 @@ from datetime import datetime
 import sqlite3
 import threading
 import time
+from urllib.parse import quote
 
-from flask import Flask, g, jsonify, request, session
+from flask import Flask, g, jsonify, redirect, request, session
 from flask_cors import CORS
 from flask import send_from_directory
 from sqlalchemy import inspect, text
@@ -974,6 +975,7 @@ def create_app():
             "stock.health_check",
             "serve_ampli_lab",
             "serve_frontend",
+            "serve_referral_invite",
             "static",
         }
         if _is_live_market_snapshot_request():
@@ -1065,6 +1067,13 @@ def create_app():
                 return send_from_directory(ampli_lab_dist, path)
 
             return send_from_directory(ampli_lab_dist, "index.html")
+
+    @app.route("/r/<code>")
+    def serve_referral_invite(code):
+        if frontend_dist.exists():
+            return send_from_directory(frontend_dist, "index.html")
+
+        return redirect(f"/?ref={quote(code, safe='')}", code=302)
 
     if frontend_dist.exists():
         @app.route("/", defaults={"path": ""})
