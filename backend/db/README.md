@@ -8,6 +8,7 @@ This project uses PostgreSQL for:
 - pattern-matching feature windows
 - analysis runs and historical matches
 - watchlists and paper trades
+- user referral codes, verified referral relationships, and reward claims
 
 ## Initialize the schema
 

@@ -10,8 +10,29 @@ from flask import Blueprint, current_app, jsonify, request, session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from extensions import db
-from models.auth import LoginActivity, LoginVerificationCode, UsageActivity, User, UserWatchlist
+from models.auth import (
+    LoginActivity,
+    LoginVerificationCode,
+    Referral,
+    ReferralRewardClaim,
+    UsageActivity,
+    User,
+    UserWatchlist,
+)
 from services.email_service import EmailService
+from services.referral_service import (
+    REFERRAL_REWARD_TYPE,
+    REFERRAL_STATUSES,
+    REWARD_CLAIM_STATUSES,
+    attach_referral,
+    normalize_referral_code,
+    qualify_referral_for_user,
+    qualified_referral_count,
+    referral_dashboard,
+    serialize_reward_claim,
+    submit_reward_claim,
+    valid_referral_code_record,
+)
 from services.security_service import hash_secret, needs_rehash, verify_secret
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -283,6 +304,13 @@ def _authenticated_owner_email():
     if session_payload is None:
         return None
     return str(session_payload["user"].get("email") or "").strip().lower() or None
+
+
+def _authenticated_user():
+    owner_email = _authenticated_owner_email()
+    if owner_email is None:
+        return None
+    return User.query.filter_by(email=owner_email).first()
 
 
 def _normalize_watchlist_symbols(symbols):
@@ -575,6 +603,7 @@ def register():
     email = str(payload.get("email", "")).strip().lower()
     password = str(payload.get("password", ""))
     risk_profile = str(payload.get("riskProfile", "Balanced")).strip() or "Balanced"
+    referral_code = normalize_referral_code(payload.get("referralCode"))
 
     if not full_name or not email or not password:
         return jsonify({"message": "Please complete username, email, and password."}), 400
@@ -595,6 +624,12 @@ def register():
     if existing_user is not None and existing_user.email_verified:
         return jsonify({"message": "An account with this email already exists."}), 409
 
+    referral_code_record = None
+    if payload.get("referralCode"):
+        referral_code_record = valid_referral_code_record(payload.get("referralCode"))
+        if referral_code_record is None:
+            return jsonify({"message": "That referral code is invalid or unavailable."}), 400
+
     email_delivery_available = _email_delivery_available()
 
     if existing_user is None:
@@ -609,7 +644,7 @@ def register():
         if not email_delivery_available:
             user.verified_at = _utcnow()
         db.session.add(user)
-        db.session.commit()
+        db.session.flush()
     else:
         existing_user.full_name = _sanitize_text(full_name, max_length=120)
         existing_user.password_hash = _generate_compatible_password_hash(password)
@@ -617,7 +652,15 @@ def register():
         existing_user.email_verified = not email_delivery_available
         existing_user.verified_at = _utcnow() if not email_delivery_available else None
         user = existing_user
-        db.session.commit()
+
+    if referral_code_record is not None:
+        try:
+            attach_referral(user, referral_code_record)
+        except ValueError as error:
+            db.session.rollback()
+            return jsonify({"message": str(error)}), 400
+
+    db.session.commit()
 
     if not email_delivery_available and not _allow_local_email_bypass():
         return jsonify({"message": _email_required_message()}), 503
@@ -645,6 +688,7 @@ def register():
         {
             "message": f"Account created for {user.full_name}. Enter the verification code sent to {user.email}.",
             "requiresEmailVerification": True,
+            "referralCodeApplied": referral_code or None,
             "user": _serialize_user(user),
         }
     ), 201
@@ -710,6 +754,7 @@ def confirm_email_verification():
 
     user.email_verified = True
     user.verified_at = _utcnow()
+    qualify_referral_for_user(user)
     db.session.commit()
 
     return jsonify(
@@ -925,6 +970,175 @@ def save_watchlist(market):
     db.session.commit()
 
     return jsonify({"market": normalized_market, "symbols": normalized_symbols})
+
+
+@auth_blueprint.route("/referrals/validate/<code>", methods=["GET"])
+def validate_referral_code(code):
+    record = valid_referral_code_record(code)
+    if record is None:
+        return jsonify({"valid": False, "message": "That referral code is invalid or unavailable."}), 404
+    return jsonify({"valid": True, "code": record.code})
+
+
+@auth_blueprint.route("/referrals/me", methods=["GET"])
+def get_my_referrals():
+    user = _authenticated_user()
+    if user is None:
+        return jsonify({"message": "Sign in to open Invite a Friend."}), 401
+    if user.role == "admin":
+        return jsonify({"message": "Invite a Friend is available to regular user accounts."}), 403
+
+    payload = referral_dashboard(user, current_app.config.get("PUBLIC_APP_URL"))
+    db.session.commit()
+    return jsonify(payload)
+
+
+@auth_blueprint.route("/referrals/claim", methods=["POST"])
+def claim_referral_reward():
+    user = _authenticated_user()
+    if user is None:
+        return jsonify({"message": "Sign in to claim your reward."}), 401
+    if user.role == "admin":
+        return jsonify({"message": "Referral rewards are available to regular user accounts."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        claim, created = submit_reward_claim(user, payload.get("shirtSize"))
+    except ValueError as error:
+        return jsonify({"message": str(error)}), 400
+    except PermissionError as error:
+        return jsonify({"message": str(error)}), 403
+
+    db.session.commit()
+    return jsonify(
+        {
+            "message": (
+                "Your AmpliAlpha T-shirt claim was submitted. We will contact your verified email for delivery details."
+                if created
+                else "Your AmpliAlpha T-shirt claim has already been submitted."
+            ),
+            "claim": serialize_reward_claim(claim),
+        }
+    ), 201 if created else 200
+
+
+@auth_blueprint.route("/referrals/admin", methods=["GET"])
+def list_referrals_for_admin():
+    if _get_admin_user() is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    users = {user.id: user for user in User.query.all()}
+    referrals = Referral.query.order_by(Referral.created_at.desc(), Referral.id.desc()).all()
+    claims = ReferralRewardClaim.query.order_by(
+        ReferralRewardClaim.submitted_at.desc(),
+        ReferralRewardClaim.id.desc(),
+    ).all()
+
+    return jsonify(
+        {
+            "summary": {
+                "total": len(referrals),
+                "pending": sum(referral.status == "pending" for referral in referrals),
+                "qualified": sum(referral.status == "qualified" for referral in referrals),
+                "rejected": sum(referral.status == "rejected" for referral in referrals),
+                "claims": len(claims),
+            },
+            "referrals": [
+                {
+                    "id": referral.id,
+                    "code": referral.referral_code,
+                    "referrerName": users.get(referral.referrer_user_id).full_name if users.get(referral.referrer_user_id) else "Unknown",
+                    "referrerEmail": users.get(referral.referrer_user_id).email if users.get(referral.referrer_user_id) else "",
+                    "friendName": users.get(referral.referred_user_id).full_name if users.get(referral.referred_user_id) else "Unknown",
+                    "friendEmail": users.get(referral.referred_user_id).email if users.get(referral.referred_user_id) else "",
+                    "status": referral.status,
+                    "createdAt": referral.created_at.isoformat() if referral.created_at else None,
+                    "qualifiedAt": referral.qualified_at.isoformat() if referral.qualified_at else None,
+                    "rejectionReason": referral.rejection_reason,
+                }
+                for referral in referrals
+            ],
+            "claims": [
+                {
+                    **serialize_reward_claim(claim),
+                    "userName": users.get(claim.user_id).full_name if users.get(claim.user_id) else "Unknown",
+                    "userEmail": users.get(claim.user_id).email if users.get(claim.user_id) else "",
+                    "qualifiedReferrals": qualified_referral_count(claim.user_id),
+                }
+                for claim in claims
+            ],
+        }
+    )
+
+
+@auth_blueprint.route("/referrals/admin/<int:referral_id>", methods=["PATCH"])
+def update_referral_for_admin(referral_id):
+    if _get_admin_user() is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    referral = Referral.query.filter_by(id=referral_id).first()
+    if referral is None:
+        return jsonify({"message": "Referral not found."}), 404
+
+    payload = request.get_json(silent=True) or {}
+    status = str(payload.get("status") or "").strip().lower()
+    if status not in REFERRAL_STATUSES:
+        return jsonify({"message": "Unknown referral status."}), 400
+
+    if status == "qualified":
+        referred_user = User.query.filter_by(id=referral.referred_user_id).first()
+        if referred_user is None or not referred_user.email_verified:
+            return jsonify({"message": "Only an email-verified account can be qualified."}), 400
+        referral.qualified_at = _utcnow()
+        referral.rejected_at = None
+        referral.rejection_reason = None
+    elif status == "rejected":
+        referral.qualified_at = None
+        referral.rejected_at = _utcnow()
+        referral.rejection_reason = _sanitize_text(payload.get("reason"), max_length=255) or "Admin review"
+    else:
+        referral.qualified_at = None
+        referral.rejected_at = None
+        referral.rejection_reason = None
+    referral.status = status
+    db.session.commit()
+
+    return jsonify({"message": f"Referral marked {status}."})
+
+
+@auth_blueprint.route("/referrals/admin/claims/<int:claim_id>", methods=["PATCH"])
+def update_referral_claim_for_admin(claim_id):
+    if _get_admin_user() is None:
+        return jsonify({"message": "Admin access is required."}), 403
+
+    claim = ReferralRewardClaim.query.filter_by(id=claim_id).first()
+    if claim is None:
+        return jsonify({"message": "Reward claim not found."}), 404
+
+    payload = request.get_json(silent=True) or {}
+    status = str(payload.get("status") or "").strip().lower()
+    if status not in REWARD_CLAIM_STATUSES:
+        return jsonify({"message": "Unknown reward claim status."}), 400
+
+    claim.status = status
+    claim.admin_note = _sanitize_text(payload.get("adminNote"), max_length=255) or None
+    if status == "approved":
+        claim.approved_at = _utcnow()
+        claim.shipped_at = None
+    elif status == "shipped":
+        claim.approved_at = claim.approved_at or _utcnow()
+        claim.shipped_at = _utcnow()
+    elif status == "rejected":
+        claim.approved_at = None
+        claim.shipped_at = None
+    db.session.commit()
+
+    return jsonify(
+        {
+            "message": f"Reward claim marked {status}.",
+            "claim": serialize_reward_claim(claim),
+        }
+    )
 
 
 @auth_blueprint.route("/logout", methods=["POST"])

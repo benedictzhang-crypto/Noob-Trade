@@ -162,6 +162,7 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_urlsafe(32))
     HOST = os.getenv("HOST", "127.0.0.1")
     PORT = int(os.getenv("PORT", "5000"))
+    PUBLIC_APP_URL = os.getenv("PUBLIC_APP_URL", "https://www.noobtrading.com").strip().rstrip("/")
     CORS_ORIGINS = [
         origin.strip()
         for origin in (

@@ -114,6 +114,29 @@ In production mode, Noob Trade will now refuse to silently bypass email delivery
 
 For Gmail and university inboxes, the sending address should use a real mailbox or an authenticated sending domain. Make sure the SMTP account, `EMAIL_FROM`, and `SUPPORT_EMAIL` are aligned, and that the sender domain has SPF, DKIM, and DMARC records set by the mail provider. The app logs SMTP acceptance and retries transient handoff failures, but final inbox placement is still controlled by the recipient provider.
 
+## Invite a Friend
+
+Each verified regular user can open **Settings → Invite a Friend** to receive one
+referral code. The same code powers three sharing methods:
+
+- a copyable referral code
+- a link in the form `https://www.noobtrading.com/r/NT-XXXXXXXX`
+- a QR code generated locally in the browser from that link
+
+The registration field is optional. A referral begins as `pending` and becomes
+`qualified` only after the invited account completes email verification. Ten
+qualified referrals unlock one AmpliAlpha T-shirt claim per account. The first
+release stores only the requested shirt size; fulfillment staff contact the
+user through the verified account email for delivery details.
+
+Referral codes, referral relationships, and reward claims live in the auth
+database tables `referral_codes`, `referrals`, and `referral_reward_claims`.
+They do not share tables with stock, crypto, or pattern-scoring data. Admins
+can review referral status and mark T-shirt claims approved, shipped, or
+rejected from the existing Admin page. `PUBLIC_APP_URL` controls the public
+origin used when invite links are generated and defaults to
+`https://www.noobtrading.com`.
+
 ## Project Structure
 
 ```text

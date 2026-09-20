@@ -97,6 +97,86 @@ class UserWatchlist(db.Model):
     )
 
 
+class ReferralCode(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "referral_codes"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    code = db.Column(db.String(16), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+
+class Referral(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "referrals"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    referrer_user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    referred_user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    referral_code = db.Column(db.String(16), nullable=False, index=True)
+    status = db.Column(db.String(24), nullable=False, default="pending", index=True)
+    qualified_at = db.Column(db.DateTime(timezone=True))
+    rejected_at = db.Column(db.DateTime(timezone=True))
+    rejection_reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "referrer_user_id <> referred_user_id",
+            name="ck_referrals_not_self",
+        ),
+    )
+
+
+class ReferralRewardClaim(db.Model):
+    __bind_key__ = "app"
+    __tablename__ = "referral_reward_claims"
+
+    id = db.Column(COMPAT_BIGINT, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        COMPAT_BIGINT,
+        db.ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    reward_type = db.Column(db.String(48), nullable=False, default="amplialpha_tshirt")
+    qualified_referrals_required = db.Column(db.Integer, nullable=False, default=10)
+    shirt_size = db.Column(db.String(8), nullable=False)
+    status = db.Column(db.String(24), nullable=False, default="submitted", index=True)
+    admin_note = db.Column(db.String(255))
+    submitted_at = db.Column(db.DateTime(timezone=True), nullable=False, server_default=db.func.now())
+    approved_at = db.Column(db.DateTime(timezone=True))
+    shipped_at = db.Column(db.DateTime(timezone=True))
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=False,
+        server_default=db.func.now(),
+        onupdate=db.func.now(),
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "reward_type", name="uq_referral_reward_claim_user_type"),
+    )
+
+
 class AssistantIntentFeedback(db.Model):
     __bind_key__ = "app"
     __tablename__ = "assistant_intent_feedback"

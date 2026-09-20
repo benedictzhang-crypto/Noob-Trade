@@ -3604,6 +3604,10 @@ select {
   grid-column: 1 / -1;
 }
 
+.auth-field--register-referral {
+  grid-column: 1 / -1;
+}
+
 .auth-field {
   display: grid;
   gap: 8px;
@@ -3634,6 +3638,208 @@ select {
   background: white;
   color: var(--text-main);
   outline: none;
+}
+
+.invite-friend-surface {
+  margin-top: 24px;
+  padding: 26px;
+  scroll-margin-top: 110px;
+}
+
+.invite-friend-header {
+  align-items: flex-start;
+}
+
+.invite-friend-header h2,
+.invite-friend-header p {
+  margin: 0;
+}
+
+.invite-friend-header p:not(.eyebrow) {
+  margin-top: 6px;
+  color: var(--text-soft);
+}
+
+.invite-progress-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  color: var(--text-soft);
+}
+
+.invite-progress-copy strong {
+  color: var(--text-main);
+}
+
+.invite-progress-track {
+  height: 12px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.invite-progress-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 240ms ease;
+}
+
+.invite-share-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.invite-share-grid input {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+.invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.invite-qr-panel {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  align-items: center;
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.invite-qr-panel img {
+  display: block;
+  width: 180px;
+  height: 180px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+}
+
+.invite-qr-panel p,
+.invite-claim-row p,
+.invite-terms {
+  color: var(--text-soft);
+}
+
+.invite-qr-panel .topbar-button {
+  display: inline-flex;
+  margin-top: 8px;
+  text-decoration: none;
+}
+
+.invite-claim-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.invite-size-field {
+  width: min(220px, 100%);
+}
+
+.invite-status-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.invite-status-summary span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-soft);
+}
+
+.invite-status-summary strong {
+  color: var(--text-main);
+  font-size: 1.3rem;
+}
+
+.invite-terms {
+  margin: 18px 0 0;
+  font-size: 0.8rem;
+}
+
+.invite-more-entry {
+  grid-column: 1 / -1;
+  min-height: 0;
+}
+
+.invite-more-entry .topbar-button {
+  justify-self: start;
+  margin-top: 8px;
+}
+
+.admin-referral-surface {
+  margin-top: 24px;
+}
+
+.admin-referral-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.admin-referral-summary span {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0 14px;
+  color: var(--text-soft);
+}
+
+.admin-referral-summary strong {
+  color: var(--text-main);
+  font-size: 1.45rem;
+}
+
+.admin-referral-section + .admin-referral-section {
+  margin-top: 28px;
+}
+
+.admin-referral-row,
+.admin-claim-row {
+  grid-template-columns: 1.2fr 1.2fr 0.8fr 0.7fr 0.8fr 1.5fr;
+}
+
+.admin-referral-row > span,
+.admin-claim-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-referral-row small,
+.admin-claim-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-soft);
+}
+
+.admin-referral-surface .data-table {
+  overflow-x: auto;
+}
+
+.admin-referral-row,
+.admin-claim-row {
+  min-width: 960px;
 }
 
 .dashboard-hero,
@@ -5296,6 +5502,30 @@ select {
 }
 
 @media (max-width: 760px) {
+  .invite-friend-surface {
+    padding: 20px;
+  }
+
+  .invite-friend-header,
+  .invite-progress-copy,
+  .invite-claim-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invite-share-grid,
+  .invite-status-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-qr-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-referral-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .voice-assistant {
     left: 12px;
     right: auto;

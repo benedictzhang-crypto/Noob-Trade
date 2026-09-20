@@ -33,6 +33,50 @@ CREATE TABLE IF NOT EXISTS login_verification_codes (
 CREATE INDEX IF NOT EXISTS idx_login_verification_codes_email
 ON login_verification_codes(email, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS referral_codes (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(16) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_referral_codes_code
+ON referral_codes(code);
+
+CREATE TABLE IF NOT EXISTS referrals (
+    id BIGSERIAL PRIMARY KEY,
+    referrer_user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    referred_user_id BIGINT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    referral_code VARCHAR(16) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'pending',
+    qualified_at TIMESTAMPTZ,
+    rejected_at TIMESTAMPTZ,
+    rejection_reason VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_referrals_not_self CHECK (referrer_user_id <> referred_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer_status
+ON referrals(referrer_user_id, status);
+
+CREATE TABLE IF NOT EXISTS referral_reward_claims (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reward_type VARCHAR(48) NOT NULL DEFAULT 'amplialpha_tshirt',
+    qualified_referrals_required INTEGER NOT NULL DEFAULT 10,
+    shirt_size VARCHAR(8) NOT NULL,
+    status VARCHAR(24) NOT NULL DEFAULT 'submitted',
+    admin_note VARCHAR(255),
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    approved_at TIMESTAMPTZ,
+    shipped_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_referral_reward_claim_user_type UNIQUE (user_id, reward_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_referral_reward_claims_status
+ON referral_reward_claims(status);
+
 CREATE TABLE IF NOT EXISTS symbols (
     id BIGSERIAL PRIMARY KEY,
     symbol VARCHAR(16) NOT NULL UNIQUE,

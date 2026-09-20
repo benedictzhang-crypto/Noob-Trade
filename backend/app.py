@@ -127,6 +127,9 @@ def ensure_auth_schema(app):
             "login_activities",
             "usage_activities",
             "user_watchlists",
+            "referral_codes",
+            "referrals",
+            "referral_reward_claims",
         }
         if not required_tables.issubset(table_names):
             db.create_all()
@@ -161,6 +164,9 @@ def ensure_auth_postgres_sequences(app):
             "login_activities",
             "usage_activities",
             "user_watchlists",
+            "referral_codes",
+            "referrals",
+            "referral_reward_claims",
         )
 
         with auth_engine.begin() as connection:

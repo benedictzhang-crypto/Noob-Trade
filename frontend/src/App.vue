@@ -14,6 +14,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 const ADMIN_USERS_CACHE_KEY = 'noobtrade_admin_users'
 const UI_LANGUAGE_KEY = 'noobtrade_ui_language'
 const APP_MODE_KEY = 'noobtrade_app_mode'
+const REFERRAL_CODE_STORAGE_KEY = 'noobtrade_referral_code'
+const REFERRAL_CODE_STORAGE_DAYS = 30
 const DEFAULT_STOCK_SYMBOL = 'AAPL'
 const DEFAULT_CRYPTO_SYMBOL = 'BTC'
 const DEFAULT_STOCK_STARRED_SYMBOLS = Object.freeze(['AAPL', 'NVDA', 'TSLA'])
@@ -92,6 +94,8 @@ const uiCopy = {
     currentLogin: 'Current login',
     verified: 'Verified',
     pendingVerification: 'Pending verification',
+    inviteFriend: 'Invite a Friend',
+    inviteFriendSubtitle: 'Invite 10 verified friends and receive a complimentary AmpliAlpha T-shirt.',
     aiMode: 'AI Voice Mode',
     aiTitle: 'Noob AI Assistant',
     shrink: 'Shrink',
@@ -158,6 +162,8 @@ const uiCopy = {
     currentLogin: '当前登录',
     verified: '已验证',
     pendingVerification: '等待验证',
+    inviteFriend: 'Invite a Friend',
+    inviteFriendSubtitle: '邀请 10 位完成邮箱验证的朋友，即可领取一件免费 AmpliAlpha T 恤。',
     aiMode: 'AI 语音模式',
     aiTitle: 'Noob AI 助手',
     shrink: '缩小',
@@ -224,6 +230,8 @@ const uiCopy = {
     currentLogin: 'Inicio actual',
     verified: 'Verificado',
     pendingVerification: 'Verificación pendiente',
+    inviteFriend: 'Invite a Friend',
+    inviteFriendSubtitle: 'Invita a 10 amigos verificados y recibe una camiseta AmpliAlpha de regalo.',
     aiMode: 'Modo de voz AI',
     aiTitle: 'Asistente Noob AI',
     shrink: 'Reducir',
@@ -290,6 +298,8 @@ const uiCopy = {
     currentLogin: 'Connexion actuelle',
     verified: 'Vérifié',
     pendingVerification: 'Vérification en attente',
+    inviteFriend: 'Invite a Friend',
+    inviteFriendSubtitle: 'Invitez 10 amis vérifiés et recevez gratuitement un T-shirt AmpliAlpha.',
     aiMode: 'Mode vocal IA',
     aiTitle: 'Assistant Noob AI',
     shrink: 'Réduire',
@@ -828,6 +838,17 @@ const adminUsers = ref([])
 const adminMessage = ref('')
 const isAdminLoading = ref(false)
 const hasAdminUsersCache = ref(false)
+const referralDashboard = ref(null)
+const referralMessage = ref('')
+const isReferralLoading = ref(false)
+const referralQrDataUrl = ref('')
+const showReferralQr = ref(false)
+const referralClaimSize = ref('M')
+const adminReferralData = ref(null)
+const adminReferralMessage = ref('')
+const isAdminReferralLoading = ref(false)
+const pendingReferralAdminUpdates = ref({})
+const pendingReferralClaimUpdates = ref({})
 const isCryptoMode = computed(() => appMode.value === 'crypto')
 const modeSwitchLabel = computed(() => (isCryptoMode.value ? t('switchToStock') : t('switchToCrypto')))
 const modeLabel = computed(() => (isCryptoMode.value ? 'Crypto' : 'Stock'))
@@ -864,6 +885,11 @@ const adminUserCountLabel = computed(() => {
   }
   return `${adminUsers.value.length} total`
 })
+const referralProgressPercent = computed(() => {
+  const qualified = Number(referralDashboard.value?.reward?.qualified || 0)
+  const required = Math.max(1, Number(referralDashboard.value?.reward?.required || 10))
+  return Math.min(100, Math.max(0, (qualified / required) * 100))
+})
 const signInForm = ref({
   email: '',
   password: ''
@@ -875,7 +901,8 @@ const verificationForm = ref({
 const registrationForm = ref({
   fullName: '',
   email: '',
-  password: ''
+  password: '',
+  referralCode: ''
 })
 const resetPasswordForm = ref({
   email: '',
@@ -5420,6 +5447,7 @@ const reportMetrics = computed(() => {
 })
 
 onMounted(() => {
+  captureReferralInvitation()
   if (typeof window !== 'undefined') {
     const savedLanguage = window.localStorage?.getItem(UI_LANGUAGE_KEY)
     if (languageOptions.some((language) => language.code === savedLanguage)) {
@@ -7315,6 +7343,11 @@ function navigateTo(page) {
 
     if (normalizedPage === 'Admin' && currentUser.value?.isAdmin) {
       loadAdminUsers({ silent: hasAdminUsersCache.value })
+      loadAdminReferralData()
+    }
+
+    if (normalizedPage === 'Settings' && !currentUser.value?.isAdmin) {
+      loadReferralDashboard({ silent: Boolean(referralDashboard.value) })
     }
   }
 }
@@ -9829,6 +9862,174 @@ async function applyAssistantIntent(intentPayload, rawTranscript) {
   return false
 }
 
+function normalizeReferralCodeInput(value) {
+  const rawValue = String(value || '').trim().replace(/\/+$/, '')
+  const codeValue = rawValue.includes('/') ? rawValue.split('/').pop() : rawValue
+  const compact = codeValue
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/^NT/, '')
+  return compact.length === 8 ? `NT-${compact}` : String(value || '').trim().toUpperCase()
+}
+
+function savePendingReferralCode(code) {
+  if (typeof window === 'undefined' || !code) {
+    return
+  }
+  window.localStorage?.setItem(REFERRAL_CODE_STORAGE_KEY, JSON.stringify({
+    code,
+    expiresAt: Date.now() + (REFERRAL_CODE_STORAGE_DAYS * 24 * 60 * 60 * 1000)
+  }))
+}
+
+function readPendingReferralCode() {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+  try {
+    const stored = JSON.parse(window.localStorage?.getItem(REFERRAL_CODE_STORAGE_KEY) || '{}')
+    if (!stored.code || Number(stored.expiresAt || 0) <= Date.now()) {
+      window.localStorage?.removeItem(REFERRAL_CODE_STORAGE_KEY)
+      return ''
+    }
+    return normalizeReferralCodeInput(stored.code)
+  } catch {
+    window.localStorage?.removeItem(REFERRAL_CODE_STORAGE_KEY)
+    return ''
+  }
+}
+
+function captureReferralInvitation() {
+  if (typeof window === 'undefined') {
+    return
+  }
+  const pathMatch = window.location.pathname.match(/^\/r\/(NT-[A-Z0-9-]+)\/?$/i)
+  const queryCode = new URLSearchParams(window.location.search).get('ref')
+  const incomingCode = normalizeReferralCodeInput(pathMatch?.[1] || queryCode || '')
+  const savedCode = readPendingReferralCode()
+  const selectedCode = incomingCode || savedCode
+
+  if (selectedCode) {
+    registrationForm.value.referralCode = selectedCode
+  }
+  if (!incomingCode) {
+    return
+  }
+
+  savePendingReferralCode(incomingCode)
+  activePage.value = 'Register'
+  authMessage.value = `Referral code ${incomingCode} applied.`
+  window.history.replaceState({}, '', '/')
+}
+
+async function loadReferralDashboard({ silent = false } = {}) {
+  if (!isAuthenticated.value || currentUser.value?.isAdmin) {
+    referralDashboard.value = null
+    return
+  }
+  if (!silent) {
+    isReferralLoading.value = true
+    referralMessage.value = ''
+  }
+
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/referrals/me`, {
+      timeoutMs: 15000
+    })
+    const payload = await parseJsonResponse(response, 'Invite a Friend is unavailable right now.')
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not load Invite a Friend.')
+    }
+    referralDashboard.value = payload
+    referralClaimSize.value = payload.claim?.shirtSize || referralClaimSize.value || 'M'
+    const { default: QRCode } = await import('qrcode')
+    referralQrDataUrl.value = await QRCode.toDataURL(payload.inviteLink, {
+      width: 320,
+      margin: 1,
+      color: { dark: '#111111', light: '#ffffff' }
+    })
+  } catch (error) {
+    referralMessage.value = error.message || 'Could not load Invite a Friend right now.'
+  } finally {
+    isReferralLoading.value = false
+  }
+}
+
+async function copyInviteValue(value, label) {
+  if (!value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(value)
+  } catch {
+    const textArea = document.createElement('textarea')
+    textArea.value = value
+    textArea.setAttribute('readonly', '')
+    textArea.style.position = 'fixed'
+    textArea.style.opacity = '0'
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+  }
+  referralMessage.value = `${label} copied.`
+}
+
+async function shareReferralInvitation() {
+  const inviteLink = referralDashboard.value?.inviteLink
+  if (!inviteLink) {
+    return
+  }
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'Join me on NoobTrade',
+        text: 'Use my invite to explore NoobTrade. Ten verified invitations unlock an AmpliAlpha T-shirt.',
+        url: inviteLink
+      })
+      referralMessage.value = 'Invite ready to share.'
+      return
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        return
+      }
+    }
+  }
+  await copyInviteValue(inviteLink, 'Invite link')
+}
+
+function toggleReferralQr() {
+  showReferralQr.value = !showReferralQr.value
+}
+
+async function claimReferralReward() {
+  referralMessage.value = 'Submitting your T-shirt claim...'
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/referrals/claim`, {
+      method: 'POST',
+      timeoutMs: 15000,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shirtSize: referralClaimSize.value })
+    })
+    const payload = await parseJsonResponse(response, 'The reward claim returned an invalid response.')
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not submit your T-shirt claim.')
+    }
+    referralMessage.value = payload.message
+    await loadReferralDashboard({ silent: true })
+  } catch (error) {
+    referralMessage.value = error.message || 'Could not submit your T-shirt claim right now.'
+  }
+}
+
+function openInviteFriendSettings() {
+  navigateTo('Settings')
+  window.setTimeout(() => {
+    document.getElementById('invite-a-friend')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, 80)
+}
+
 function applyAuthenticatedState(user, message = '') {
   currentUser.value = user
   isAuthenticated.value = true
@@ -10027,7 +10228,8 @@ async function submitRegistration() {
       body: JSON.stringify({
         fullName: normalizedUsername,
         email: registrationForm.value.email,
-        password: registrationForm.value.password
+        password: registrationForm.value.password,
+        referralCode: normalizeReferralCodeInput(registrationForm.value.referralCode)
       })
     })
     const payload = await parseJsonResponse(
@@ -10044,6 +10246,7 @@ async function submitRegistration() {
       password: ''
     }
     csrfToken.value = payload.csrfToken || csrfToken.value
+    window.localStorage?.removeItem(REFERRAL_CODE_STORAGE_KEY)
 
     if (payload.requiresEmailVerification) {
       verificationForm.value = {
@@ -10170,6 +10373,92 @@ async function loadAdminUsers(options = {}) {
     adminMessage.value = error.message || 'Could not load registered users right now.'
   } finally {
     isAdminLoading.value = false
+  }
+}
+
+async function loadAdminReferralData() {
+  if (!currentUser.value?.isAdmin) {
+    return
+  }
+  isAdminReferralLoading.value = true
+  adminReferralMessage.value = ''
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/referrals/admin`, {
+      timeoutMs: 20000
+    })
+    const payload = await parseJsonResponse(response, 'Could not load referral activity right now.')
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not load referral activity.')
+    }
+    adminReferralData.value = payload
+  } catch (error) {
+    adminReferralMessage.value = error.message || 'Could not load referral activity right now.'
+  } finally {
+    isAdminReferralLoading.value = false
+  }
+}
+
+function formatReferralDate(value) {
+  if (!value) {
+    return '--'
+  }
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '--' : date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  })
+}
+
+async function updateAdminReferral(referral, status) {
+  const key = String(referral.id)
+  pendingReferralAdminUpdates.value = { ...pendingReferralAdminUpdates.value, [key]: true }
+  adminReferralMessage.value = `Updating referral to ${status}...`
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/referrals/admin/${referral.id}`, {
+      method: 'PATCH',
+      timeoutMs: 15000,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+    const payload = await parseJsonResponse(response, 'The referral update returned an invalid response.')
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not update this referral.')
+    }
+    adminReferralMessage.value = payload.message
+    await loadAdminReferralData()
+  } catch (error) {
+    adminReferralMessage.value = error.message || 'Could not update this referral right now.'
+  } finally {
+    const next = { ...pendingReferralAdminUpdates.value }
+    delete next[key]
+    pendingReferralAdminUpdates.value = next
+  }
+}
+
+async function updateAdminReferralClaim(claim, status) {
+  const key = String(claim.id)
+  pendingReferralClaimUpdates.value = { ...pendingReferralClaimUpdates.value, [key]: true }
+  adminReferralMessage.value = `Updating reward claim to ${status}...`
+  try {
+    const response = await secureFetch(`${API_BASE_URL}/auth/referrals/admin/claims/${claim.id}`, {
+      method: 'PATCH',
+      timeoutMs: 15000,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    })
+    const payload = await parseJsonResponse(response, 'The reward update returned an invalid response.')
+    if (!response.ok) {
+      throw new Error(payload.message || 'Could not update this reward claim.')
+    }
+    adminReferralMessage.value = payload.message
+    await loadAdminReferralData()
+  } catch (error) {
+    adminReferralMessage.value = error.message || 'Could not update this reward claim right now.'
+  } finally {
+    const next = { ...pendingReferralClaimUpdates.value }
+    delete next[key]
+    pendingReferralClaimUpdates.value = next
   }
 }
 
@@ -10341,6 +10630,12 @@ function signOut() {
   adminUsers.value = []
   hasAdminUsersCache.value = false
   adminMessage.value = ''
+  referralDashboard.value = null
+  referralMessage.value = ''
+  referralQrDataUrl.value = ''
+  showReferralQr.value = false
+  adminReferralData.value = null
+  adminReferralMessage.value = ''
   pendingAdminStatusUpdates.value = {}
   pendingAdminPasswordResets.value = {}
   adminPasswordResetDrafts.value = {}
@@ -10621,6 +10916,17 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
                 <span>Password</span>
                 <input v-model="registrationForm.password" type="password" placeholder="Create a password" />
                 <small class="auth-field-hint">Use at least 8 characters and include one special symbol such as _, !, or #.</small>
+              </label>
+              <label class="auth-field auth-field--register-referral">
+                <span>Referral code <small>(optional)</small></span>
+                <input
+                  v-model="registrationForm.referralCode"
+                  type="text"
+                  placeholder="NT-7K9Q2M4P"
+                  autocomplete="off"
+                  @blur="registrationForm.referralCode = normalizeReferralCodeInput(registrationForm.referralCode)"
+                />
+                <small class="auth-field-hint">If a friend invited you, enter their code here.</small>
               </label>
             </div>
 
@@ -11712,6 +12018,116 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
         </article>
       </section>
+
+      <section
+        v-if="!currentUser?.isAdmin"
+        id="invite-a-friend"
+        class="table-surface invite-friend-surface"
+      >
+        <div class="table-header invite-friend-header">
+          <div>
+            <p class="eyebrow">Rewards</p>
+            <h2>{{ t('inviteFriend') }}</h2>
+            <p>{{ t('inviteFriendSubtitle') }}</p>
+          </div>
+          <button class="topbar-button secondary" type="button" @click="loadReferralDashboard">
+            Refresh
+          </button>
+        </div>
+
+        <p v-if="referralMessage" class="status-message loading-message">{{ referralMessage }}</p>
+        <div v-if="isReferralLoading && !referralDashboard" class="empty-state empty-state--compact">
+          Loading your invitation details...
+        </div>
+
+        <template v-else-if="referralDashboard">
+          <div class="invite-progress-copy">
+            <strong>
+              {{ referralDashboard.reward.qualified }} / {{ referralDashboard.reward.required }} verified referrals
+            </strong>
+            <span v-if="referralDashboard.reward.remaining">
+              {{ referralDashboard.reward.remaining }} more to unlock your free AmpliAlpha T-shirt.
+            </span>
+            <span v-else>Your AmpliAlpha T-shirt reward is unlocked.</span>
+          </div>
+          <div
+            class="invite-progress-track"
+            role="progressbar"
+            :aria-valuenow="referralDashboard.reward.qualified"
+            :aria-valuemax="referralDashboard.reward.required"
+          >
+            <span :style="{ width: `${referralProgressPercent}%` }"></span>
+          </div>
+
+          <div class="invite-share-grid">
+            <label class="auth-field">
+              <span>Your referral code</span>
+              <input :value="referralDashboard.code" type="text" readonly />
+            </label>
+            <label class="auth-field">
+              <span>Your invite link</span>
+              <input :value="referralDashboard.inviteLink" type="text" readonly />
+            </label>
+          </div>
+
+          <div class="invite-actions">
+            <button class="topbar-button" type="button" @click="copyInviteValue(referralDashboard.code, 'Referral code')">
+              Copy Code
+            </button>
+            <button class="topbar-button secondary" type="button" @click="copyInviteValue(referralDashboard.inviteLink, 'Invite link')">
+              Copy Link
+            </button>
+            <button class="topbar-button secondary" type="button" @click="shareReferralInvitation">
+              Share
+            </button>
+            <button class="topbar-button secondary" type="button" @click="toggleReferralQr">
+              {{ showReferralQr ? 'Hide QR Code' : 'Show QR Code' }}
+            </button>
+          </div>
+
+          <div v-if="showReferralQr && referralQrDataUrl" class="invite-qr-panel">
+            <img :src="referralQrDataUrl" alt="NoobTrade invitation QR code" />
+            <div>
+              <strong>Scan to register</strong>
+              <p>The referral code is applied automatically when this QR code is scanned.</p>
+              <a
+                class="topbar-button secondary"
+                :href="referralQrDataUrl"
+                :download="`NoobTrade-${referralDashboard.code}.png`"
+              >
+                Download QR Code
+              </a>
+            </div>
+          </div>
+
+          <div v-if="referralDashboard.reward.unlocked" class="invite-claim-row">
+            <template v-if="referralDashboard.claim">
+              <div>
+                <strong>T-shirt claim: {{ referralDashboard.claim.status }}</strong>
+                <p>Size {{ referralDashboard.claim.shirtSize }}. We will use your verified email to arrange delivery.</p>
+              </div>
+            </template>
+            <template v-else>
+              <label class="auth-field invite-size-field">
+                <span>T-shirt size</span>
+                <select v-model="referralClaimSize">
+                  <option v-for="size in referralDashboard.shirtSizes" :key="size" :value="size">{{ size }}</option>
+                </select>
+              </label>
+              <button class="topbar-button" type="button" @click="claimReferralReward">Claim T-shirt</button>
+            </template>
+          </div>
+
+          <div class="invite-status-summary">
+            <span><strong>{{ referralDashboard.counts.qualified }}</strong> Qualified</span>
+            <span><strong>{{ referralDashboard.counts.pending }}</strong> Pending verification</span>
+            <span><strong>{{ referralDashboard.counts.rejected }}</strong> Not qualified</span>
+          </div>
+          <p class="invite-terms">
+            A referral qualifies after the invited friend completes email verification. One reward per account during this offer. Suspicious or duplicate registrations may be reviewed.
+          </p>
+        </template>
+      </section>
     </main>
 
     <main v-else-if="activePage === 'Admin'" class="product-page">
@@ -11826,6 +12242,73 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           No registered users are available yet.
         </div>
       </section>
+
+      <section class="table-surface admin-referral-surface">
+        <div class="table-header">
+          <div>
+            <p class="eyebrow">Rewards</p>
+            <h2>Invite a Friend administration</h2>
+          </div>
+          <button class="topbar-button secondary" type="button" @click="loadAdminReferralData">Refresh</button>
+        </div>
+
+        <p v-if="adminReferralMessage" class="status-message loading-message">{{ adminReferralMessage }}</p>
+        <div v-if="isAdminReferralLoading && !adminReferralData" class="empty-state empty-state--compact">
+          Loading referral activity...
+        </div>
+
+        <template v-else-if="adminReferralData">
+          <div class="admin-referral-summary">
+            <span><strong>{{ adminReferralData.summary.total }}</strong>Total</span>
+            <span><strong>{{ adminReferralData.summary.qualified }}</strong>Qualified</span>
+            <span><strong>{{ adminReferralData.summary.pending }}</strong>Pending</span>
+            <span><strong>{{ adminReferralData.summary.claims }}</strong>T-shirt claims</span>
+          </div>
+
+          <div v-if="adminReferralData.claims.length" class="admin-referral-section">
+            <div class="table-header"><h3>T-shirt claims</h3></div>
+            <div class="data-table">
+              <div class="data-row data-head admin-claim-row">
+                <span>User</span><span>Size</span><span>Qualified</span><span>Status</span><span>Submitted</span><span>Actions</span>
+              </div>
+              <div v-for="claim in adminReferralData.claims" :key="claim.id" class="data-row admin-claim-row">
+                <span><strong>{{ claim.userName }}</strong><small>{{ claim.userEmail }}</small></span>
+                <span>{{ claim.shirtSize }}</span>
+                <span>{{ claim.qualifiedReferrals }}</span>
+                <span>{{ claim.status }}</span>
+                <span>{{ formatReferralDate(claim.submittedAt) }}</span>
+                <div class="admin-action-row">
+                  <button class="chip chip-confirm" :disabled="pendingReferralClaimUpdates[String(claim.id)]" @click="updateAdminReferralClaim(claim, 'approved')">Approve</button>
+                  <button class="chip" :disabled="pendingReferralClaimUpdates[String(claim.id)]" @click="updateAdminReferralClaim(claim, 'shipped')">Shipped</button>
+                  <button class="chip chip-danger" :disabled="pendingReferralClaimUpdates[String(claim.id)]" @click="updateAdminReferralClaim(claim, 'rejected')">Reject</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-referral-section">
+            <div class="table-header"><h3>Referral activity</h3></div>
+            <div v-if="adminReferralData.referrals.length" class="data-table">
+              <div class="data-row data-head admin-referral-row">
+                <span>Inviter</span><span>Friend</span><span>Code</span><span>Status</span><span>Created</span><span>Actions</span>
+              </div>
+              <div v-for="referral in adminReferralData.referrals" :key="referral.id" class="data-row admin-referral-row">
+                <span><strong>{{ referral.referrerName }}</strong><small>{{ referral.referrerEmail }}</small></span>
+                <span><strong>{{ referral.friendName }}</strong><small>{{ referral.friendEmail }}</small></span>
+                <span>{{ referral.code }}</span>
+                <span>{{ referral.status }}</span>
+                <span>{{ formatReferralDate(referral.createdAt) }}</span>
+                <div class="admin-action-row">
+                  <button class="chip chip-confirm" :disabled="pendingReferralAdminUpdates[String(referral.id)]" @click="updateAdminReferral(referral, 'qualified')">Qualify</button>
+                  <button class="chip chip-muted" :disabled="pendingReferralAdminUpdates[String(referral.id)]" @click="updateAdminReferral(referral, 'pending')">Pending</button>
+                  <button class="chip chip-danger" :disabled="pendingReferralAdminUpdates[String(referral.id)]" @click="updateAdminReferral(referral, 'rejected')">Reject</button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="empty-state empty-state--compact">No referral activity yet.</div>
+          </div>
+        </template>
+      </section>
     </main>
 
     <main v-else class="product-page">
@@ -11858,6 +12341,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <ul class="feature-list">
             <li v-for="feature in moreFeatures" :key="feature">{{ feature }}</li>
           </ul>
+        </article>
+
+        <article v-if="!currentUser?.isAdmin" class="more-card feature-story-card invite-more-entry">
+          <p class="eyebrow">Rewards</p>
+          <h2>Invite a Friend</h2>
+          <p>Share your code, link, or QR code. Invite 10 verified friends to unlock a complimentary AmpliAlpha T-shirt.</p>
+          <button class="topbar-button" type="button" @click="openInviteFriendSettings">Open Invite a Friend</button>
         </article>
       </section>
 
