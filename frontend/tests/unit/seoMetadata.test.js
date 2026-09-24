@@ -35,7 +35,7 @@ test('publishes the new NoobTrade wordmark and install icons', () => {
   assert.match(index, /favicon-v2\.ico/)
   assert.match(app, /noobtrade-wordmark\.png/)
   assert.match(app, /noobtrade-wordmark-dark\.png/)
-  assert.match(styles, /aspect-ratio: 1451 \/ 273;/)
+  assert.match(styles, /aspect-ratio: 1960 \/ 384;/)
   assert.match(wordmark, /aria-label="NoobTrade"/)
   assert.match(wordmark, /data:image\/png;base64,/)
   assert.match(appIcon, /NoobTrade app icon/)
