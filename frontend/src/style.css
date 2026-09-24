@@ -3010,9 +3010,12 @@ select {
 
 .topbar-brand-logo {
   display: block;
-  width: 164px;
+  width: 191px;
   height: auto;
+  aspect-ratio: 1451 / 273;
   max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
@@ -4730,7 +4733,8 @@ select {
   }
 
   .topbar-brand-logo {
-    width: 142px;
+    width: 170px;
+    height: auto;
   }
 
   .topbar-brand-meta {

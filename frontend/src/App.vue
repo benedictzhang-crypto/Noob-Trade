@@ -10810,8 +10810,8 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         <img
           class="topbar-brand-logo"
           :src="isAuthenticated && isCryptoMode
-            ? '/brand/noobtrade-wordmark-dark.png'
-            : '/brand/noobtrade-wordmark.png'"
+            ? '/brand/noobtrade-wordmark-dark.png?v=20260924-2'
+            : '/brand/noobtrade-wordmark.png?v=20260924-2'"
           alt="NoobTrade"
           draggable="false"
         />
