@@ -2,6 +2,18 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Fuse from 'fuse.js'
+import {
+  ChartCandlestick,
+  ChartNoAxesCombined,
+  House,
+  Info,
+  LayoutDashboard,
+  LogIn,
+  Search,
+  Settings,
+  ShieldCheck,
+  UserPlus,
+} from '@lucide/vue'
 
 import ChartPanel from './components/ChartPanel.vue'
 import IndicatorSelector from './components/IndicatorSelector.vue'
@@ -62,6 +74,7 @@ const uiCopy = {
     switchToCrypto: 'Switch to Crypto',
     switchToStock: 'Switch to Stock',
     installApp: 'Install App',
+    mobileTrade: 'Trade',
     pageLabels: {
       Home: 'Home',
       'Sign In': 'Sign In',
@@ -130,6 +143,7 @@ const uiCopy = {
     switchToCrypto: '切换到 Crypto',
     switchToStock: '切换到 Stock',
     installApp: '安装应用',
+    mobileTrade: '交易',
     pageLabels: {
       Home: '首页',
       'Sign In': '登录',
@@ -198,6 +212,7 @@ const uiCopy = {
     switchToCrypto: 'Cambiar a Crypto',
     switchToStock: 'Cambiar a Stock',
     installApp: 'Instalar app',
+    mobileTrade: 'Operar',
     pageLabels: {
       Home: 'Inicio',
       'Sign In': 'Iniciar sesión',
@@ -266,6 +281,7 @@ const uiCopy = {
     switchToCrypto: 'Passer à Crypto',
     switchToStock: 'Passer à Stock',
     installApp: 'Installer',
+    mobileTrade: 'Trader',
     pageLabels: {
       Home: 'Accueil',
       'Sign In': 'Connexion',
@@ -5228,7 +5244,24 @@ function isBearishScanResult(result) {
   return String(result?.signal || '').trim().toLowerCase().includes('bearish')
 }
 const watchlistScanThresholdLabel = computed(() => `${normalizeProbabilityThreshold(watchlistScanThreshold.value).toFixed(0)}%`)
-const mobileNavPages = computed(() => visiblePages.value)
+const mobileNavItems = computed(() => {
+  if (!isAuthenticated.value) {
+    return [
+      { page: 'Home', label: formatPageLabel('Home'), icon: House },
+      { page: 'Sign In', label: formatPageLabel('Sign In'), icon: LogIn },
+      { page: 'Register', label: formatPageLabel('Register'), icon: UserPlus },
+    ]
+  }
+
+  const tradePage = isCryptoMode.value ? 'Crypto Trade' : 'Stock Trade'
+  return [
+    { page: 'Dashboard', label: formatPageLabel('Dashboard'), icon: LayoutDashboard },
+    { page: tradePage, label: t('mobileTrade'), icon: ChartCandlestick },
+    { page: 'Explore', label: formatPageLabel('Explore'), icon: Search },
+    { page: 'Markets', label: formatPageLabel('Markets'), icon: ChartNoAxesCombined },
+    { page: 'Settings', label: formatPageLabel('Settings'), icon: Settings },
+  ]
+})
 const isAppleMobile = computed(() => {
   if (typeof navigator === 'undefined') {
     return false
@@ -10780,6 +10813,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             ? '/brand/noobtrade-wordmark-dark.svg'
             : '/brand/noobtrade-wordmark.svg'"
           alt="NoobTrade"
+          draggable="false"
         />
       </div>
 
@@ -12022,6 +12056,21 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             </label>
             <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
           </div>
+          <div class="mobile-settings-links" aria-label="Additional navigation">
+            <button class="mobile-settings-link" type="button" @click="navigateTo('More')">
+              <Info :size="20" aria-hidden="true" />
+              <span>{{ formatPageLabel('More') }}</span>
+            </button>
+            <button
+              v-if="currentUser?.isAdmin"
+              class="mobile-settings-link"
+              type="button"
+              @click="navigateTo('Admin')"
+            >
+              <ShieldCheck :size="20" aria-hidden="true" />
+              <span>{{ formatPageLabel('Admin') }}</span>
+            </button>
+          </div>
         </article>
       </section>
 
@@ -12597,15 +12646,21 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </div>
     </div>
 
-    <nav class="mobile-tabbar" aria-label="Mobile navigation">
+    <nav
+      class="mobile-tabbar"
+      :class="{ 'mobile-tabbar--public': !isAuthenticated }"
+      aria-label="Mobile navigation"
+    >
       <button
-        v-for="page in mobileNavPages"
-        :key="`mobile-${page}`"
+        v-for="item in mobileNavItems"
+        :key="`mobile-${item.page}`"
         class="mobile-tab"
-        :class="{ active: activePage === page }"
-        @click="navigateTo(page)"
+        :class="{ active: activePage === item.page }"
+        :aria-label="item.label"
+        @click="navigateTo(item.page)"
       >
-        <span class="mobile-tab-label">{{ formatPageLabel(page) }}</span>
+        <component :is="item.icon" class="mobile-tab-icon" :size="21" :stroke-width="2.1" aria-hidden="true" />
+        <span class="mobile-tab-label">{{ item.label }}</span>
       </button>
     </nav>
   </div>

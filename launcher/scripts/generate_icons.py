@@ -116,7 +116,7 @@ def maybe_build_icns(base_image):
 def build_wordmark_svg():
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-label="NoobTrade">
   <text x="8" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="{BLACK}">NoobTrade</text>
-  <circle cx="72" cy="18" r="10" fill="{ORANGE}" />
+  <circle cx="45" cy="18" r="10" fill="{ORANGE}" />
 </svg>
 """
 

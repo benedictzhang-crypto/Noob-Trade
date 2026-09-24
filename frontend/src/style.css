@@ -3013,6 +3013,9 @@ select {
   width: 164px;
   height: auto;
   max-width: 100%;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .topbar-brand-meta {
@@ -4644,6 +4647,10 @@ select {
   display: none;
 }
 
+.mobile-settings-links {
+  display: none;
+}
+
 .install-toast {
   position: fixed;
   left: 50%;
@@ -4697,7 +4704,9 @@ select {
   body,
   #app,
   .app-shell {
+    max-width: 100%;
     min-height: 100svh;
+    overflow-x: clip;
   }
 
   body {
@@ -4911,31 +4920,89 @@ select {
 
   .dashboard-watchlist-table,
   .watchlist-scan-table,
-  .explore-table {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+  .explore-table,
+  .admin-referral-surface .data-table {
+    overflow: hidden;
   }
 
-  .dashboard-watchlist-table .dashboard-watchlist-head,
-  .dashboard-watchlist-table .dashboard-watchlist-row {
-    grid-template-columns: 1.1fr 1fr 1fr 64px;
-    min-width: 430px;
+  .dashboard-watchlist-head,
+  .watchlist-scan-head,
+  .explore-head,
+  .admin-users-head,
+  .admin-referral-head,
+  .admin-claim-head {
+    display: none;
+  }
+
+  .dashboard-watchlist-row,
+  .watchlist-scan-row,
+  .explore-row {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 12px;
+    margin-bottom: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-strong);
     align-items: center;
   }
 
-  .watchlist-scan-table .watchlist-scan-head,
-  .watchlist-scan-table .watchlist-scan-row {
-    grid-template-columns: 0.7fr 1fr 1.4fr 1fr 1.2fr;
-    min-width: 620px;
-    align-items: center;
+  .watchlist-scan-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
   }
 
-  .explore-table .explore-head,
-  .explore-table .explore-row {
-    grid-template-columns: 0.9fr 1.6fr 1.1fr 64px;
-    min-width: 520px;
-    align-items: center;
+  .watchlist-scan-row > :nth-child(2) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .watchlist-scan-row > :nth-child(3) {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .watchlist-scan-row > :nth-child(4) {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+
+  .watchlist-scan-row > :nth-child(5) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .explore-row > :nth-child(1) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .explore-row > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .explore-row > :nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    color: var(--text-soft);
+    font-size: 0.82rem;
+  }
+
+  .explore-row > :nth-child(4) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .admin-users-row,
+  .admin-referral-row,
+  .admin-claim-row {
+    min-width: 0;
+    grid-template-columns: 1fr;
   }
 
   .dashboard-watchlist-table .star-toggle,
@@ -4995,40 +5062,56 @@ select {
     right: 0;
     bottom: 0;
     z-index: 50;
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
+    overflow: hidden;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid rgba(24, 24, 27, 0.08);
     background: rgba(255, 252, 248, 0.98);
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(20px);
-    -webkit-overflow-scrolling: touch;
   }
 
-  .mobile-tab::-webkit-scrollbar,
-  .mobile-tabbar::-webkit-scrollbar {
-    display: none;
+  .mobile-tabbar--public {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .mobile-tab {
-    flex: 0 0 auto;
-    min-width: 78px;
-    min-height: 48px;
-    padding: 10px 14px;
-    border: 1px solid rgba(24, 24, 27, 0.08);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.96);
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-width: 0;
+    min-height: 54px;
+    padding: 5px 2px 4px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
     color: var(--text-soft);
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: 650;
+    letter-spacing: 0;
     cursor: pointer;
   }
 
   .mobile-tab.active {
-    border-color: rgba(255, 138, 0, 0.22);
-    background: linear-gradient(135deg, rgba(255, 138, 0, 0.12) 0%, rgba(255, 106, 0, 0.14) 100%);
+    background: rgba(255, 138, 0, 0.1);
     color: var(--accent-strong);
-    box-shadow: 0 8px 22px rgba(255, 138, 0, 0.14);
+  }
+
+  .mobile-tab.active::before {
+    position: absolute;
+    top: 1px;
+    width: 22px;
+    height: 2px;
+    border-radius: 999px;
+    background: #ff8a00;
+    content: '';
+  }
+
+  .mobile-tab-icon {
+    flex: none;
   }
 
   .app-shell.crypto-mode .mobile-tabbar {
@@ -5038,20 +5121,45 @@ select {
   }
 
   .app-shell.crypto-mode .mobile-tab {
-    border-color: rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.07);
+    background: transparent;
     color: rgba(255, 255, 255, 0.72);
   }
 
   .app-shell.crypto-mode .mobile-tab.active {
-    border-color: rgba(255, 255, 255, 0.36);
-    background: rgba(255, 255, 255, 0.96);
-    color: #050505;
-    box-shadow: 0 10px 24px rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
   }
 
   .mobile-tab-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.66rem;
+    line-height: 1.15;
+    text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .mobile-settings-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .mobile-settings-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-strong);
+    color: var(--text-main);
+    font-weight: 700;
+    cursor: pointer;
   }
 
   .install-toast {
