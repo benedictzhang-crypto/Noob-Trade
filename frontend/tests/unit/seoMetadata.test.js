@@ -25,14 +25,16 @@ test('allows search crawlers and points them to the production sitemap', () => {
 
 test('publishes the new NoobTrade wordmark and install icons', () => {
   const index = readProjectFile('index.html')
+  const app = readProjectFile('src/App.vue')
   const manifest = JSON.parse(readProjectFile('public/manifest.webmanifest'))
   const wordmark = readProjectFile('public/brand/noobtrade-wordmark.svg')
   const appIcon = readProjectFile('public/icons/noobtrade-app-icon.svg')
 
   assert.match(index, /noobtrade-app-icon\.svg/)
-  assert.match(wordmark, />oobTrade<\/text>/)
-  assert.match(wordmark, /M8 94V24h18l38 50V44h18v50H64L26 44v50H8Z/)
-  assert.match(wordmark, /#ff8a00/)
+  assert.match(app, /noobtrade-wordmark\.png/)
+  assert.match(app, /noobtrade-wordmark-dark\.png/)
+  assert.match(wordmark, /aria-label="NoobTrade"/)
+  assert.match(wordmark, /data:image\/png;base64,/)
   assert.match(appIcon, /NoobTrade app icon/)
   assert.deepEqual(
     manifest.icons.map(({ src, sizes }) => [src, sizes]),

@@ -9,34 +9,6 @@ const { chromium } = require('playwright')
 const exportsDirectory = resolve(root, 'exports')
 const assets = [
   {
-    source: 'noobtrade-wordmark-black',
-    output: 'noobtrade-wordmark-black-transparent',
-    width: 2240,
-    height: 480,
-    background: 'transparent',
-  },
-  {
-    source: 'noobtrade-wordmark-black',
-    output: 'noobtrade-wordmark-black-on-white',
-    width: 2240,
-    height: 480,
-    background: '#ffffff',
-  },
-  {
-    source: 'noobtrade-wordmark-white',
-    output: 'noobtrade-wordmark-white-transparent',
-    width: 2240,
-    height: 480,
-    background: 'transparent',
-  },
-  {
-    source: 'noobtrade-wordmark-white',
-    output: 'noobtrade-wordmark-white-on-black',
-    width: 2240,
-    height: 480,
-    background: '#111111',
-  },
-  {
     source: 'noobtrade-app-icon',
     output: 'noobtrade-app-icon',
     width: 1024,
@@ -68,3 +40,5 @@ try {
 } finally {
   await browser.close()
 }
+
+await import('./extract_concept_wordmarks.mjs')
