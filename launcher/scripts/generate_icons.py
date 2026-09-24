@@ -6,22 +6,25 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
+FRONTEND_ICONS_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "icons"
 BASE_PNG_PATH = ASSETS_DIR / "noobtrade_icon.png"
 ICO_PATH = ASSETS_DIR / "noobtrade.ico"
 ICNS_PATH = ASSETS_DIR / "noobtrade.icns"
 ICONSET_DIR = ASSETS_DIR / "noobtrade.iconset"
 WORDMARK_SVG_PATH = ASSETS_DIR / "noobtrade_wordmark.svg"
 
-ORANGE = "#ff6900"
-OFF_WHITE = "#fffaf5"
-TEXT = ("Noob", "Trade")
+ORANGE = "#ff8a00"
+BLACK = "#111111"
+WHITE = "#ffffff"
 
 
 def build_assets():
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+    FRONTEND_ICONS_DIR.mkdir(parents=True, exist_ok=True)
     image = build_base_icon(1024)
     image.save(BASE_PNG_PATH, format="PNG")
     image.save(ICO_PATH, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
+    save_frontend_icons(image)
     WORDMARK_SVG_PATH.write_text(build_wordmark_svg(), encoding="utf-8")
     maybe_build_icns(image)
     print(BASE_PNG_PATH)
@@ -31,66 +34,33 @@ def build_assets():
 
 
 def build_base_icon(size):
-    canvas = Image.new("RGBA", (size, size), OFF_WHITE)
+    canvas = Image.new("RGBA", (size, size), BLACK)
     draw = ImageDraw.Draw(canvas)
 
-    outer_margin = int(size * 0.06)
-    card_radius = int(size * 0.16)
-    draw.rounded_rectangle(
-        [outer_margin, outer_margin, size - outer_margin, size - outer_margin],
-        radius=card_radius,
-        fill=OFF_WHITE,
-    )
-
-    noob_font = load_font(int(size * 0.23))
-    trade_font = load_font(int(size * 0.22))
-
-    noob_box = draw.textbbox((0, 0), TEXT[0], font=noob_font)
-    trade_box = draw.textbbox((0, 0), TEXT[1], font=trade_font)
-    noob_width = noob_box[2] - noob_box[0]
-    trade_width = trade_box[2] - trade_box[0]
-
-    noob_x = (size - noob_width) / 2
-    trade_x = (size - trade_width) / 2
-    noob_y = size * 0.23
-    trade_y = size * 0.47
-
-    draw.text((noob_x, noob_y), TEXT[0], font=noob_font, fill=ORANGE)
-    draw.text((trade_x, trade_y), TEXT[1], font=trade_font, fill=ORANGE)
-
-    underline_top = size * 0.425
-    draw.rounded_rectangle(
-        [size * 0.15, underline_top, size * 0.46, underline_top + size * 0.038],
-        radius=int(size * 0.012),
-        fill=ORANGE,
-    )
-
-    draw.polygon(
-        [
-            (size * 0.12, size * 0.18),
-            (size * 0.18, size * 0.16),
-            (size * 0.16, size * 0.24),
-        ],
-        fill=ORANGE,
-    )
-    draw.polygon(
-        [
-            (size * 0.17, size * 0.82),
-            (size * 0.24, size * 0.8),
-            (size * 0.18, size * 0.86),
-        ],
-        fill=ORANGE,
-    )
-    draw.polygon(
-        [
-            (size * 0.78, size * 0.84),
-            (size * 0.86, size * 0.82),
-            (size * 0.84, size * 0.88),
-        ],
+    scale = size / 1024
+    points = lambda values: [(int(x * scale), int(y * scale)) for x, y in values]
+    draw.polygon(points([(214, 754), (214, 270), (326, 270), (562, 586), (562, 270), (670, 270), (670, 754), (558, 754), (322, 438), (322, 754)]), fill=WHITE)
+    draw.rectangle([int(554 * scale), int(270 * scale), int(820 * scale), int(378 * scale)], fill=WHITE)
+    draw.rectangle([int(633 * scale), int(330 * scale), int(741 * scale), int(754 * scale)], fill=WHITE)
+    draw.ellipse(
+        [size * 0.489, size * 0.165, size * 0.585, size * 0.261],
         fill=ORANGE,
     )
 
     return canvas
+
+
+def save_frontend_icons(image):
+    sizes = {
+        "noobtrade-32.png": 32,
+        "noobtrade-192.png": 192,
+        "noobtrade-512.png": 512,
+        "apple-touch-icon.png": 180,
+    }
+
+    for file_name, size in sizes.items():
+        resized = image.resize((size, size), Image.Resampling.LANCZOS)
+        resized.save(FRONTEND_ICONS_DIR / file_name, format="PNG")
 
 
 def load_font(size):
@@ -140,17 +110,13 @@ def maybe_build_icns(base_image):
         [iconutil_path, "-c", "icns", str(ICONSET_DIR), "-o", str(ICNS_PATH)],
         check=True,
     )
+    shutil.rmtree(ICONSET_DIR)
 
 
 def build_wordmark_svg():
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Noob Trade">
-  <rect width="1024" height="1024" rx="160" fill="{OFF_WHITE}" />
-  <polygon points="124,184 180,170 162,246" fill="{ORANGE}" />
-  <polygon points="168,840 244,818 184,882" fill="{ORANGE}" />
-  <polygon points="790,850 872,830 846,892" fill="{ORANGE}" />
-  <text x="512" y="380" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="234" font-weight="700" fill="{ORANGE}">Noob</text>
-  <rect x="156" y="432" width="310" height="38" rx="10" fill="{ORANGE}" />
-  <text x="512" y="666" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="228" font-weight="700" fill="{ORANGE}">Trade</text>
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-label="NoobTrade">
+  <text x="8" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="{BLACK}">NoobTrade</text>
+  <circle cx="72" cy="18" r="10" fill="{ORANGE}" />
 </svg>
 """
 

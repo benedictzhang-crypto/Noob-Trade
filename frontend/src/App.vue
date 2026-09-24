@@ -10774,7 +10774,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
   <div class="app-shell" :class="{ 'crypto-mode': isAuthenticated && isCryptoMode }">
     <header class="topbar">
       <div class="topbar-brand-block">
-        <div class="topbar-brand">NoobTrade</div>
+        <img
+          class="topbar-brand-logo"
+          :src="isAuthenticated && isCryptoMode
+            ? '/brand/noobtrade-wordmark-dark.svg'
+            : '/brand/noobtrade-wordmark.svg'"
+          alt="NoobTrade"
+        />
       </div>
 
       <nav class="topbar-nav">

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-labelledby="title">
+  <title id="title">NoobTrade</title>
+  <text
+    x="8"
+    y="94"
+    fill="#ffffff"
+    font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+    font-size="91"
+    font-weight="800"
+    letter-spacing="-5"
+  >NoobTrade</text>
+  <circle cx="72" cy="18" r="10" fill="#ff8a00" />
+</svg>

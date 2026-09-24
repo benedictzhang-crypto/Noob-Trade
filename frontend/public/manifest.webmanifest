@@ -2,22 +2,34 @@
   "name": "NoobTrade",
   "short_name": "NoobTrade",
   "description": "NoobTrade is AmpliAlpha's stock and crypto market research app for live charts, probability analysis, watchlist scans, and historical pattern review.",
-  "theme_color": "#ff8a00",
-  "background_color": "#fff7f0",
+  "theme_color": "#111111",
+  "background_color": "#ffffff",
   "display": "standalone",
   "orientation": "portrait",
   "start_url": "/",
   "scope": "/",
   "icons": [
     {
+      "src": "/icons/noobtrade-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
       "src": "/icons/noobtrade-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/noobtrade-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icons/apple-touch-icon.png",
-      "sizes": "512x512",
+      "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     }

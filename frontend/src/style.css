@@ -3008,10 +3008,11 @@ select {
   min-width: 0;
 }
 
-.topbar-brand {
-  font-size: 1.55rem;
-  font-weight: 900;
-  letter-spacing: -0.05em;
+.topbar-brand-logo {
+  display: block;
+  width: 164px;
+  height: auto;
+  max-width: 100%;
 }
 
 .topbar-brand-meta {
@@ -4719,9 +4720,8 @@ select {
     gap: 2px;
   }
 
-  .topbar-brand {
-    font-size: 1.22rem;
-    letter-spacing: -0.04em;
+  .topbar-brand-logo {
+    width: 142px;
   }
 
   .topbar-brand-meta {
