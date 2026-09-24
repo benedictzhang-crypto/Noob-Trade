@@ -11401,7 +11401,6 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           <div class="brand-mark">
             <span class="brand-title trade-title">{{ activeTradeWorkspaceLabel }}</span>
           </div>
-          <button class="menu-button" type="button">≡</button>
         </div>
 
         <div class="search-block">

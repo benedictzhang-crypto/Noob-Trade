@@ -794,8 +794,7 @@ select {
 .chart-toolbar-button:focus-visible,
 .sell-button:focus-visible,
 .popular-link:focus-visible,
-.watchlist-link:focus-visible,
-.menu-button:focus-visible {
+.watchlist-link:focus-visible {
   outline: 3px solid rgba(255, 138, 0, 0.18);
   outline-offset: 2px;
 }
@@ -876,24 +875,6 @@ select {
 
 .trade-title {
   font-size: 1.18rem;
-}
-
-.menu-button {
-  border: 0;
-  background: transparent;
-  color: var(--text-soft);
-  font-size: 1.2rem;
-  cursor: pointer;
-  transform: translateY(0);
-  transition: transform 140ms ease, opacity 140ms ease;
-}
-
-.menu-button:hover {
-  transform: translateY(-1px);
-}
-
-.menu-button:active {
-  transform: translateY(1px) scale(0.97);
 }
 
 .search-block {
@@ -3010,7 +2991,7 @@ select {
 
 .topbar-brand-logo {
   display: block;
-  width: 191px;
+  width: 180px;
   height: auto;
   aspect-ratio: 1451 / 273;
   max-width: 100%;
