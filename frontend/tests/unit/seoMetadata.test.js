@@ -29,10 +29,10 @@ test('publishes the new NoobTrade wordmark and install icons', () => {
   const styles = readProjectFile('src/style.css')
   const manifest = JSON.parse(readProjectFile('public/manifest.webmanifest'))
   const wordmark = readProjectFile('public/brand/noobtrade-wordmark.svg')
-  const appIcon = readProjectFile('public/icons/noobtrade-app-icon-v2.svg')
+  const appIcon = readProjectFile('public/icons/noobtrade-app-icon-v3.svg')
 
-  assert.match(index, /noobtrade-app-icon-v2\.svg/)
-  assert.match(index, /favicon-v2\.ico/)
+  assert.match(index, /noobtrade-app-icon-v3\.svg/)
+  assert.match(index, /favicon-v3\.ico/)
   assert.match(app, /noobtrade-wordmark\.png/)
   assert.match(app, /noobtrade-wordmark-dark\.png/)
   assert.match(styles, /aspect-ratio: 1960 \/ 384;/)
@@ -42,10 +42,10 @@ test('publishes the new NoobTrade wordmark and install icons', () => {
   assert.deepEqual(
     manifest.icons.map(({ src, sizes }) => [src, sizes]),
     [
-      ['/icons/noobtrade-192-v2.png', '192x192'],
-      ['/icons/noobtrade-512-v2.png', '512x512'],
-      ['/icons/noobtrade-512-v2.png', '512x512'],
-      ['/icons/apple-touch-icon-v2.png', '180x180'],
+      ['/icons/noobtrade-192-v3.png', '192x192'],
+      ['/icons/noobtrade-512-v3.png', '512x512'],
+      ['/icons/noobtrade-maskable-512-v3.png', '512x512'],
+      ['/icons/apple-touch-icon-v3.png', '180x180'],
     ]
   )
 })
