@@ -1,4 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-label="NoobTrade">
-  <text x="8" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="#111111">NoobTrade</text>
-  <circle cx="45" cy="18" r="10" fill="#ff8a00" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 120" role="img" aria-label="NoobTrade">
+  <path d="M8 94V24h18l38 50V44h18v50H64L26 44v50H8Z" fill="#111111" />
+  <text x="88" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="#111111">oobTrade</text>
+  <circle cx="72" cy="25" r="10" fill="#ff8a00" />
 </svg>

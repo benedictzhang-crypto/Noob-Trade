@@ -30,7 +30,8 @@ test('publishes the new NoobTrade wordmark and install icons', () => {
   const appIcon = readProjectFile('public/icons/noobtrade-app-icon.svg')
 
   assert.match(index, /noobtrade-app-icon\.svg/)
-  assert.match(wordmark, />NoobTrade<\/text>/)
+  assert.match(wordmark, />oobTrade<\/text>/)
+  assert.match(wordmark, /M8 94V24h18l38 50V44h18v50H64L26 44v50H8Z/)
   assert.match(wordmark, /#ff8a00/)
   assert.match(appIcon, /NoobTrade app icon/)
   assert.deepEqual(

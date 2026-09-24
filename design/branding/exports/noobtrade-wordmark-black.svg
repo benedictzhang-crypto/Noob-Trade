@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 240" role="img" aria-labelledby="title">
+  <title id="title">NoobTrade black wordmark</title>
+  <path d="M16 188V48h36l76 100V88h36v100h-36L52 88v100H16Z" fill="#111111" />
+  <text
+    x="176"
+    y="188"
+    fill="#111111"
+    font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+    font-size="182"
+    font-weight="800"
+    letter-spacing="-10"
+  >oobTrade</text>
+  <circle cx="144" cy="50" r="20" fill="#ff8a00" />
+</svg>

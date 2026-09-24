@@ -34,16 +34,21 @@ def build_assets():
 
 
 def build_base_icon(size):
-    canvas = Image.new("RGBA", (size, size), BLACK)
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(canvas)
 
     scale = size / 1024
     points = lambda values: [(int(x * scale), int(y * scale)) for x, y in values]
-    draw.polygon(points([(214, 754), (214, 270), (326, 270), (562, 586), (562, 270), (670, 270), (670, 754), (558, 754), (322, 438), (322, 754)]), fill=WHITE)
-    draw.rectangle([int(554 * scale), int(270 * scale), int(820 * scale), int(378 * scale)], fill=WHITE)
-    draw.rectangle([int(633 * scale), int(330 * scale), int(741 * scale), int(754 * scale)], fill=WHITE)
+    draw.rounded_rectangle(
+        [int(64 * scale), int(64 * scale), int(960 * scale), int(960 * scale)],
+        radius=int(190 * scale),
+        fill=BLACK,
+    )
+    draw.polygon(points([(214, 754), (214, 270), (326, 270), (562, 586), (562, 378), (670, 378), (670, 754), (558, 754), (322, 438), (322, 754)]), fill=WHITE)
+    draw.rectangle([int(650 * scale), int(270 * scale), int(860 * scale), int(378 * scale)], fill=WHITE)
+    draw.rectangle([int(701 * scale), int(330 * scale), int(809 * scale), int(754 * scale)], fill=WHITE)
     draw.ellipse(
-        [size * 0.489, size * 0.165, size * 0.585, size * 0.261],
+        [size * 0.554, size * 0.165, size * 0.650, size * 0.261],
         fill=ORANGE,
     )
 
@@ -114,9 +119,10 @@ def maybe_build_icns(base_image):
 
 
 def build_wordmark_svg():
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" role="img" aria-label="NoobTrade">
-  <text x="8" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="{BLACK}">NoobTrade</text>
-  <circle cx="45" cy="18" r="10" fill="{ORANGE}" />
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 120" role="img" aria-label="NoobTrade">
+  <path d="M8 94V24h18l38 50V44h18v50H64L26 44v50H8Z" fill="{BLACK}" />
+  <text x="88" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="{BLACK}">oobTrade</text>
+  <circle cx="72" cy="25" r="10" fill="{ORANGE}" />
 </svg>
 """
 
