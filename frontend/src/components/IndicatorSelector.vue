@@ -21,7 +21,7 @@ function handleToggle(event, indicatorName) {
 </script>
 
 <template>
-  <div>
+  <div class="indicator-selector">
     <div class="inner-card">
       <div class="section-header">Select Indicators</div>
       <div class="indicator-list">

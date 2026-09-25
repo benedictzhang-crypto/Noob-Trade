@@ -4631,7 +4631,17 @@ select {
   display: none;
 }
 
+.mobile-trade-flow,
+.mobile-trade-actions,
+.mobile-result-tabs {
+  display: none;
+}
+
 .mobile-settings-links {
+  display: none;
+}
+
+.mobile-ai-settings {
   display: none;
 }
 
@@ -4701,9 +4711,10 @@ select {
   .topbar {
     position: sticky;
     top: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 14px 12px;
-    gap: 12px;
-    align-items: stretch;
+    flex-direction: row;
+    align-items: center;
+    padding: calc(9px + env(safe-area-inset-top, 0px)) 14px 9px;
+    gap: 8px;
     border-bottom: 1px solid rgba(24, 24, 27, 0.06);
     background: rgba(255, 252, 248, 0.94);
     backdrop-filter: blur(18px);
@@ -4714,7 +4725,7 @@ select {
   }
 
   .topbar-brand-logo {
-    width: 164px;
+    width: 142px;
     height: auto;
   }
 
@@ -4729,10 +4740,7 @@ select {
   }
 
   .topbar-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    width: 100%;
+    display: none;
   }
 
   .topbar-actions:has(> :only-child) {
@@ -4796,13 +4804,44 @@ select {
 
   .search-block h1,
   .page-title {
-    font-size: clamp(1.9rem, 10vw, 2.8rem);
-    max-width: 12ch;
+    max-width: none;
+    font-size: 1.48rem;
+    line-height: 1.15;
+    letter-spacing: 0;
   }
 
   .page-subtitle,
   .page-lead {
-    font-size: 0.92rem;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .product-page h1,
+  .product-page h2,
+  .product-page h3,
+  .dashboard-layout h1,
+  .dashboard-layout h2,
+  .dashboard-layout h3,
+  .summary-hero h3,
+  .stat-card h2,
+  .spotlight-item strong,
+  .feature-story-card h2,
+  .table-header h2,
+  .panel-topbar h2 {
+    letter-spacing: 0;
+  }
+
+  .table-header h2,
+  .panel-topbar h2,
+  .feature-story-card h2 {
+    font-size: 1.02rem;
+    line-height: 1.25;
+  }
+
+  .summary-hero h3,
+  .stat-card h2 {
+    font-size: 1.35rem;
+    line-height: 1.15;
   }
 
   .hero-actions,
@@ -4826,8 +4865,269 @@ select {
   }
 
   .dashboard-balance-value {
-    font-size: clamp(2rem, 9vw, 3rem);
-    line-height: 0.94;
+    font-size: 1.8rem;
+    line-height: 1;
+  }
+
+  .mobile-trade-flow {
+    display: grid;
+    gap: 10px;
+    grid-column: 1 / -1;
+  }
+
+  .mobile-step-progress,
+  .mobile-result-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-strong);
+  }
+
+  .mobile-step-progress button,
+  .mobile-result-tabs button {
+    min-width: 0;
+    min-height: 40px;
+    padding: 7px 5px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .mobile-step-progress button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .mobile-step-progress button span {
+    display: inline-grid;
+    width: 18px;
+    height: 18px;
+    place-items: center;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    font-size: 0.65rem;
+  }
+
+  .mobile-step-progress button.active,
+  .mobile-result-tabs button.active {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .mobile-step-progress button:disabled {
+    opacity: 0.38;
+    cursor: default;
+  }
+
+  .trade-workspace .mobile-trade-panel {
+    display: none;
+    min-width: 0;
+  }
+
+  .trade-workspace.mobile-trade-step--indicators,
+  .trade-workspace.mobile-trade-step--results {
+    padding-bottom: calc(154px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .trade-workspace.mobile-trade-step--search .mobile-trade-panel--search,
+  .trade-workspace.mobile-trade-step--indicators .mobile-trade-panel--indicators,
+  .trade-workspace.mobile-trade-step--results.mobile-result-view--chart .mobile-trade-panel--indicators,
+  .trade-workspace.mobile-trade-step--results:not(.mobile-result-view--chart) .mobile-trade-panel--results {
+    display: block;
+  }
+
+  .trade-workspace .panel-topbar,
+  .trade-workspace.mobile-trade-step--search .market-card,
+  .trade-workspace.mobile-trade-step--search .page-lead,
+  .trade-workspace.mobile-trade-step--search .source-banner {
+    display: none;
+  }
+
+  .trade-workspace .panel {
+    border-radius: 10px;
+    box-shadow: none;
+  }
+
+  .trade-workspace .search-block {
+    padding: 18px 14px;
+  }
+
+  .trade-workspace .search-block h1 {
+    margin: 0 0 14px;
+    font-size: 1.35rem;
+  }
+
+  .trade-workspace .search-form {
+    gap: 8px;
+  }
+
+  .trade-workspace .symbol-input,
+  .trade-workspace .search-button {
+    min-height: 46px;
+  }
+
+  .trade-workspace.mobile-trade-step--indicators .mobile-chart-section {
+    display: none;
+  }
+
+  .trade-workspace.mobile-trade-step--results .indicator-selector {
+    display: none;
+  }
+
+  .trade-workspace .indicator-selector .inner-card {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .trade-workspace .indicator-selector .section-header {
+    padding: 13px 12px 8px;
+    border-bottom: 0;
+    background: transparent;
+    font-size: 0.72rem;
+    letter-spacing: 0;
+  }
+
+  .trade-workspace .indicator-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    padding: 8px 10px 12px;
+  }
+
+  .trade-workspace .indicator-row {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 64px;
+    padding: 7px 3px;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .trade-workspace .indicator-name {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.72rem;
+    line-height: 1.1;
+    text-overflow: ellipsis;
+  }
+
+  .trade-workspace .check-box {
+    width: 17px;
+    height: 17px;
+    font-size: 0.68rem;
+  }
+
+  .trade-workspace .indicator-selector .analysis-button {
+    display: none;
+  }
+
+  .mobile-result-section {
+    display: none;
+  }
+
+  .trade-workspace.mobile-result-view--forecast .mobile-result-section--forecast,
+  .trade-workspace.mobile-result-view--history .mobile-result-section--history {
+    display: block;
+  }
+
+  .trade-workspace.mobile-result-view--chart .mobile-chart-section {
+    display: block;
+  }
+
+  .trade-workspace .mobile-chart-section > .inner-card,
+  .trade-workspace .mobile-result-section > .inner-card {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .mobile-trade-actions {
+    position: fixed;
+    right: 12px;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    z-index: 48;
+    display: grid;
+    grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid rgba(24, 24, 27, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 252, 248, 0.96);
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-flow-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    cursor: pointer;
+  }
+
+  .mobile-flow-button.primary {
+    border-color: #ff8a00;
+    background: #ff8a00;
+    color: #ffffff;
+  }
+
+  .mobile-flow-button.secondary {
+    background: #ffffff;
+    color: var(--text-main);
+  }
+
+  .mobile-flow-button:disabled {
+    opacity: 0.58;
+    cursor: wait;
+  }
+
+  .app-shell.trade-workspace-active .voice-assistant {
+    display: none;
+  }
+
+  .app-shell.crypto-mode .mobile-step-progress,
+  .app-shell.crypto-mode .mobile-result-tabs,
+  .app-shell.crypto-mode .mobile-trade-actions {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(8, 8, 8, 0.96);
+  }
+
+  .app-shell.crypto-mode .mobile-step-progress button,
+  .app-shell.crypto-mode .mobile-result-tabs button {
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  .app-shell.crypto-mode .mobile-step-progress button.active,
+  .app-shell.crypto-mode .mobile-result-tabs button.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  .app-shell.crypto-mode .mobile-flow-button.secondary {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
   }
 
   .dashboard-mini-chart,
@@ -5145,6 +5445,71 @@ select {
     color: var(--text-main);
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .mobile-settings-link span {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.78rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-ai-settings {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+
+  .mobile-ai-settings-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-ai-settings-header > div {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .mobile-ai-settings-header strong {
+    font-size: 0.92rem;
+    line-height: 1.2;
+  }
+
+  .mobile-ai-settings-header small {
+    overflow: hidden;
+    color: var(--text-soft);
+    font-size: 0.72rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-ai-toggle {
+    width: 100%;
+    margin: 0;
+  }
+
+  .mobile-ai-status {
+    min-height: 0;
+  }
+
+  .mobile-ai-command {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .mobile-ai-command .topbar-button {
+    width: auto;
+    min-height: 42px;
+    padding-inline: 16px;
+  }
+
+  .mobile-ai-confirm .voice-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .install-toast {
@@ -5620,10 +5985,7 @@ select {
   }
 
   .voice-assistant {
-    left: 12px;
-    right: auto;
-    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-    max-width: min(318px, calc(100vw - 24px));
+    display: none;
   }
 
   .voice-panel {
@@ -5643,6 +6005,12 @@ select {
 
   .voice-text-input {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 820px) {
+  .voice-assistant {
+    display: none;
   }
 }
 

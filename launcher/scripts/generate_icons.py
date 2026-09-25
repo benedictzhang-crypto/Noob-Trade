@@ -41,16 +41,11 @@ def build_base_icon(size):
     points = lambda values: [(int(x * scale), int(y * scale)) for x, y in values]
     draw.rounded_rectangle(
         [int(64 * scale), int(64 * scale), int(960 * scale), int(960 * scale)],
-        radius=int(190 * scale),
+        radius=int(202 * scale),
         fill=BLACK,
     )
-    draw.polygon(points([(214, 754), (214, 270), (326, 270), (562, 586), (562, 378), (670, 378), (670, 754), (558, 754), (322, 438), (322, 754)]), fill=WHITE)
-    draw.rectangle([int(650 * scale), int(270 * scale), int(860 * scale), int(378 * scale)], fill=WHITE)
-    draw.rectangle([int(701 * scale), int(330 * scale), int(809 * scale), int(754 * scale)], fill=WHITE)
-    draw.ellipse(
-        [size * 0.554, size * 0.165, size * 0.650, size * 0.261],
-        fill=ORANGE,
-    )
+    draw.polygon(points([(184, 760), (184, 264), (292, 264), (600, 652), (600, 264), (708, 264), (708, 760), (600, 760), (292, 372), (292, 760)]), fill=WHITE)
+    draw.rectangle([int(540 * scale), int(264 * scale), int(864 * scale), int(372 * scale)], fill=WHITE)
 
     return canvas
 

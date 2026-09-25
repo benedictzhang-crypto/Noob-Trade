@@ -3,8 +3,11 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Fuse from 'fuse.js'
 import {
+  ArrowLeft,
+  Bot,
   ChartCandlestick,
   ChartNoAxesCombined,
+  Download,
   House,
   Info,
   LayoutDashboard,
@@ -12,6 +15,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Repeat2,
   UserPlus,
 } from '@lucide/vue'
 
@@ -740,6 +744,8 @@ const voiceSpeechMaxCharacters = 96
 const activePage = ref('Home')
 const appMode = ref('stock')
 const uiLanguage = ref('en')
+const mobileTradeStep = ref('search')
+const mobileResultView = ref('forecast')
 const isAuthenticated = ref(false)
 const symbolInput = ref('')
 const activeSymbol = ref('')
@@ -5262,6 +5268,15 @@ const mobileNavItems = computed(() => {
     { page: 'Settings', label: formatPageLabel('Settings'), icon: Settings },
   ]
 })
+const hasMobileSearchResult = computed(() => (
+  activeTradeResponse.value?.dataSource !== 'idle'
+  && Boolean(activeTradeResponse.value?.stock?.symbol)
+))
+const hasMobileGeneratedResult = computed(() => (
+  isGenerating.value
+  || isPredictionLoading.value
+  || Boolean(activeTradeResponse.value?.request?.indicators?.length)
+))
 const isAppleMobile = computed(() => {
   if (typeof navigator === 'undefined') {
     return false
@@ -5642,6 +5657,52 @@ async function triggerInstall() {
   }
 
   installMessage.value = 'Open this page in Chrome, Edge, or Safari desktop and use the install button in the browser chrome.'
+}
+
+function isMobileTradeViewport() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(max-width: 820px)').matches
+}
+
+function scrollMobileTradeToTop() {
+  if (!isMobileTradeViewport()) {
+    return
+  }
+
+  nextTick(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  })
+}
+
+function setMobileTradeStep(step) {
+  if (step === 'indicators' && !hasMobileSearchResult.value) {
+    return
+  }
+
+  if (step === 'results' && !hasMobileGeneratedResult.value) {
+    return
+  }
+
+  mobileTradeStep.value = step
+  scrollMobileTradeToTop()
+}
+
+async function handleTradeSearch() {
+  await runSearch('search')
+
+  if (isMobileTradeViewport() && !errorMessage.value && hasMobileSearchResult.value) {
+    mobileTradeStep.value = 'indicators'
+    scrollMobileTradeToTop()
+  }
+}
+
+async function handleTradeGenerate() {
+  await runSearch('generate')
+
+  if (isMobileTradeViewport() && !errorMessage.value) {
+    mobileResultView.value = 'forecast'
+    mobileTradeStep.value = 'results'
+    scrollMobileTradeToTop()
+  }
 }
 
 async function loadMarketNews() {
@@ -7365,9 +7426,11 @@ function navigateTo(page) {
     if (normalizedPage === 'Crypto Trade') {
       appMode.value = 'crypto'
       symbolInput.value = cryptoResponse.value.stock.symbol || ''
+      mobileTradeStep.value = 'search'
     } else if (normalizedPage === 'Stock Trade') {
       appMode.value = 'stock'
       symbolInput.value = activeSymbol.value
+      mobileTradeStep.value = 'search'
     }
 
     if (normalizedPage === 'Reset Password') {
@@ -7503,7 +7566,7 @@ function switchTradingMode() {
 
 function selectPopularSymbol(symbol) {
   symbolInput.value = symbol
-  runSearch()
+  handleTradeSearch()
 }
 
 function normalizeProbabilityThreshold(value) {
@@ -10804,7 +10867,13 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'crypto-mode': isAuthenticated && isCryptoMode }">
+  <div
+    class="app-shell"
+    :class="{
+      'crypto-mode': isAuthenticated && isCryptoMode,
+      'trade-workspace-active': isTradeWorkspacePage,
+    }"
+  >
     <header class="topbar">
       <div class="topbar-brand-block">
         <img
@@ -11395,8 +11464,49 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
       </section>
     </main>
 
-    <main v-else-if="isTradeWorkspacePage" class="dashboard-layout">
-      <section class="column panel left-panel">
+    <main
+      v-else-if="isTradeWorkspacePage"
+      class="dashboard-layout trade-workspace"
+      :class="[`mobile-trade-step--${mobileTradeStep}`, `mobile-result-view--${mobileResultView}`]"
+    >
+      <section class="mobile-trade-flow" aria-label="Trade analysis steps">
+        <div class="mobile-step-progress">
+          <button
+            type="button"
+            :class="{ active: mobileTradeStep === 'search' }"
+            @click="setMobileTradeStep('search')"
+          >
+            <span>1</span>
+            Search
+          </button>
+          <button
+            type="button"
+            :class="{ active: mobileTradeStep === 'indicators' }"
+            :disabled="!hasMobileSearchResult"
+            @click="setMobileTradeStep('indicators')"
+          >
+            <span>2</span>
+            Indicators
+          </button>
+          <button
+            type="button"
+            :class="{ active: mobileTradeStep === 'results' }"
+            :disabled="!hasMobileGeneratedResult"
+            @click="setMobileTradeStep('results')"
+          >
+            <span>3</span>
+            Results
+          </button>
+        </div>
+
+        <div v-if="mobileTradeStep === 'results'" class="mobile-result-tabs" role="tablist" aria-label="Result view">
+          <button type="button" :class="{ active: mobileResultView === 'chart' }" @click="mobileResultView = 'chart'">Chart</button>
+          <button type="button" :class="{ active: mobileResultView === 'forecast' }" @click="mobileResultView = 'forecast'">Forecast</button>
+          <button type="button" :class="{ active: mobileResultView === 'history' }" @click="mobileResultView = 'history'">History</button>
+        </div>
+      </section>
+
+      <section class="column panel left-panel mobile-trade-panel mobile-trade-panel--search">
         <div class="panel-topbar brand-bar">
           <div class="brand-mark">
             <span class="brand-title trade-title">{{ activeTradeWorkspaceLabel }}</span>
@@ -11421,7 +11531,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             :placeholder="tradeSearchPlaceholder"
             :loading-label="tradeSearchLoadingLabel"
             :popular-symbols="tradePopularSymbols"
-            @search="runSearch('search')"
+            @search="handleTradeSearch"
             @select-popular="selectPopularSymbol"
           />
         </div>
@@ -11442,7 +11552,7 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
         </div>
       </section>
 
-      <section class="column panel center-panel">
+      <section class="column panel center-panel mobile-trade-panel mobile-trade-panel--indicators">
         <div class="panel-topbar">
           <div class="panel-heading-group">
             <h2>{{ displayedTradeSymbol }} {{ activeTradeWorkspaceLabel }} Setup</h2>
@@ -11452,28 +11562,30 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
         </div>
 
-        <ChartPanel
-          :active-indicators="appliedIndicators"
-          :active-symbol="displayedTradeSymbol"
-          :chart-data="activeTradeResponse.chartData"
-          :chart-intervals="chartIntervals"
-          :company-name="activeTradeResponse.stock.companyName"
-          :industry="activeTradeResponse.stock.industry"
-          :is-crypto-mode="isCryptoMode"
-          :selected-interval="selectedChartInterval"
-          :sector="activeTradeResponse.stock.sector"
-          @update:selected-interval="handleChartIntervalChange"
-        />
+        <div class="mobile-chart-section">
+          <ChartPanel
+            :active-indicators="appliedIndicators"
+            :active-symbol="displayedTradeSymbol"
+            :chart-data="activeTradeResponse.chartData"
+            :chart-intervals="chartIntervals"
+            :company-name="activeTradeResponse.stock.companyName"
+            :industry="activeTradeResponse.stock.industry"
+            :is-crypto-mode="isCryptoMode"
+            :selected-interval="selectedChartInterval"
+            :sector="activeTradeResponse.stock.sector"
+            @update:selected-interval="handleChartIntervalChange"
+          />
+        </div>
 
         <IndicatorSelector
           :indicators="indicators"
           :is-loading="isGenerating"
-          @run-analysis="runSearch('generate')"
+          @run-analysis="handleTradeGenerate"
           @toggle-indicator="toggleIndicator"
         />
       </section>
 
-      <section class="column panel right-panel">
+      <section class="column panel right-panel mobile-trade-panel mobile-trade-panel--results">
         <div class="panel-topbar">
           <div class="panel-heading-group">
             <h2>{{ displayedTradeSymbol }} Forecast</h2>
@@ -11483,26 +11595,63 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
           </div>
         </div>
 
-        <PredictionSummary
-          ref="predictionSummaryRef"
-          :format-percent="formatPercent"
-          :request-data="activeTradeResponse.request"
-          :stock-data="activeTradeResponse.stock"
-          :analysis-data="activeTradeResponse.patternAnalysis"
-          :is-loading="isPredictionLoading"
-          :loading-title="predictionLoadingTitle"
-          :loading-message="predictionLoadingMessage"
-        />
+        <div class="mobile-result-section mobile-result-section--forecast">
+          <PredictionSummary
+            ref="predictionSummaryRef"
+            :format-percent="formatPercent"
+            :request-data="activeTradeResponse.request"
+            :stock-data="activeTradeResponse.stock"
+            :analysis-data="activeTradeResponse.patternAnalysis"
+            :is-loading="isPredictionLoading"
+            :loading-title="predictionLoadingTitle"
+            :loading-message="predictionLoadingMessage"
+          />
+        </div>
 
-        <MatchedPatterns
-          ref="matchedPatternsRef"
-          :matched-patterns="activeTradeResponse.patternAnalysis.matchedHistoricalPatterns"
-          :high-fit-paths="activeTradeResponse.patternAnalysis.highFitHistoricalPaths"
-          :is-loading-details="isMatchDetailsLoading"
-          @open-replay="openHistoricalReplay"
-        />
+        <div class="mobile-result-section mobile-result-section--history">
+          <MatchedPatterns
+            ref="matchedPatternsRef"
+            :matched-patterns="activeTradeResponse.patternAnalysis.matchedHistoricalPatterns"
+            :high-fit-paths="activeTradeResponse.patternAnalysis.highFitHistoricalPaths"
+            :is-loading-details="isMatchDetailsLoading"
+            @open-replay="openHistoricalReplay"
+          />
+        </div>
 
       </section>
+
+      <div
+        v-if="mobileTradeStep !== 'search'"
+        class="mobile-trade-actions"
+        role="region"
+        aria-label="Trade step actions"
+      >
+        <button
+          type="button"
+          class="mobile-flow-button secondary"
+          @click="setMobileTradeStep(mobileTradeStep === 'results' ? 'indicators' : 'search')"
+        >
+          <ArrowLeft :size="18" aria-hidden="true" />
+          {{ mobileTradeStep === 'results' ? 'Indicators' : 'Back' }}
+        </button>
+        <button
+          v-if="mobileTradeStep === 'indicators'"
+          type="button"
+          class="mobile-flow-button primary"
+          :disabled="isGenerating"
+          @click="handleTradeGenerate"
+        >
+          {{ isGenerating ? 'Generating...' : 'Generate Results' }}
+        </button>
+        <button
+          v-else
+          type="button"
+          class="mobile-flow-button primary"
+          @click="setMobileTradeStep('search')"
+        >
+          New Search
+        </button>
+      </div>
     </main>
 
     <main v-else-if="activePage === 'Explore'" class="product-page">
@@ -12056,6 +12205,14 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
             <button class="topbar-button" @click="signOut">{{ t('signOut') }}</button>
           </div>
           <div class="mobile-settings-links" aria-label="Additional navigation">
+            <button class="mobile-settings-link" type="button" @click="switchTradingMode">
+              <Repeat2 :size="20" aria-hidden="true" />
+              <span>{{ modeSwitchLabel }}</span>
+            </button>
+            <button v-if="canInstallApp" class="mobile-settings-link" type="button" @click="triggerInstall">
+              <Download :size="20" aria-hidden="true" />
+              <span>{{ t('installApp') }}</span>
+            </button>
             <button class="mobile-settings-link" type="button" @click="navigateTo('More')">
               <Info :size="20" aria-hidden="true" />
               <span>{{ formatPageLabel('More') }}</span>
@@ -12070,6 +12227,51 @@ if (import.meta.env.DEV && typeof window !== 'undefined') {
               <span>{{ formatPageLabel('Admin') }}</span>
             </button>
           </div>
+
+          <section class="mobile-ai-settings" aria-label="Noob AI settings">
+            <div class="mobile-ai-settings-header">
+              <Bot :size="20" aria-hidden="true" />
+              <div>
+                <strong>{{ t('aiTitle') }}</strong>
+                <small>{{ voiceActionLabel }}</small>
+              </div>
+            </div>
+
+            <button
+              class="voice-mode-toggle mobile-ai-toggle"
+              type="button"
+              :class="{ enabled: voiceAssistantEnabled }"
+              :aria-pressed="voiceAssistantEnabled"
+              @click="toggleVoiceAssistant"
+            >
+              <span class="voice-switch-track" aria-hidden="true">
+                <span class="voice-switch-thumb"></span>
+              </span>
+              <span>
+                <strong>{{ voiceAssistantEnabled ? t('aiModeOn') : t('aiModeOff') }}</strong>
+                <small>{{ voiceAssistantEnabled ? t('aiListening') : t('aiManual') }}</small>
+              </span>
+            </button>
+
+            <div class="voice-command-box mobile-ai-status" aria-live="polite">
+              <small>{{ t('assistantStatus') }}</small>
+              <strong>{{ voiceStatus }}</strong>
+            </div>
+
+            <form class="voice-text-input mobile-ai-command" @submit.prevent="submitVoiceTextCommand">
+              <input v-model="voiceInputDraft" type="text" :placeholder="t('typeCommand')" />
+              <button class="topbar-button secondary" type="submit">{{ t('send') }}</button>
+            </form>
+
+            <div v-if="voicePendingAction" class="voice-confirm-card mobile-ai-confirm">
+              <strong>{{ t('confirmationRequired') }}</strong>
+              <p>{{ voicePendingAction.prompt }}</p>
+              <div class="voice-actions">
+                <button class="topbar-button" type="button" @click="confirmVoiceAction">{{ t('confirm') }}</button>
+                <button class="topbar-button secondary" type="button" @click="cancelVoiceAction">{{ t('cancel') }}</button>
+              </div>
+            </div>
+          </section>
         </article>
       </section>
 
