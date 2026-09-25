@@ -2,20 +2,18 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 
 ASSETS_DIR = Path(__file__).resolve().parents[1] / "assets"
-FRONTEND_ICONS_DIR = Path(__file__).resolve().parents[2] / "frontend" / "public" / "icons"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+FRONTEND_PUBLIC_DIR = PROJECT_ROOT / "frontend" / "public"
+FRONTEND_ICONS_DIR = FRONTEND_PUBLIC_DIR / "icons"
+APP_ICON_SOURCE_PATH = PROJECT_ROOT / "design" / "branding" / "exports" / "noobtrade-bird-only-app-1024.png"
 BASE_PNG_PATH = ASSETS_DIR / "noobtrade_icon.png"
 ICO_PATH = ASSETS_DIR / "noobtrade.ico"
 ICNS_PATH = ASSETS_DIR / "noobtrade.icns"
 ICONSET_DIR = ASSETS_DIR / "noobtrade.iconset"
-WORDMARK_SVG_PATH = ASSETS_DIR / "noobtrade_wordmark.svg"
-
-ORANGE = "#ff8a00"
-BLACK = "#111111"
-WHITE = "#ffffff"
 
 
 def build_assets():
@@ -25,7 +23,7 @@ def build_assets():
     image.save(BASE_PNG_PATH, format="PNG")
     image.save(ICO_PATH, format="ICO", sizes=[(256, 256), (128, 128), (64, 64), (48, 48), (32, 32), (16, 16)])
     save_frontend_icons(image)
-    WORDMARK_SVG_PATH.write_text(build_wordmark_svg(), encoding="utf-8")
+    save_frontend_favicons()
     maybe_build_icns(image)
     print(BASE_PNG_PATH)
     print(ICO_PATH)
@@ -34,49 +32,40 @@ def build_assets():
 
 
 def build_base_icon(size):
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(canvas)
-
-    scale = size / 1024
-    points = lambda values: [(int(x * scale), int(y * scale)) for x, y in values]
-    draw.rounded_rectangle(
-        [int(64 * scale), int(64 * scale), int(960 * scale), int(960 * scale)],
-        radius=int(202 * scale),
-        fill=BLACK,
-    )
-    draw.polygon(points([(184, 760), (184, 264), (292, 264), (600, 652), (600, 264), (708, 264), (708, 760), (600, 760), (292, 372), (292, 760)]), fill=WHITE)
-    draw.rectangle([int(540 * scale), int(264 * scale), int(864 * scale), int(372 * scale)], fill=WHITE)
-
-    return canvas
+    with Image.open(APP_ICON_SOURCE_PATH) as source:
+        return source.convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
 
 
 def save_frontend_icons(image):
-    sizes = {
-        "noobtrade-32.png": 32,
-        "noobtrade-192.png": 192,
-        "noobtrade-512.png": 512,
-        "apple-touch-icon.png": 180,
+    icon_sets = {
+        32: ["noobtrade-32.png", "noobtrade-32-v2.png", "noobtrade-32-v3.png", "noobtrade-32-v4.png", "noobtrade-32-v5.png"],
+        180: ["apple-touch-icon.png", "apple-touch-icon-v2.png", "apple-touch-icon-v3.png", "apple-touch-icon-v4.png", "apple-touch-icon-v5.png"],
+        192: ["noobtrade-192.png", "noobtrade-192-v2.png", "noobtrade-192-v3.png", "noobtrade-192-v4.png", "noobtrade-192-v5.png"],
+        512: [
+            "noobtrade-512.png",
+            "noobtrade-512-v2.png",
+            "noobtrade-512-v3.png",
+            "noobtrade-512-v4.png",
+            "noobtrade-512-v5.png",
+            "noobtrade-maskable-512-v3.png",
+            "noobtrade-maskable-512-v4.png",
+            "noobtrade-maskable-512-v5.png",
+        ],
     }
 
-    for file_name, size in sizes.items():
+    for size, file_names in icon_sets.items():
         resized = image.resize((size, size), Image.Resampling.LANCZOS)
-        resized.save(FRONTEND_ICONS_DIR / file_name, format="PNG")
+        for file_name in file_names:
+            resized.save(FRONTEND_ICONS_DIR / file_name, format="PNG")
+
+    apple_touch_icon = image.resize((180, 180), Image.Resampling.LANCZOS)
+    apple_touch_icon.save(FRONTEND_PUBLIC_DIR / "apple-touch-icon.png", format="PNG")
+    apple_touch_icon.save(FRONTEND_PUBLIC_DIR / "apple-touch-icon-precomposed.png", format="PNG")
 
 
-def load_font(size):
-    candidates = [
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/System/Library/Fonts/SFNS.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    ]
-
-    for candidate in candidates:
-        font_path = Path(candidate)
-        if font_path.exists():
-            return ImageFont.truetype(str(font_path), size=size)
-
-    return ImageFont.load_default()
+def save_frontend_favicons():
+    for file_name in ["favicon.ico", "favicon-v2.ico", "favicon-v3.ico", "favicon-v4.ico", "favicon-v5.ico"]:
+        shutil.copyfile(ICO_PATH, FRONTEND_PUBLIC_DIR / file_name)
 
 
 def maybe_build_icns(base_image):
@@ -111,15 +100,6 @@ def maybe_build_icns(base_image):
         check=True,
     )
     shutil.rmtree(ICONSET_DIR)
-
-
-def build_wordmark_svg():
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 120" role="img" aria-label="NoobTrade">
-  <path d="M8 94V24h18l38 50V44h18v50H64L26 44v50H8Z" fill="{BLACK}" />
-  <text x="88" y="94" font-family="Inter, Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="-5" fill="{BLACK}">oobTrade</text>
-  <circle cx="72" cy="25" r="10" fill="{ORANGE}" />
-</svg>
-"""
 
 
 if __name__ == "__main__":
